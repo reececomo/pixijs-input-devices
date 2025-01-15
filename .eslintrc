@@ -1,0 +1,74 @@
+{
+  "root": true,
+  "ignorePatterns": [
+    "dist"
+  ],
+  "rules": {
+    "@typescript-eslint/indent": 0,
+    "@typescript-eslint/no-duplicate-enum-values": 0,
+    "@typescript-eslint/no-empty-function": 0,
+    "@typescript-eslint/no-empty-interface": 0,
+    "@typescript-eslint/no-explicit-any": 0,
+    "@typescript-eslint/no-extra-semi": 0,
+    "@typescript-eslint/no-inferrable-types": 0,
+    "@typescript-eslint/no-non-null-assertion": 0,
+    "@typescript-eslint/no-this-alias": 0,
+    "@typescript-eslint/unified-signatures": 0,
+    "newline-before-return": 0,
+    "no-fallthrough": 0,
+    "prefer-const": 0,
+    "@typescript-eslint/explicit-member-accessibility": 1,
+    "no-trailing-spaces": "warn",
+    "@typescript-eslint/ban-types": "warn",
+    "max-len": [
+      "warn",
+      200
+    ],
+    "brace-style": [
+      "warn",
+      "allman"
+    ],
+    "curly": [
+      "warn",
+      "multi-line"
+    ],
+    "semi": [
+      "warn",
+      "always"
+    ],
+    "indent": [
+      "warn",
+      2,
+      {
+        "SwitchCase": 1
+      }
+    ],
+    "@typescript-eslint/explicit-function-return-type": [
+      "error",
+      {
+        "allowExpressions": true
+      }
+    ],
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "args": "none"
+      }
+    ]
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/strict"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "eslint-plugin-disable-autofix"
+  ]
+}
