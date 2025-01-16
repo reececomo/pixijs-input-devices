@@ -145,9 +145,9 @@ InputDevice.keyboard.layoutSource  // "manual"
 
 ### GamepadDevice
 
-Gamepads are automatically detected via the browser API when interacted with.
+Gamepads are automatically detected via the browser API when first interacted with <sup>[(read more)](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API/Using_the_Gamepad_API)</sup>.
 
-`pixijs-input-devices` handles support for 
+Gamepad accessors are modelled around the "Standard Controller Layout":
 
 ```ts
 let gamepad = InputDevice.gamepads[0]
@@ -156,6 +156,10 @@ if ( gamepad.button.Start ) {  // ...
 if ( gamepad.leftTrigger > 0.25 ) {  // ...
 if ( gamepad.leftJoystick.x > 0.5 ) {  // ...
 ```
+
+> [!TIP]
+> **Special requirements?** You can always access `gamepad.source` and reference the
+> underlying API directly as needed.
 
 #### Vibration & Haptics
 
@@ -194,9 +198,7 @@ The gamepad buttons reference **Standard Controller Layout**:
 | `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
 | `15` | `"DPadRight"` | **D-Pad Right** | ➡️ | ➡️ | ➡️ |
 
-> [!TIP]
-> **Special requirements?** You can always access `gamepad.source` and reference the raw
-> underlying API directly if needed.
+*See [Nintendo Layout Remapping](#gamepad---nintendo-layout-remapping) for more context
 
 #### Gamepad Layouts
 
@@ -205,22 +207,12 @@ gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | 
 ```
 
 Layout detection is **highly non-standard** across major browsers, it should generally be used for aesthetic
-improvements (e.g. showing specific [(icon packs)](https://thoseawesomeguys.com/prompts/)).
+improvements (e.g. showing [device-specific icons](https://thoseawesomeguys.com/prompts/)).
 
 There is some limited layout remapping support built-in for Nintendo controllers, which appear to be the
 only major brand controller that deviates from the standard.
 
 ##### Gamepad - Nintendo Layout Remapping
-
-Nintendo controllers are also automatically remapped:
-
-```ts
-// set specific gamepads:
-gamepad.options.remapNintendoMode = "none"
-
-// set default for all gamepads:
-GamepadDevice.defaultOptions.remapNintendoMode = "accurate"
-```
 
 > [!CAUTION]
 > ***Nintendo:** Both the labels and physical positions of the A,B,X,Y buttons are different
@@ -246,6 +238,13 @@ GamepadDevice.defaultOptions.remapNintendoMode = "accurate"
 >     0             0              1               2
 > ```
 
+You can manually override this per-gamepad, or for all gamepads:
+
+```ts
+gamepad.options.remapNintendoMode = "none"
+GamepadDevice.defaultOptions.remapNintendoMode = "none"
+```
+
 #### GamepadDevice Events
 
 | Event | Description | Payload |
@@ -262,9 +261,9 @@ GamepadDevice.defaultOptions.remapNintendoMode = "accurate"
 | `2` or `Button.X` | `{button,buttonCode,device}` | Button at offset `2` was pressed. |
 | ... | ... | ... |
 
-### Custom devices
+### Custom Devices
 
-You can add custom devices to the device manager:
+You can add custom devices to the device manager so it will be polled togehter and included in `InputDevice.devices`.
 
 ```ts
 import { type CustomDevice, InputDevice } from "pixijs-input-devices"
@@ -294,7 +293,6 @@ InputDevice.keyboard.options.namedGroups = {
     jump: [ "ArrowUp", "Space", "KeyW" ],
     crouch: [ "ArrowDown", "KeyS" ],
     toggleGraphics: [ "KeyB" ],
-    // ...
 }
 
 // all gamepads:
@@ -302,13 +300,23 @@ GamepadDevice.defaultOptions.namedGroups = {
     jump: [ "A" ],
     crouch: [ "B", "X", "RightTrigger" ],
     toggleGraphics: [ "RightStick" ],
-    // ...
 }
 ```
 
 These can then be used with either the real-time and event-based APIs.
 
-#### Real-time usage:
+#### Event-based:
+
+```ts
+// listen to all devices:
+InputDevice.onGroup( "toggleGraphics", ( e ) => toggleGraphics() )
+
+// listen to specific devices:
+InputDevice.keyboard.onGroup( "jump", ( e ) => doJump() )
+InputDevice.gamepads[0].onGroup( "jump", ( e ) => doJump() )
+```
+
+#### Real-time:
 
 ```ts
 let jump = false, crouch = false, moveX = 0
@@ -316,9 +324,8 @@ let jump = false, crouch = false, moveX = 0
 const keyboard = InputDevice.keyboard
 if ( keyboard.groupPressed( "jump" ) ) jump = true
 if ( keyboard.groupPressed( "crouch" ) ) crouch = true
-if ( keyboard.groupPressed( "left" ) ) moveX -= 1
-if ( keyboard.groupPressed( "right" ) ) moveX += 1
-if ( keyboard.groupPressed( "slower" ) ) moveX *= 0.5
+if ( keyboard.key.ArrowLeft ) moveX = -1
+else if ( keyboard.key.ArrowRight ) moveX = 1
 
 for ( const gamepad of InputDevice.gamepads ) {
     if ( gamepad.groupPressed( "jump" ) ) jump = true
@@ -329,17 +336,6 @@ for ( const gamepad of InputDevice.gamepads ) {
     if ( gamepad.leftJoystick.x != 0 ) moveX = gamepad.leftJoystick.x
     if ( gamepad.leftTrigger > 0 ) moveX *= ( 1 - gamepad.leftTrigger )
 }
-```
-
-#### Event-based usage:
-
-```ts
-// events:
-InputDevice.keyboard.onGroup( "jump", ( e ) => doJump() )
-InputDevice.gamepads[0].onGroup( "jump", ( e ) => doJump() )
-
-// ...or listen to ALL devices:
-InputDevice.onGroup( "toggleGraphics", ( e ) => toggleGraphics() )
 ```
 
 ## Navigation API
