@@ -37,8 +37,8 @@ Use named "groups" to create referenceable groups of inputs.
 ```ts
 InputDevice.keyboard.options.namedGroups = {
     jump: [ "ArrowUp", "Space", "KeyW" ],
-    crouch: [ "ArrowDown","KeyS" ],
-    moveSlow: [  "ShiftLeft", "ShiftRight" ],
+    crouch: [ "ArrowDown", "KeyS" ],
+    slower: [ "ShiftLeft", "ShiftRight" ],
     left: [ "ArrowLeft", "KeyA" ],
     right: [ "ArrowRight", "KeyD" ],
 
@@ -91,7 +91,7 @@ if ( keyboard.groupPressed( "jump" ) ) jump = true
 if ( keyboard.groupPressed( "crouch" ) ) crouch = true
 if ( keyboard.groupPressed( "left" ) ) moveX -= 1
 if ( keyboard.groupPressed( "right" ) ) moveX += 1
-if ( keyboard.groupPressed( "moveSlow" ) ) moveX *= 0.5
+if ( keyboard.groupPressed( "slower" ) ) moveX *= 0.5
 
 for ( const gamepad of InputDevice.gamepads ) {
     if ( gamepad.groupPressed( "jump" ) ) jump = true
