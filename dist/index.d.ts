@@ -97,11 +97,17 @@ declare class NavigationManager {
 	 * navigation intents.
 	 */
 	stage?: Container;
-	/**
-	 * When enabled, if no pointover/mouseover listeners
-	 * exist, a default effect will be used instead.
-	 */
-	fallbackEffects: boolean;
+	options: {
+		/**
+		 * When set to false, navigation will be disabled globally.
+		 */
+		enabled: boolean;
+		/**
+		 * When enabled, if no "pointover"/"mouseover" listeners
+		 * exist, a default alpha effect will be used instead.
+		 */
+		useFallbackHoverEffect: boolean;
+	};
 	private _focused?;
 	private _responderStack;
 	private constructor();
@@ -194,6 +200,25 @@ export declare class GamepadDevice {
 		 * 2, and 3 positions respectively.
 		 */
 		remapNintendoMode: RemapNintendoMode;
+		/**
+		 * Create named groups of buttons.
+		 *
+		 * This can be used with `groupPressed( name )`.
+		 *
+		 * @example
+		 * // set by names
+		 * Gamepad.defaultOptions.namedGroups = {
+		 *   jump: [ "A" ],
+		 *   crouch: [ "X" ],
+		 * }
+		 *
+		 * // check by named presses
+		 * if ( gamepad.groupPressed( "jump" ) )
+		 * {
+		 *   // ...
+		 * }
+		 */
+		namedGroups: Partial<Record<string, ButtonCode[]>>;
 		navigation: {
 			enabled: boolean;
 			binds: Partial<Record<Button, NavigationIntent>>;
@@ -218,7 +243,10 @@ export declare class GamepadDevice {
 	 * Associate custom meta data with a device.
 	 */
 	readonly meta: Record<string, any>;
+	/** When the gamepad was last checked for input. */
 	lastUpdated: number;
+	/** When the gamepad was last interacted with. */
+	lastActive: number;
 	/**
 	 * Platform of this gamepad, useful for configuring standard
 	 * button layouts or displaying branded icons.
@@ -226,13 +254,15 @@ export declare class GamepadDevice {
 	 */
 	layout: GamepadLayout;
 	options: typeof GamepadDevice.defaultOptions;
+	readonly leftJoystick: GamepadJoystick;
+	readonly rightJoystick: GamepadJoystick;
+	/** Accessors for buttons */
+	button: Record<ButtonCode, boolean>;
 	private _btnPrevState;
 	private _axisIntents;
 	private readonly _throttleIdLeftStickX;
 	private readonly _throttleIdLeftStickY;
 	private readonly _emitter;
-	readonly leftJoystick: GamepadJoystick;
-	readonly rightJoystick: GamepadJoystick;
 	/** A scalar 0.0 to 1.0 representing the trigger pull */
 	get leftTrigger(): number;
 	/** A scalar 0.0 to 1.0 representing the trigger pull */
@@ -241,12 +271,16 @@ export declare class GamepadDevice {
 	get leftShoulder(): number;
 	/** A scalar 0.0 to 1.0 representing the trigger pull */
 	get rightShoulder(): number;
+	/** @returns true if any button from the named group is pressed. */
+	groupPressed(name: string): boolean;
+	/** @returns true if any of the given buttons are pressed. */
+	anyPressed(btns: ButtonCode[]): boolean;
+	/** @returns true if all of the given buttons are pressed. */
+	allPressed(btns: ButtonCode[]): boolean;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
-	/** Accessors for buttons */
-	button: Record<ButtonCode, boolean>;
 	/**
 	 * Play a vibration effect (if supported).
 	 *
@@ -282,20 +316,39 @@ export declare class KeyboardDevice {
 	private _layout;
 	private _layoutSource;
 	private _emitter;
-	/** Add an event listener. */
-	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
-	/** Remove an event listener (or all if none provided). */
-	off<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
 	options: {
 		/**
 		 * Keys to prevent default event propagation for.
 		 */
 		preventDefaultKeys: Set<KeyCode>;
+		/**
+		 * Create named groups of buttons.
+		 *
+		 * This can be used with `groupPressed( name )`.
+		 *
+		 * @example
+		 * // set by names
+		 * Keyboard.options.namedGroups = {
+		 *   jump: [ "ArrowUp", "KeyW" ],
+		 *   left: [ "ArrowLeft", "KeyA" ],
+		 *   crouch: [ "ArrowDown", "KeyS" ],
+		 *   right: [ "ArrowRight", "KeyD" ],
+		 * }
+		 *
+		 * // check by named presses
+		 * if ( keyboard.groupPressed( "jump" ) )
+		 * {
+		 *   // ...
+		 * }
+		 */
+		namedGroups: Partial<Record<string, KeyCode[]>>;
 		navigation: {
 			enabled: boolean;
-			binds: Partial<Record<KeyCode, NavigationIntent>>;
+			binds: NavigationBinds;
 		};
 	};
+	/** Accessors for keys */
+	key: Record<KeyCode, boolean>;
 	private constructor();
 	/**
 	 * Keyboard Layout
@@ -319,9 +372,16 @@ export declare class KeyboardDevice {
 	set layout(value: KeyboardLayout);
 	/** How the keyboard layout was determined. */
 	get layoutSource(): KeyboardLayoutSource;
-	private configureEventListeners;
-	/** Accessors for keys */
-	key: Record<KeyCode, boolean>;
+	/** @returns true if any key from the named group is pressed. */
+	groupPressed(name: string): boolean;
+	/** @returns true if any of the given keys are pressed. */
+	anyPressed(keys: KeyCode[]): boolean;
+	/** @returns true if all of the given keys are pressed. */
+	allPressed(keys: KeyCode[]): boolean;
+	/** Add an event listener. */
+	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
+	/** Remove an event listener (or all if none provided). */
+	off<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
 	/**
 	 * Get the label for the given key code in the current keyboard layout.
 	 *
@@ -337,6 +397,7 @@ export declare class KeyboardDevice {
 	 * Clear all keyboard keys.
 	 */
 	clear(): void;
+	private _configureEventListeners;
 }
 export declare const Button: {
 	/** A Button (Xbox / Nintendo: "A", PlayStation: "Cross") */
@@ -604,6 +665,7 @@ export type KeyboardDeviceEvent = {
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
 export type NavigatableContainer = Container;
+export type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;
 export type NavigationDirection = "navigateLeft" | "navigateRight" | "navigateUp" | "navigateDown";
 export type NavigationIntent = "navigateBack" | "navigateDown" | "navigateLeft" | "navigateRight" | "navigateUp" | "trigger";
 export type NavigationTargetEvent = "focus" | "blur";

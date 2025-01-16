@@ -16,11 +16,18 @@ class NavigationManager
    */
   public stage?: Container;
 
-  /**
-   * When enabled, if no pointover/mouseover listeners
-   * exist, a default effect will be used instead.
-   */
-  public fallbackEffects = true;
+  public options = {
+    /**
+     * When set to false, navigation will be disabled globally.
+     */
+    enabled: true,
+
+    /**
+     * When enabled, if no "pointover"/"mouseover" listeners
+     * exist, a default alpha effect will be used instead.
+     */
+    useFallbackHoverEffect: true,
+  };
 
   private _focused?: Container;
   private _responderStack: NavigationResponder[] = [];
@@ -52,6 +59,7 @@ class NavigationManager
     device: Device,
   ): void
   {
+    if ( !this.options.enabled ) return;
     this._propagateIntent( intent, device);
   }
 
@@ -173,7 +181,7 @@ class NavigationManager
     // dispatch default events
     if ( eventNames.includes( "pointerout" ) ) target.emit( "pointerout" );
     else if ( eventNames.includes( "mouseout" ) ) target.emit( "mouseout" );
-    else if ( target.navigationMode === "auto" && this.fallbackEffects )
+    else if ( target.navigationMode === "auto" && this.options.useFallbackHoverEffect )
     {
       target.alpha = 1.0;
     }
@@ -189,7 +197,7 @@ class NavigationManager
     // dispatch default events
     if ( eventNames.includes( "pointerover" ) ) target.emit( "pointerover" );
     else if ( eventNames.includes( "mouseover" ) ) target.emit( "mouseover" );
-    else if ( target.navigationMode === "auto" && this.fallbackEffects )
+    else if ( target.navigationMode === "auto" && this.options.useFallbackHoverEffect )
     {
       target.alpha = 0.5;
     }
@@ -205,7 +213,7 @@ class NavigationManager
     // dispatch default events
     if ( eventNames.includes( "pointerdown" ) ) target.emit( "pointerdown" );
     else if ( eventNames.includes( "mousedown" ) ) target.emit( "mousedown" );
-    else if ( target.navigationMode === "auto" && this.fallbackEffects )
+    else if ( target.navigationMode === "auto" && this.options.useFallbackHoverEffect )
     {
       target.alpha = 0.75;
     }

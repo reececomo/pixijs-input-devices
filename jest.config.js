@@ -3,7 +3,8 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.ts'],
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  setupFiles: ["./src/__tests__/globals.js"],
+  testEnvironment: 'jsdom',
   testPathIgnorePatterns: [
     '/node_modules/'
   ],

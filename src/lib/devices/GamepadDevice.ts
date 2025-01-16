@@ -53,6 +53,27 @@ export class GamepadDevice
      */
     remapNintendoMode: "physical" as RemapNintendoMode,
 
+    /**
+     * Create named groups of buttons.
+     *
+     * This can be used with `groupPressed( name )`.
+     *
+     * @example
+     * // set by names
+     * Gamepad.defaultOptions.namedGroups = {
+     *   jump: [ "A" ],
+     *   crouch: [ "X" ],
+     * }
+     *
+     * // check by named presses
+     * if ( gamepad.groupPressed( "jump" ) )
+     * {
+     *   // ...
+     * }
+     */
+    namedGroups: {
+    } as Partial<Record<string, ButtonCode[]>>,
+
     navigation: {
       enabled: true,
       binds: {
@@ -90,7 +111,11 @@ export class GamepadDevice
    */
   public readonly meta: Record<string, any> = {};
 
+  /** When the gamepad was last checked for input. */
   public lastUpdated = performance.now();
+
+  /** When the gamepad was last interacted with. */
+  public lastActive = performance.now();
 
   /**
    * Platform of this gamepad, useful for configuring standard
@@ -100,20 +125,30 @@ export class GamepadDevice
   public layout: GamepadLayout;
 
   public options: typeof GamepadDevice.defaultOptions =
-    structuredClone( GamepadDevice.defaultOptions );
-
-  private _btnPrevState = new Array<boolean>(16);
-  private _axisIntents = new Array<boolean>(2);
-
-  private readonly _throttleIdLeftStickX: string;
-  private readonly _throttleIdLeftStickY: string;
-
-  private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
+    JSON.parse( JSON.stringify( GamepadDevice.defaultOptions ) ); // clone
 
   // ----- Joysticks: -----
 
   public readonly leftJoystick: GamepadJoystick;
   public readonly rightJoystick: GamepadJoystick;
+
+  // ----- Buttons: -----
+
+  /** Accessors for buttons */
+  public button: Record<ButtonCode, boolean> =
+    Object.keys(Button).reduce( (obj, key) =>
+    {
+      obj[key] = false;
+      return obj;
+    }, {} as any );
+
+  // ----- Internal: -----
+
+  private _btnPrevState = new Array<boolean>(16);
+  private _axisIntents = new Array<boolean>(2);
+  private readonly _throttleIdLeftStickX: string;
+  private readonly _throttleIdLeftStickY: string;
+  private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
 
   // ----- Triggers: -----
 
@@ -132,6 +167,37 @@ export class GamepadDevice
   /** A scalar 0.0 to 1.0 representing the trigger pull */
   public get rightShoulder(): number
   { return this.source.buttons[Button.RightShoulder].value; }
+
+  // ----- Button helpers: -----
+
+  /** @returns true if any button from the named group is pressed. */
+  public groupPressed( name: string ): boolean
+  {
+    if ( this.options.namedGroups[name] === undefined ) return false;
+    return this.anyPressed( this.options.namedGroups[name] );
+  }
+
+  /** @returns true if any of the given buttons are pressed. */
+  public anyPressed( btns: ButtonCode[] ): boolean
+  {
+    for ( let i = 0; i < btns.length; i++ )
+    {
+      if ( this.button[btns[i]!] ) return true;
+    }
+
+    return false;
+  }
+
+  /** @returns true if all of the given buttons are pressed. */
+  public allPressed( btns: ButtonCode[] ): boolean
+  {
+    for ( let i = 0; i < btns.length; i++ )
+    {
+      if ( !this.button[btns[i]!] ) return false;
+    }
+
+    return true;
+  }
 
   // ----- Events: -----
 
@@ -156,16 +222,6 @@ export class GamepadDevice
     this._emitter.off(e, listener);
     return this;
   }
-
-  // ----- Buttons: -----
-
-  /** Accessors for buttons */
-  public button: Record<ButtonCode, boolean> =
-    Object.keys(Button).reduce( (obj, key) =>
-    {
-      obj[key] = false;
-      return obj;
-    }, {} as any );
 
   // ----- Vibration: -----
 
@@ -210,7 +266,7 @@ export class GamepadDevice
   public update( source: Gamepad, now: number ): void
   {
     this.lastUpdated = now;
-    this.updatePresses( source );
+    this.updatePresses( source, now );
     this.source = source;
   }
 
@@ -232,7 +288,7 @@ export class GamepadDevice
     this._throttleIdLeftStickY = this.id + "-lsy";
   }
 
-  private updatePresses( source: Gamepad ): void
+  private updatePresses( source: Gamepad, now: number ): void
   {
     const buttonCount = this._btnPrevState.length;
 
@@ -241,6 +297,7 @@ export class GamepadDevice
     {
       let b = _b as Button;
 
+      // remap nintendo binds (if enabled)
       if (
         this.layout === "nintendo" &&
         this.options.remapNintendoMode !== "none"
@@ -256,8 +313,7 @@ export class GamepadDevice
         }
         else
         {
-          // set A,B,X,Y to be accurate labels for nintendo branded
-          // controllers
+          // set A,B,X,Y to match nintendo labels
           if ( b === Button.B ) b = Button.X;
           else if ( b === Button.X ) b = Button.B;
         }
@@ -267,6 +323,8 @@ export class GamepadDevice
       {
         continue; // skip: no change
       }
+
+      this.lastActive = now;
 
       // update
       const isPressed = source.buttons[_b]?.pressed ?? false;
@@ -281,18 +339,20 @@ export class GamepadDevice
         // check for events to emit
         if ( this._emitter.hasListener( buttonCode ) )
         {
-          this._emitter.emit( buttonCode, {
+          setTimeout( () => this._emitter.emit( buttonCode, {
             device: this,
             button: b,
             buttonCode,
-          });
+          }) );
         }
         else if (
           this.options.navigation.enabled &&
           this.options.navigation.binds[b] !== undefined
         )
         {
-          Navigation.commit( this.options.navigation.binds[b], this );
+          setTimeout( () =>
+            Navigation.commit( this.options.navigation.binds[b], this )
+          );
         }
       }
     }
@@ -318,7 +378,7 @@ export class GamepadDevice
         !throttle( this._throttleIdLeftStickX, cooldownDuration )
       )
       {
-        Navigation.commit( xIntent, this );
+        setTimeout( () => Navigation.commit( xIntent, this ) );
       }
     }
     else
@@ -343,7 +403,7 @@ export class GamepadDevice
         !throttle( this._throttleIdLeftStickY, cooldownDuration )
       )
       {
-        Navigation.commit( yIntent, this );
+        setTimeout( () => Navigation.commit( yIntent, this ) );
       }
     }
     else

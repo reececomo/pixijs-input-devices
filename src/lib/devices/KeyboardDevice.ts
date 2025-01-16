@@ -27,6 +27,8 @@ export type KeyboardDeviceEvent = {
   [key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
 
+type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;
+
 export class KeyboardDevice
 {
   public static global = new KeyboardDevice();
@@ -58,31 +60,33 @@ export class KeyboardDevice
   private _layoutSource: KeyboardLayoutSource;
   private _emitter = new EventEmitter<KeyboardDeviceEvent>();
 
-  /** Add an event listener. */
-  public on<K extends keyof KeyboardDeviceEvent>(
-    event: K,
-    listener: (event: KeyboardDeviceEvent[K]) => void
-  ): this
-  {
-    this._emitter.on(event, listener);
-    return this;
-  }
-
-  /** Remove an event listener (or all if none provided). */
-  public off<K extends keyof KeyboardDeviceEvent>(
-    event: K,
-    listener: (event: KeyboardDeviceEvent[K]) => void
-  ): this
-  {
-    this._emitter.off(event, listener);
-    return this;
-  }
-
   public options = {
     /**
      * Keys to prevent default event propagation for.
      */
     preventDefaultKeys: new Set<KeyCode>([]),
+
+    /**
+     * Create named groups of buttons.
+     *
+     * This can be used with `groupPressed( name )`.
+     *
+     * @example
+     * // set by names
+     * Keyboard.options.namedGroups = {
+     *   jump: [ "ArrowUp", "KeyW" ],
+     *   left: [ "ArrowLeft", "KeyA" ],
+     *   crouch: [ "ArrowDown", "KeyS" ],
+     *   right: [ "ArrowRight", "KeyD" ],
+     * }
+     *
+     * // check by named presses
+     * if ( keyboard.groupPressed( "jump" ) )
+     * {
+     *   // ...
+     * }
+     */
+    namedGroups: {} as Partial<Record<string, KeyCode[]>>,
 
     navigation: {
       enabled: true,
@@ -99,17 +103,28 @@ export class KeyboardDevice
         "KeyD": "navigateRight",
         "KeyS": "navigateDown",
         "KeyW": "navigateUp",
-      } as Partial<Record<KeyCode, NavigationIntent>>,
+      } as NavigationBinds,
     },
   };
 
+  /** Accessors for keys */
+  public key: Record<KeyCode, boolean> =
+    Object.keys(KeyCode).reduce( (obj, key) =>
+    {
+      obj[key] = false;
+      return obj;
+    }, {} as any );
+
   private constructor()
   {
-    this._layoutSource = "lang";
     this._layout = inferKeyboardLayoutFromLang();
+    this._layoutSource = "lang";
 
+    // auto-detect layout
     requestKeyboardLayout().then( layout =>
     {
+      if ( layout === undefined ) return; // not detected
+
       this._layoutSource = "browser";
       this._layout = layout;
 
@@ -120,7 +135,7 @@ export class KeyboardDevice
       });
     });
 
-    this.configureEventListeners();
+    this._configureEventListeners();
   }
 
   /**
@@ -157,7 +172,86 @@ export class KeyboardDevice
     return this._layoutSource;
   }
 
-  private configureEventListeners(): void
+  // ----- Methods: -----
+
+  /** @returns true if any key from the named group is pressed. */
+  public groupPressed( name: string ): boolean
+  {
+    if ( this.options.namedGroups[name] === undefined ) return false;
+    return this.anyPressed( this.options.namedGroups[name] );
+  }
+
+  /** @returns true if any of the given keys are pressed. */
+  public anyPressed( keys: KeyCode[] ): boolean
+  {
+    for ( let i = 0; i < keys.length; i++ )
+    {
+      if ( this.key[keys[i]!] ) return true;
+    }
+
+    return false;
+  }
+
+  /** @returns true if all of the given keys are pressed. */
+  public allPressed( keys: KeyCode[] ): boolean
+  {
+    for ( let i = 0; i < keys.length; i++ )
+    {
+      if ( !this.key[keys[i]!] ) return false;
+    }
+
+    return true;
+  }
+
+  /** Add an event listener. */
+  public on<K extends keyof KeyboardDeviceEvent>(
+    event: K,
+    listener: (event: KeyboardDeviceEvent[K]) => void
+  ): this
+  {
+    this._emitter.on(event, listener);
+    return this;
+  }
+
+  /** Remove an event listener (or all if none provided). */
+  public off<K extends keyof KeyboardDeviceEvent>(
+    event: K,
+    listener: (event: KeyboardDeviceEvent[K]) => void
+  ): this
+  {
+    this._emitter.off(event, listener);
+    return this;
+  }
+
+  /**
+   * Get the label for the given key code in the current keyboard layout.
+   *
+   * @example
+   * // when AZERTY
+   * keyboard.localeLabel( "KeyQ" ) // "A"
+   *
+   * // when JCUKEN
+   * keyboard.localeLabel( "KeyQ" ) // "Й"
+   */
+  public keyLabel( key: KeyCode, layout = this._layout ): string
+  {
+    return getLayoutLabel( key, layout );
+  }
+
+  /**
+   * Clear all keyboard keys.
+   */
+  public clear(): void
+  {
+    for (const key of Object.keys(KeyCode))
+    {
+      this.key[key as KeyCode] = false;
+    }
+  }
+
+  // ----- Implementation: -----
+
+  private _configureEventListeners(): void
   {
     document.addEventListener( "keydown", e =>
     {
@@ -214,39 +308,5 @@ export class KeyboardDevice
 
       if ( this.options.preventDefaultKeys.has( e.code as KeyCode ) ) e.preventDefault();
     });
-  }
-
-  /** Accessors for keys */
-  public key: Record<KeyCode, boolean> =
-    Object.keys(KeyCode).reduce( (obj, key) =>
-    {
-      obj[key] = false;
-      return obj;
-    }, {} as any );
-
-  /**
-   * Get the label for the given key code in the current keyboard layout.
-   *
-   * @example
-   * // when AZERTY
-   * keyboard.localeLabel( "KeyQ" ) // "A"
-   *
-   * // when JCUKEN
-   * keyboard.localeLabel( "KeyQ" ) // "Й"
-   */
-  public keyLabel( key: KeyCode, layout = this._layout ): string
-  {
-    return getLayoutLabel( key, layout );
-  }
-
-  /**
-   * Clear all keyboard keys.
-   */
-  public clear(): void
-  {
-    for (const key of Object.keys(KeyCode))
-    {
-      this.key[key as KeyCode] = false;
-    }
   }
 }

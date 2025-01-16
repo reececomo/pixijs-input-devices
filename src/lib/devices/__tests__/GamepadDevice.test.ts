@@ -39,6 +39,49 @@ describe( "GamepadDevice", () =>
     });
   });
 
+  describe( "named groups", () =>
+  {
+    it("correctly maps named groups to their buttons", () =>
+    {
+      const source = mockGamepadSource();
+      const gamepad = new GamepadDevice( source );
+      gamepad.options.navigation.enabled = false;
+
+      gamepad.options.namedGroups = {
+        jump: [ "A", "B" ],
+        crouch: [ "B", "X" ],
+      };
+      gamepad.update( source, Date.now() );
+
+      expect ( gamepad.groupPressed( "jump" ) ).toBe( false );
+      expect ( gamepad.groupPressed( "crouch" ) ).toBe( false );
+
+      (source.buttons[Button.X] as any).pressed = true;
+      gamepad.update( source, Date.now() );
+
+      expect ( gamepad.groupPressed( "jump" ) ).toBe( false );
+      expect ( gamepad.groupPressed( "crouch" ) ).toBe( true );
+
+      (source.buttons[Button.X] as any).pressed = false;
+      gamepad.update( source, Date.now() );
+
+      expect ( gamepad.groupPressed( "jump" ) ).toBe( false );
+      expect ( gamepad.groupPressed( "crouch" ) ).toBe( false );
+
+      (source.buttons[Button.B] as any).pressed = true;
+      gamepad.update( source, Date.now() );
+
+      expect ( gamepad.groupPressed( "jump" ) ).toBe( true );
+      expect ( gamepad.groupPressed( "crouch" ) ).toBe( true );
+
+      (source.buttons[Button.B] as any).pressed = false;
+      gamepad.update( source, Date.now() );
+
+      expect ( gamepad.groupPressed( "jump" ) ).toBe( false );
+      expect ( gamepad.groupPressed( "crouch" ) ).toBe( false );
+    });
+  });
+
   describe( "buttons and triggers", () =>
   {
     it( "maps triggers", () =>
