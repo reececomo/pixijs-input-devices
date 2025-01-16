@@ -465,20 +465,20 @@ class GamepadJoystick
 {
   public constructor(
     private _owner: GamepadDeviceSource,
-    private ix: number,
-    private iy: number,
+    private _xidx: number,
+    private _yidx: number,
   )
   {}
 
   /** A scalar -1.0 to 1.0 representing the X-axis position on the stick */
   public get x(): number
   {
-    return this._owner.source.axes[this.ix];
+    return this._owner.source.axes[this._xidx];
   }
 
   /** A scalar -1.0 to 1.0 representing the Y-axis position on the stick */
   public get y(): number
   {
-    return this._owner.source.axes[this.iy];
+    return this._owner.source.axes[this._yidx];
   }
 }

@@ -21,46 +21,54 @@ class InputDeviceManager
 {
   public static global = new InputDeviceManager();
 
-  public readonly keyboard: KeyboardDevice;
-  private readonly _emitter = new EventEmitter<InputDeviceEvent>();
-
   /** Whether we are a mobile device (including tablets) */
   public readonly isMobile: boolean = isMobile();
 
   /** Whether a touchscreen is available */
   public readonly isTouchCapable: boolean = isTouchCapable();
 
-  private hasFocus = false;
+  /** Global keyboard input device */
+  public readonly keyboard: KeyboardDevice;
 
   public options = {
+    /**
+     * When the window loses focus, this triggers the clear
+     * input function.
+     */
     clearInputInBackground: true,
   };
 
-  private readonly _devices: Device[];
+  private readonly _devices: Device[] = [];
   private readonly _gamepadDevices: GamepadDevice[] = [];
   private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
   private readonly _customDevices: CustomDevice[] = [];
+  private readonly _emitter = new EventEmitter<InputDeviceEvent>();
   private readonly _groupEmitter = new EventEmitter<Record<string, NamedGroupEvent>>();
+
+  private _hasFocus = false;
 
   private constructor()
   {
-    // setup initial devices:
-    this._devices = [];
-
-    // configure global keyboard:
-    const registerKeyboard = (): void =>
-    {
-      this.add( this.keyboard );
-    };
-
+    // setup global keyboard
+    // - on touchscreen/mobile devices, wait until a key is pressed
+    // - otherwise assume keyboard exists and register immediately
     this.keyboard = KeyboardDevice.global;
-
-    if ( !this.isTouchCapable && !this.isMobile ) registerKeyboard(); // immediately register
-    else window.addEventListener( "keydown", registerKeyboard, { once: true }); // defer availability
+    if ( !this.isTouchCapable && !this.isMobile ) this.add( this.keyboard ); // immediately register
+    else window.addEventListener( "keydown", () => this.add( this.keyboard ), { once: true }); // defer until used
 
     // configure gamepads:
     window.addEventListener( "gamepadconnected", () => this.pollGamepads( performance.now() )); // trigger register
-    window.addEventListener( "gamepaddisconnected", ( e ) => this.removeGamepad( e.gamepad.index ));
+    window.addEventListener( "gamepaddisconnected", ( e ) => this._removeGamepad( e.gamepad.index ));
+  }
+
+  /**
+   * Connected devices.
+   *
+   * Keep in mind these inputs may only be up-to-date from the last update().
+   */
+  public get devices(): readonly Device[]
+  {
+    return this._devices;
   }
 
   /**
@@ -74,13 +82,13 @@ class InputDeviceManager
   }
 
   /**
-   * Connected devices.
+   * Connected custom devices.
    *
    * Keep in mind these inputs may only be up-to-date from the last update().
    */
-  public get devices(): readonly Device[]
+  public get custom(): readonly CustomDevice[]
   {
-    return this._devices;
+    return this._customDevices;
   }
 
   // ----- Events: -----
@@ -130,6 +138,11 @@ class InputDeviceManager
   /** Add a custom device. */
   public add( device: Device ): void
   {
+    if ( this._devices.indexOf( device ) !== -1 )
+    {
+      return; // device already added!
+    }
+
     this._devices.push( device );
 
     if ( device instanceof KeyboardDevice )
@@ -147,7 +160,7 @@ class InputDeviceManager
       // forward group events
       device.on( "group", (e) => this._groupEmitter.emit( e.groupName, e ) );
     }
-    else if ( device instanceof CustomDevice )
+    else
     {
       this._customDevices.push( device );
     }
@@ -158,7 +171,7 @@ class InputDeviceManager
   /** Remove a custom device. */
   public remove( device: Device ): void
   {
-    if ( device instanceof CustomDevice )
+    if ( !( device instanceof KeyboardDevice || device instanceof GamepadDevice ) )
     {
       const customIndex = this._customDevices.indexOf( device );
       if ( customIndex !== -1 ) this._devices.splice( customIndex, 1 );
@@ -187,18 +200,18 @@ class InputDeviceManager
     {
       // early exit: window not in focus
 
-      if ( this.hasFocus && this.options.clearInputInBackground )
+      if ( this._hasFocus && this.options.clearInputInBackground )
       {
         // clear input
-        this.devices.forEach( device => device.clear() );
+        this.devices.forEach( device => device.clear?.() );
       }
 
-      this.hasFocus = false;
+      this._hasFocus = false;
 
       return this._devices;
     }
 
-    this.hasFocus = true;
+    this._hasFocus = true;
 
     const now = performance.now();
 
@@ -243,7 +256,7 @@ class InputDeviceManager
 
   // ----- Implementation: -----
 
-  private removeGamepad( gamepadIndex: number ): void
+  private _removeGamepad( gamepadIndex: number ): void
   {
     const gamepad = this._gamepadDeviceMap.get( gamepadIndex );
     if ( ! gamepad ) return;

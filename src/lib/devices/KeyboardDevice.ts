@@ -299,15 +299,26 @@ export class KeyboardDevice
     const k = this.key as Record<string, boolean>;
     const d = this._deferredKeydown;
 
-    window.addEventListener( "keydown", e => d.push( e ), { passive: true, capture: true });
-    window.addEventListener( "keyup", e => k[e.code] = false, { passive: true, capture: true } );
+    window.addEventListener(
+      "keydown",
+      e =>
+      {
+        k[e.code] = true;
+        d.push( e );
+      },
+      { passive: true, capture: true }
+    );
+
+    window.addEventListener(
+      "keyup",
+      e => k[e.code] = false,
+      { passive: true, capture: true }
+    );
   }
 
   private _processDeferredKeydownEvent( e: KeyboardEvent ): void
   {
     const keyCode = e.code as KeyCode;
-
-    this.key[keyCode] = true;
 
     // detect keyboard layout
     if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )

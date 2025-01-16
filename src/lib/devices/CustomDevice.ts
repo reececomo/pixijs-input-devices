@@ -1,19 +1,11 @@
-export abstract class CustomDevice
+export interface CustomDevice
 {
-  public readonly id: string;
-  public readonly type = "custom";
+  readonly type: "custom";
+  readonly id: string;
+  readonly meta: Record<string, any>;
 
-  /**
-   * Associate custom meta data with a device.
-   */
-  public readonly meta: Record<string, any> = {};
-
-  public lastUpdated = performance.now();
-
-  public constructor( id: string )
-  {
-    this.id = id;
-  }
+  /** Triggered during the polling function. */
+  update( now: number ): void;
 
   /**
    * (Optional) Clear input.
@@ -21,13 +13,5 @@ export abstract class CustomDevice
    * This method is triggered when the window is
    * moved to background.
    */
-  public clear(): void
-  {
-    //
-  }
-
-  /**
-   * Triggered during the polling function.
-   */
-  public abstract update( now: number ): void;
+  clear?(): void;
 }

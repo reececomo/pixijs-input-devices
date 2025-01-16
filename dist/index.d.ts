@@ -36,9 +36,9 @@ import { Container } from 'pixi.js';
 
 declare class GamepadJoystick {
 	private _owner;
-	private ix;
-	private iy;
-	constructor(_owner: GamepadDeviceSource, ix: number, iy: number);
+	private _xidx;
+	private _yidx;
+	constructor(_owner: GamepadDeviceSource, _xidx: number, _yidx: number);
 	/** A scalar -1.0 to 1.0 representing the X-axis position on the stick */
 	get x(): number;
 	/** A scalar -1.0 to 1.0 representing the Y-axis position on the stick */
@@ -46,22 +46,33 @@ declare class GamepadJoystick {
 }
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
-	readonly keyboard: KeyboardDevice;
-	private readonly _emitter;
 	/** Whether we are a mobile device (including tablets) */
 	readonly isMobile: boolean;
 	/** Whether a touchscreen is available */
 	readonly isTouchCapable: boolean;
-	private hasFocus;
+	/** Global keyboard input device */
+	readonly keyboard: KeyboardDevice;
 	options: {
+		/**
+		 * When the window loses focus, this triggers the clear
+		 * input function.
+		 */
 		clearInputInBackground: boolean;
 	};
 	private readonly _devices;
 	private readonly _gamepadDevices;
 	private readonly _gamepadDeviceMap;
 	private readonly _customDevices;
+	private readonly _emitter;
 	private readonly _groupEmitter;
+	private _hasFocus;
 	private constructor();
+	/**
+	 * Connected devices.
+	 *
+	 * Keep in mind these inputs may only be up-to-date from the last update().
+	 */
+	get devices(): readonly Device[];
 	/**
 	 * Connected gamepads accessible by index.
 	 *
@@ -69,11 +80,11 @@ declare class InputDeviceManager {
 	 */
 	get gamepads(): readonly GamepadDevice[];
 	/**
-	 * Connected devices.
+	 * Connected custom devices.
 	 *
 	 * Keep in mind these inputs may only be up-to-date from the last update().
 	 */
-	get devices(): readonly Device[];
+	get custom(): readonly CustomDevice[];
 	/** Add an event listener */
 	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided) */
@@ -94,7 +105,7 @@ declare class InputDeviceManager {
 	 * @returns updates connected gamepads, performing a poll of latest input
 	 */
 	pollGamepads(now: number): ReadonlyArray<GamepadDevice>;
-	private removeGamepad;
+	private _removeGamepad;
 }
 declare class NavigationManager {
 	static global: NavigationManager;
@@ -162,27 +173,6 @@ declare const ButtonCode: readonly [
 	"DPadLeft",
 	"DPadRight"
 ];
-export declare abstract class CustomDevice {
-	readonly id: string;
-	readonly type = "custom";
-	/**
-	 * Associate custom meta data with a device.
-	 */
-	readonly meta: Record<string, any>;
-	lastUpdated: number;
-	constructor(id: string);
-	/**
-	 * (Optional) Clear input.
-	 *
-	 * This method is triggered when the window is
-	 * moved to background.
-	 */
-	clear(): void;
-	/**
-	 * Triggered during the polling function.
-	 */
-	abstract update(now: number): void;
-}
 /**
  * A gamepad (game controller).
  *
@@ -610,6 +600,20 @@ export declare function getFirstNavigatable(root: Container, currentFocus?: Cont
  * @param container A reference to `PIXI.Container`.
  */
 export declare function registerPixiJSInputDeviceMixin(container: any): void;
+export interface CustomDevice {
+	readonly type: "custom";
+	readonly id: string;
+	readonly meta: Record<string, any>;
+	/** Triggered during the polling function. */
+	update(now: number): void;
+	/**
+	 * (Optional) Clear input.
+	 *
+	 * This method is triggered when the window is
+	 * moved to background.
+	 */
+	clear?(): void;
+}
 export interface GamepadButtonPressEvent {
 	device: GamepadDevice;
 	button: Button;
