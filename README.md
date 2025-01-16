@@ -18,14 +18,21 @@ npm i pixijs-input-devices
 ### Setup
 
 ```ts
-import { InputDevice, Navigation } from "pixijs-input-devices"
+import { InputDevice } from "pixijs-input-devices"
 
-// setup update loop
 Ticker.shared.add( () => InputDevice.update() )
+```
 
-// (optional) enable navigation
-Navigation.stage = app.stage  // set root node for navigation
-registerPixiJSInputDeviceMixin( Container )  // register navigation mixin
+_(Optional)_ Enable the Navigation API:
+
+```ts
+import { Navigation } from "pixijs-input-devices"
+
+// set root node
+Navigation.stage = app.stage
+
+// register mixin
+registerPixiJSInputDeviceMixin( Container )
 ```
 
 ## Overview
@@ -356,15 +363,60 @@ button.isNavigatable  // true
 >  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
 > can be disabled by setting `Navigation.options.useFallbackHoverEffect` to `false`.
 
-#### Disable Navigation
+### Disable Navigation
 
-You can **disable** the navigation API:
+You can **disable** the navigation API - either permanently or temporarily - like so:
 
 ```ts
 Navigation.options.enabled = false
 ```
 
-#### Default Binds
+### Navigation Hierarchy
+
+UIs can be complex! The Navigation API allows you to take over some - or all - of the navigation elements.
+
+```ts
+class MyVerticalMenu implements NavigationResponder
+{
+    becameFirstResponder() {
+        console.log( "I'm in charge now!" )
+    }
+
+    resignedAsFirstResponder() {
+        console.log( "Nooo! My power is gone!" )
+    }
+
+    handledNavigationIntent( intent, device ): boolean {
+        if ( intent === "navigateUp" ) this.moveCursorUp()
+        else if ( intent === "navigateDown" ) this.moveCursorDown()
+        else if ( intent === "navigateBack" ) this.loseFocus()
+        else if ( intent === "trigger" ) this.clickCursorItem()
+
+        // we are going to return false here, which will propagates unhandled
+        // intents ("navigateLeft", "navigateRight") up to the next responder
+        // in the stack - which could be a parent view, etc.
+        return false
+    }
+}
+
+const myMenu = new MyVerticalMenu()
+Navigation.pushResponder( myMenu )
+```
+
+In a game, you might use this to disable navigation outside of menus:
+
+```ts
+class GameScene implements NavigationResponder
+{
+    handledNavigationIntent( intent, device ) {
+        // ignore navigation intents, but allow other navigatable
+        // views to be pushed on top of me - e.g. a dialog window:
+        return true
+    }
+}
+```
+
+### Default Navigation Binds
 
 Keyboard and gamepad devices are configured with a few default binds for navigation.
 
