@@ -6,6 +6,7 @@ describe( "KeyboardDevice", () =>
   {
     it("correctly maps named groups to their buttons", () =>
     {
+      const now = Date.now();
       const keyboard = KeyboardDevice.global;
       keyboard.options.navigation.enabled = false;
 
@@ -18,21 +19,25 @@ describe( "KeyboardDevice", () =>
       expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );
 
       mockKeydown( "ShiftLeft" );
+      keyboard.update( now );
 
       expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
       expect ( keyboard.groupPressed( "crouch" ) ).toBe( true );
 
       mockKeyup( "ShiftLeft" );
+      keyboard.update( now );
 
       expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
       expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );
 
       mockKeydown( "ControlLeft" );
+      keyboard.update( now );
 
       expect ( keyboard.groupPressed( "jump" ) ).toBe( true );
       expect ( keyboard.groupPressed( "crouch" ) ).toBe( true );
 
       mockKeyup( "ControlLeft" );
+      keyboard.update( now );
 
       expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
       expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );

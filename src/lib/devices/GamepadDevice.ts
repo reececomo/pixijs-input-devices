@@ -21,8 +21,13 @@ export interface GamepadButtonPressEvent {
   buttonCode: ButtonCode;
 }
 
+export interface GamepadNamedGroupButtonPressEvent extends GamepadButtonPressEvent {
+  groupName: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type GamepadDeviceEvent = {
+  group: GamepadNamedGroupButtonPressEvent;
 } & {
   [button in ButtonCode]: GamepadButtonPressEvent;
 } & {
@@ -149,6 +154,7 @@ export class GamepadDevice
   private readonly _throttleIdLeftStickX: string;
   private readonly _throttleIdLeftStickY: string;
   private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
+  private readonly _groupEmitter = new EventEmitter<Record<string, GamepadNamedGroupButtonPressEvent>>();
 
   // ----- Triggers: -----
 
@@ -223,6 +229,26 @@ export class GamepadDevice
     return this;
   }
 
+  /** Add a named group event listener (or all if none provided). */
+  public onGroup(
+    name: string,
+    listener: ( event: GamepadNamedGroupButtonPressEvent ) => void
+  ): this
+  {
+    this._groupEmitter.on( name, listener );
+    return this;
+  }
+
+  /** Remove a named group event listener (or all if none provided). */
+  public offGroup(
+    name: string,
+    listener?: ( event: GamepadNamedGroupButtonPressEvent ) => void
+  ): this
+  {
+    this._groupEmitter.off( name, listener );
+    return this;
+  }
+
   // ----- Vibration: -----
 
   /**
@@ -265,9 +291,9 @@ export class GamepadDevice
 
   public update( source: Gamepad, now: number ): void
   {
-    this.lastUpdated = now;
     this.updatePresses( source, now );
     this.source = source;
+    this.lastUpdated = now;
   }
 
   public clear(): void
@@ -335,8 +361,7 @@ export class GamepadDevice
 
       if ( isPressed )
       {
-        // button was pressed
-        // check for events to emit
+        // emit events
         if ( this._emitter.hasListener( buttonCode ) )
         {
           setTimeout( () => this._emitter.emit( buttonCode, {
@@ -345,7 +370,10 @@ export class GamepadDevice
             buttonCode,
           }) );
         }
-        else if (
+
+        // navigation
+        if (
+          Navigation.options.enabled &&
           this.options.navigation.enabled &&
           this.options.navigation.binds[b] !== undefined
         )
@@ -354,6 +382,24 @@ export class GamepadDevice
             Navigation.commit( this.options.navigation.binds[b], this )
           );
         }
+
+        // check named group events
+        Object.entries( this.options.namedGroups ).forEach(([ name, buttons ]) =>
+        {
+          if ( !buttons.includes(buttonCode) ) return;
+
+          setTimeout( () => {
+            const event = {
+              device: this,
+              button: b,
+              buttonCode,
+              groupName: name,
+            };
+
+            this._groupEmitter.emit( name, event );
+            this._emitter.emit( "group", event );
+          });
+        });
       }
     }
 

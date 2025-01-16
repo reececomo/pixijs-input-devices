@@ -52,11 +52,16 @@ declare class InputDeviceManager {
 	readonly isMobile: boolean;
 	/** Whether a touchscreen is available */
 	readonly isTouchCapable: boolean;
-	/** Add an event listener */
-	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
-	/** Remove an event listener (or all if none provided) */
-	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	private hasFocus;
+	options: {
+		clearInputInBackground: boolean;
+	};
+	private readonly _devices;
+	private readonly _gamepadDevices;
+	private readonly _gamepadDeviceMap;
+	private readonly _customDevices;
+	private readonly _groupEmitter;
+	private constructor();
 	/**
 	 * Connected gamepads accessible by index.
 	 *
@@ -69,21 +74,22 @@ declare class InputDeviceManager {
 	 * Keep in mind these inputs may only be up-to-date from the last update().
 	 */
 	get devices(): readonly Device[];
-	options: {
-		clearInputInBackground: boolean;
-	};
-	private _devices;
-	private _gamepadDevices;
-	private _gamepadDeviceMap;
-	private constructor();
+	/** Add an event listener */
+	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
+	/** Remove an event listener (or all if none provided) */
+	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
+	/** Add a named group event listener (or all if none provided). */
+	onGroup(name: string, listener: (event: NamedGroupEvent) => void): this;
+	/** Remove a named group event listener (or all if none provided). */
+	offGroup(name: string, listener?: (event: NamedGroupEvent) => void): this;
+	/** Add a custom device. */
+	add(device: Device): void;
+	/** Remove a custom device. */
+	remove(device: Device): void;
 	/**
 	 * Performs a poll of latest input from all devices
 	 */
 	update(): ReadonlyArray<Device>;
-	/** Add a custom device. */
-	add(device: CustomDevice): void;
-	/** Remove a custom device. */
-	remove(device: Device): void;
 	/**
 	 * @returns updates connected gamepads, performing a poll of latest input
 	 */
@@ -263,6 +269,7 @@ export declare class GamepadDevice {
 	private readonly _throttleIdLeftStickX;
 	private readonly _throttleIdLeftStickY;
 	private readonly _emitter;
+	private readonly _groupEmitter;
 	/** A scalar 0.0 to 1.0 representing the trigger pull */
 	get leftTrigger(): number;
 	/** A scalar 0.0 to 1.0 representing the trigger pull */
@@ -281,6 +288,10 @@ export declare class GamepadDevice {
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
+	/** Add a named group event listener (or all if none provided). */
+	onGroup(name: string, listener: (event: GamepadNamedGroupButtonPressEvent) => void): this;
+	/** Remove a named group event listener (or all if none provided). */
+	offGroup(name: string, listener?: (event: GamepadNamedGroupButtonPressEvent) => void): this;
 	/**
 	 * Play a vibration effect (if supported).
 	 *
@@ -313,14 +324,7 @@ export declare class KeyboardDevice {
 	 * Keyboard has been detected.
 	 */
 	detected: boolean;
-	private _layout;
-	private _layoutSource;
-	private _emitter;
 	options: {
-		/**
-		 * Keys to prevent default event propagation for.
-		 */
-		preventDefaultKeys: Set<KeyCode>;
 		/**
 		 * Create named groups of buttons.
 		 *
@@ -349,6 +353,11 @@ export declare class KeyboardDevice {
 	};
 	/** Accessors for keys */
 	key: Record<KeyCode, boolean>;
+	private readonly _emitter;
+	private readonly _groupEmitter;
+	private _layout;
+	private _layoutSource;
+	private _deferredKeydown;
 	private constructor();
 	/**
 	 * Keyboard Layout
@@ -382,6 +391,10 @@ export declare class KeyboardDevice {
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
+	/** Add a named group event listener (or all if none provided). */
+	onGroup(name: string, listener: (event: KeyboardDeviceNamedGroupKeydownEvent) => void): this;
+	/** Remove a named group event listener (or all if none provided). */
+	offGroup(name: string, listener?: (event: KeyboardDeviceNamedGroupKeydownEvent) => void): this;
 	/**
 	 * Get the label for the given key code in the current keyboard layout.
 	 *
@@ -394,10 +407,17 @@ export declare class KeyboardDevice {
 	 */
 	keyLabel(key: KeyCode, layout?: KeyboardLayout): string;
 	/**
+	 * Process pending keyboard events.
+	 *
+	 * @returns any group events to trigger
+	 */
+	update(now: number): void;
+	/**
 	 * Clear all keyboard keys.
 	 */
 	clear(): void;
 	private _configureEventListeners;
+	private _processDeferredKeydownEvent;
 }
 export declare const Button: {
 	/** A Button (Xbox / Nintendo: "A", PlayStation: "Cross") */
@@ -595,6 +615,9 @@ export interface GamepadButtonPressEvent {
 	button: Button;
 	buttonCode: ButtonCode;
 }
+export interface GamepadNamedGroupButtonPressEvent extends GamepadButtonPressEvent {
+	groupName: string;
+}
 export interface InputDeviceEvent {
 	deviceadded: {
 		device: Device;
@@ -614,6 +637,9 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 	device: KeyboardDevice;
 	layout: KeyboardLayout;
 	layoutSource: KeyboardLayoutSource;
+}
+export interface KeyboardDeviceNamedGroupKeydownEvent extends KeyboardDeviceKeydownEvent {
+	groupName: string;
 }
 /**
  * A target that responds to navigation on the stack.
@@ -645,7 +671,9 @@ export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
-export type GamepadDeviceEvent = {} & {
+export type GamepadDeviceEvent = {
+	group: GamepadNamedGroupButtonPressEvent;
+} & {
 	[button in ButtonCode]: GamepadButtonPressEvent;
 } & {
 	[button in Button]: GamepadButtonPressEvent;
@@ -659,11 +687,16 @@ export type GamepadVibration = GamepadEffectParameters & {
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
+	group: KeyboardDeviceNamedGroupKeydownEvent;
 } & {
 	[key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
+export type NamedGroupEvent = {
+	device: Device;
+	groupName: string;
+};
 export type NavigatableContainer = Container;
 export type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;
 export type NavigationDirection = "navigateLeft" | "navigateRight" | "navigateUp" | "navigateDown";

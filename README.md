@@ -30,27 +30,83 @@ Ticker.shared.add( () => InputDevice.update() )
 Navigation.stage = app.stage
 ```
 
+### ✨ Binding Groups
+
+Use named "groups" to create referenceable groups of inputs.
+
+```ts
+InputDevice.keyboard.options.namedGroups = {
+    jump: [ "ArrowUp", "Space", "KeyW" ],
+    crouch: [ "ArrowDown","KeyS" ],
+    moveSlow: [  "ShiftLeft", "ShiftRight" ],
+    left: [ "ArrowLeft", "KeyA" ],
+    right: [ "ArrowRight", "KeyD" ],
+
+    toggleGraphics: [ "KeyB" ],
+    // other...
+};
+
+GamepadDevice.defaultOptions.namedGroups = {
+    jump: [ "A" ],
+    crouch: [ "B", "X", "RightTrigger" ],
+
+    toggleGraphics: [ "RightStick" ],
+    // other...
+};
+```
+
+These can then be used with the real-time and event-based APIs.
+
+```ts
+// real-time:
+if ( gamepad.groupPressed("jump") ) doJump();
+
+// events:
+InputDevice.gamepads[0].onGroup( "jump", ( event ) => doJump() );
+
+// ...or listen to ANY device:
+InputDevice.onGroup( "toggleGraphics", ( event ) => toggleGraphics() );
+```
+
+You definitely do not have to use named inputs:
+
+```ts
+// real-time:
+if ( keyboard.key.Space || keyboard.key.KeyW ) jump = true;
+if ( gamepad.button.A || gamepad.button.LeftTrigger ) jump = true;
+
+// events:
+InputDevice.gamepads[0].on( "A", ( event ) => doJump() );
+```
+
 ### Realtime API
 
 Iterate through `InputDevice.devices`, or access devices directly:
 
 ```ts
-let jump = false, hide = false, moveX = 0.0
+let jump = false, crouch = false, moveX = 0
 
 const keyboard = InputDevice.keyboard
-if ( keyboard.key.ArrowUp ) jump = true
-if ( keyboard.key.ArrowDown ) hide = true
-if ( keyboard.key.ArrowLeft ) moveX = -1.0
-else if ( keyboard.key.ArrowRight ) moveX = 1.0
+if ( keyboard.groupPressed( "jump" ) ) jump = true
+if ( keyboard.groupPressed( "crouch" ) ) crouch = true
+if ( keyboard.groupPressed( "left" ) ) moveX -= 1
+if ( keyboard.groupPressed( "right" ) ) moveX += 1
+if ( keyboard.groupPressed( "moveSlow" ) ) moveX *= 0.5
 
 for ( const gamepad of InputDevice.gamepads ) {
-    if ( gamepad.button.A ) jump = true
-    if ( gamepad.rightTrigger > 0.25 ) hide = true
-    if ( gamepad.leftJoystick.x !== 0.0 ) moveX = gamepad.leftJoystick.x
+    if ( gamepad.groupPressed( "jump" ) ) jump = true
+    if ( gamepad.groupPressed( "crouch" ) ) crouch = true
+
+    // gamepads have additional analog inputs
+    // we're going to apply these only if touched
+    if ( gamepad.leftJoystick.x != 0 ) moveX = gamepad.leftJoystick.x
+    if ( gamepad.leftTrigger > 0 ) moveX *= ( 1 - gamepad.leftTrigger )
 }
 ```
 
 ### Event API
+
+Use `on( ... )` to subscribe to built-in events. Use `onGroup( ... )` to subscribe to custom named input group events.
 
 ```ts
 // global events
@@ -66,6 +122,11 @@ InputDevice.keyboard.on( "layoutdetected", ({ layout }) =>
 // bind keys/buttons
 InputDevice.keyboard.on( "Escape", () => showMenu() )
 InputDevice.gamepads[0].on( "Back", () => showMenu() )
+
+// use "onGroup()" to add custom events too:
+InputDevice.onGroup( "pause_menu", ( event ) => {
+    // menu was triggered!
+})
 ```
 
 #### Global Events
@@ -80,6 +141,7 @@ InputDevice.gamepads[0].on( "Back", () => showMenu() )
 | Event | Description | Payload |
 |---|---|---|
 | `"layoutdetected"` | `{layout,layoutSource,device}` | The keyboard layout (`"QWERTY"`, `"QWERTZ"`, `"AZERTY"`, or `"JCUKEN"`) has been detected, either from the native API or from keypresses. |
+| `"group"` | `{groupName,event,keyCode,keyLabel,device}` | A named input group key was pressed. |
 | **Key presses:** | | |
 | `"KeyA"` \| `"KeyB"` \| ... 103 more ... | `{event,keyCode,keyLabel,device}` | `"KeyA"` was pressed. |
 
@@ -87,6 +149,7 @@ InputDevice.gamepads[0].on( "Back", () => showMenu() )
 
 | Event | Description | Payload |
 |---|---|---|
+| `"group"` | `{groupName,button,buttonCode,device}` | A named input group button was pressed. |
 | **Button presses:** | | |
 | `"A"` \| `"B"` \| `"X"` \| ... 13 more ... | `{button,buttonCode,device}` | Button `"A"` was pressed. Equivalent to `0`. |
 | ... | ... | ... |
@@ -97,7 +160,7 @@ InputDevice.gamepads[0].on( "Back", () => showMenu() )
 > [!TIP]
 > **Multiplayer:** For multiple players, consider assigning devices
 > using `device.meta` (e.g. `device.meta.player = 1`) and use
-> `InputDevice.devices` to iterate through devices instead.
+> `InputDevice.devices` to iterate through devices.
 
 ### Navigation API
 
@@ -105,8 +168,8 @@ By default, any element with `"mousedown"` or `"pointerdown"` handlers is naviga
 
 Container properties | type | default | description
 ---------------------|------|---------|--------------
+`isNavigatable`      | `boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
 `navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
-`isNavigatable`      | `get () => boolean` | `false` | returns `true` if `navigationMode` is `"target"`, or `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
 `navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
 
 Navigation intent | Keyboard               | Gamepads

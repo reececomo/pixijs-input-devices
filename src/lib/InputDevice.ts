@@ -12,6 +12,11 @@ export interface InputDeviceEvent {
 
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 
+type NamedGroupEvent = {
+  device: Device;
+  groupName: string;
+}
+
 class InputDeviceManager
 {
   public static global = new InputDeviceManager();
@@ -25,27 +30,38 @@ class InputDeviceManager
   /** Whether a touchscreen is available */
   public readonly isTouchCapable: boolean = isTouchCapable();
 
-  /** Add an event listener */
-  public on<K extends keyof InputDeviceEvent>(
-    event: K,
-    listener: (event: InputDeviceEvent[K]) => void
-  ): this
-  {
-    this._emitter.on(event, listener);
-    return this;
-  }
-
-  /** Remove an event listener (or all if none provided) */
-  public off<K extends keyof InputDeviceEvent>(
-    event: K,
-    listener: (event: InputDeviceEvent[K]) => void
-  ): this
-  {
-    this._emitter.off(event, listener);
-    return this;
-  }
-
   private hasFocus = false;
+
+  public options = {
+    clearInputInBackground: true,
+  };
+
+  private readonly _devices: Device[];
+  private readonly _gamepadDevices: GamepadDevice[] = [];
+  private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
+  private readonly _customDevices: CustomDevice[] = [];
+  private readonly _groupEmitter = new EventEmitter<Record<string, NamedGroupEvent>>();
+
+  private constructor()
+  {
+    // setup initial devices:
+    this._devices = [];
+
+    // configure global keyboard:
+    const registerKeyboard = (): void =>
+    {
+      this.add( this.keyboard );
+    };
+
+    this.keyboard = KeyboardDevice.global;
+
+    if ( !this.isTouchCapable && !this.isMobile ) registerKeyboard(); // immediately register
+    else window.addEventListener( "keydown", registerKeyboard, { once: true }); // defer availability
+
+    // configure gamepads:
+    window.addEventListener( "gamepadconnected", () => this.pollGamepads( performance.now() )); // trigger register
+    window.addEventListener( "gamepaddisconnected", ( e ) => this.removeGamepad( e.gamepad.index ));
+  }
 
   /**
    * Connected gamepads accessible by index.
@@ -67,36 +83,100 @@ class InputDeviceManager
     return this._devices;
   }
 
-  public options = {
-    clearInputInBackground: true,
-  };
+  // ----- Events: -----
 
-  private _devices: Device[];
-  private _gamepadDevices: GamepadDevice[] = [];
-  private _gamepadDeviceMap = new Map<number, GamepadDevice>();
-
-  private constructor()
+  /** Add an event listener */
+  public on<K extends keyof InputDeviceEvent>(
+    event: K,
+    listener: (event: InputDeviceEvent[K]) => void
+  ): this
   {
-    // setup initial devices:
-    this._devices = [];
-
-    // configure global keyboard:
-    const registerKeyboard = (): void =>
-    {
-      window.removeEventListener( "keydown", registerKeyboard );
-      this._devices.push( this.keyboard );
-      this._emitter.emit( "deviceadded", { device: this.keyboard });
-      this.keyboard.detected = true;
-    };
-    this.keyboard = KeyboardDevice.global;
-
-    if ( !this.isTouchCapable && !this.isMobile ) registerKeyboard(); // immediately register
-    else window.addEventListener( "keydown", registerKeyboard ); // defer availability
-
-    // configure gamepads:
-    window.addEventListener( "gamepadconnected", () => this.pollGamepads( performance.now() )); // trigger register
-    window.addEventListener( "gamepaddisconnected", ( e ) => this.removeGamepad( e.gamepad.index ));
+    this._emitter.on(event, listener);
+    return this;
   }
+
+  /** Remove an event listener (or all if none provided) */
+  public off<K extends keyof InputDeviceEvent>(
+    event: K,
+    listener: (event: InputDeviceEvent[K]) => void
+  ): this
+  {
+    this._emitter.off(event, listener);
+    return this;
+  }
+
+  /** Add a named group event listener (or all if none provided). */
+  public onGroup(
+    name: string,
+    listener: ( event: NamedGroupEvent ) => void
+  ): this
+  {
+    this._groupEmitter.on( name, listener );
+    return this;
+  }
+
+  /** Remove a named group event listener (or all if none provided). */
+  public offGroup(
+    name: string,
+    listener?: ( event: NamedGroupEvent ) => void
+  ): this
+  {
+    this._groupEmitter.off( name, listener );
+    return this;
+  }
+
+  // ----- Devices: -----
+
+  /** Add a custom device. */
+  public add( device: Device ): void
+  {
+    this._devices.push( device );
+
+    if ( device instanceof KeyboardDevice )
+    {
+      device.detected = true;
+
+      // forward group events
+      device.on( "group", (e) => this._groupEmitter.emit( e.groupName, e ) );
+    }
+    else if ( device instanceof GamepadDevice )
+    {
+      this._gamepadDeviceMap.set( device.source.index, device );
+      this._gamepadDevices.push( device );
+
+      // forward group events
+      device.on( "group", (e) => this._groupEmitter.emit( e.groupName, e ) );
+    }
+    else if ( device instanceof CustomDevice )
+    {
+      this._customDevices.push( device );
+    }
+
+    this._emitter.emit( "deviceadded", { device });
+  }
+
+  /** Remove a custom device. */
+  public remove( device: Device ): void
+  {
+    if ( device instanceof CustomDevice )
+    {
+      const customIndex = this._customDevices.indexOf( device );
+      if ( customIndex !== -1 ) this._devices.splice( customIndex, 1 );
+    }
+
+    const devicesIndex = this._devices.indexOf( device );
+
+    if ( devicesIndex !== -1 )
+    {
+      this._devices.splice( devicesIndex, 1 );
+
+      this._emitter.emit( "deviceremoved", {
+        device,
+      });
+    }
+  }
+
+  // ----- Update loop: -----
 
   /**
    * Performs a poll of latest input from all devices
@@ -122,33 +202,15 @@ class InputDeviceManager
 
     const now = performance.now();
 
-    // keyboard doesn't need it
-    this.keyboard.lastUpdated = now;
-
+    this.keyboard.update( now );
     this.pollGamepads( now );
 
-    return this._devices;
-  }
-
-  /** Add a custom device. */
-  public add( device: CustomDevice ): void
-  {
-    this._devices.push( device );
-  }
-
-  /** Remove a custom device. */
-  public remove( device: Device ): void
-  {
-    const devicesIndex = this._devices.indexOf( device );
-
-    if ( devicesIndex !== -1 )
+    if ( this._customDevices.length > 0 )
     {
-      this._devices.splice( devicesIndex, 1 );
-
-      this._emitter.emit( "deviceremoved", {
-        device,
-      });
+      this._customDevices.forEach( custom => custom.update( now ) );
     }
+
+    return this._devices;
   }
 
   /**
@@ -159,28 +221,20 @@ class InputDeviceManager
     if ( !document.hasFocus() ) return this._gamepadDevices;
     if ( navigator.getGamepads === undefined ) return this._gamepadDevices;
 
-    for ( const raw of navigator.getGamepads() )
+    for ( const source of navigator.getGamepads() )
     {
-      if ( raw == null )
-      {
-        continue;
-      }
+      if ( source == null ) continue;
 
-      if ( this._gamepadDeviceMap.has( raw.index ) )
+      if ( this._gamepadDeviceMap.has( source.index ) )
       {
-        const gamepad = this._gamepadDeviceMap.get( raw.index );
-        gamepad.update( raw, now );
+        const gamepad = this._gamepadDeviceMap.get( source.index );
+        gamepad.update( source, now );
       }
       else
       {
-        const gamepad = new GamepadDevice( raw );
-        this._gamepadDeviceMap.set( raw.index, gamepad );
-        this._gamepadDevices.push( gamepad );
-        this._devices.push( gamepad );
-
-        this._emitter.emit( "deviceadded", {
-          device: gamepad,
-        });
+        const gamepad = new GamepadDevice( source );
+        this.add( gamepad );
+        gamepad.update( source, now );
       }
     }
 

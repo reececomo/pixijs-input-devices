@@ -21,8 +21,13 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
   layoutSource: KeyboardLayoutSource;
 }
 
+export interface KeyboardDeviceNamedGroupKeydownEvent extends KeyboardDeviceKeydownEvent {
+  groupName: string;
+}
+
 export type KeyboardDeviceEvent = {
   layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
+  group: KeyboardDeviceNamedGroupKeydownEvent;
 } & {
   [key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
@@ -56,16 +61,7 @@ export class KeyboardDevice
    */
   public detected = false;
 
-  private _layout: KeyboardLayout;
-  private _layoutSource: KeyboardLayoutSource;
-  private _emitter = new EventEmitter<KeyboardDeviceEvent>();
-
   public options = {
-    /**
-     * Keys to prevent default event propagation for.
-     */
-    preventDefaultKeys: new Set<KeyCode>([]),
-
     /**
      * Create named groups of buttons.
      *
@@ -114,6 +110,13 @@ export class KeyboardDevice
       obj[key] = false;
       return obj;
     }, {} as any );
+
+  private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
+  private readonly _groupEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedGroupKeydownEvent>>();
+
+  private _layout: KeyboardLayout;
+  private _layoutSource: KeyboardLayoutSource;
+  private _deferredKeydown: KeyboardEvent[] = [];
 
   private constructor()
   {
@@ -203,6 +206,8 @@ export class KeyboardDevice
     return true;
   }
 
+  // ----- Events: -----
+
   /** Add an event listener. */
   public on<K extends keyof KeyboardDeviceEvent>(
     event: K,
@@ -223,6 +228,28 @@ export class KeyboardDevice
     return this;
   }
 
+  /** Add a named group event listener (or all if none provided). */
+  public onGroup(
+    name: string,
+    listener: ( event: KeyboardDeviceNamedGroupKeydownEvent ) => void
+  ): this
+  {
+    this._groupEmitter.on( name, listener );
+    return this;
+  }
+
+  /** Remove a named group event listener (or all if none provided). */
+  public offGroup(
+    name: string,
+    listener?: ( event: KeyboardDeviceNamedGroupKeydownEvent ) => void
+  ): this
+  {
+    this._groupEmitter.off( name, listener );
+    return this;
+  }
+
+  // ----- Helpers: -----
+
   /**
    * Get the label for the given key code in the current keyboard layout.
    *
@@ -236,6 +263,22 @@ export class KeyboardDevice
   public keyLabel( key: KeyCode, layout = this._layout ): string
   {
     return getLayoutLabel( key, layout );
+  }
+
+  /**
+   * Process pending keyboard events.
+   *
+   * @returns any group events to trigger
+   */
+  public update( now: number ): void
+  {
+    if( this._deferredKeydown.length > 0 )
+    {
+      this._deferredKeydown.forEach( (event) => this._processDeferredKeydownEvent(event) );
+      this._deferredKeydown.length = 0;
+    }
+
+    this.lastUpdated = now;
   }
 
   /**
@@ -253,60 +296,78 @@ export class KeyboardDevice
 
   private _configureEventListeners(): void
   {
-    document.addEventListener( "keydown", e =>
+    const k = this.key as Record<string, boolean>;
+    const d = this._deferredKeydown;
+
+    window.addEventListener( "keydown", e => d.push( e ), { passive: true, capture: true });
+    window.addEventListener( "keyup", e => k[e.code] = false, { passive: true, capture: true } );
+  }
+
+  private _processDeferredKeydownEvent( e: KeyboardEvent ): void
+  {
+    const keyCode = e.code as KeyCode;
+
+    this.key[keyCode] = true;
+
+    // detect keyboard layout
+    if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )
     {
-      const keyCode = e.code as KeyCode;
-
-      this.key[keyCode] = true;
-
-      if ( this.options.preventDefaultKeys.has( keyCode ) )e.preventDefault();
-
-      // detect keyboard layout
-      if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )
+      const layout = detectKeyboardLayoutFromKeydown( e );
+      if ( layout !== undefined )
       {
-        const layout = detectKeyboardLayoutFromKeydown( e );
-        if ( layout !== undefined )
-        {
-          this._layout = layout;
-          this._layoutSource = "keypress";
-          this.detectLayoutOnKeypress = false;
+        this._layout = layout;
+        this._layoutSource = "keypress";
+        this.detectLayoutOnKeypress = false;
 
-          this._emitter.emit( "layoutdetected", {
-            layout: layout,
-            layoutSource: "keypress",
-            device: this,
-          });
-        }
+        this._emitter.emit( "layoutdetected", {
+          layout: layout,
+          layoutSource: "keypress",
+          device: this,
+        });
       }
+    }
 
-      // dispatch events
-      if ( this._emitter.hasListener( keyCode ) )
+    // dispatch events
+    if ( this._emitter.hasListener( keyCode ) )
+    {
+      setTimeout( () => this._emitter.emit( keyCode, {
+        device: this,
+        keyCode,
+        keyLabel: this.keyLabel( keyCode ),
+        event: e,
+      }));
+    }
+
+    // navigation
+    if (
+      Navigation.options.enabled &&
+      this.options.navigation.enabled &&
+      this.options.navigation.binds[keyCode] !== undefined
+    )
+    {
+      setTimeout( () =>
+        Navigation.commit( this.options.navigation.binds[keyCode]!, this )
+      );
+    }
+
+    // check named groups
+    Object.entries( this.options.namedGroups ).forEach(([ name, keys ]) =>
+    {
+      if ( !keys.includes( keyCode ) ) return;
+
+      setTimeout( () =>
       {
-        setTimeout( () => this._emitter.emit( keyCode, {
+        const event = {
           device: this,
           keyCode,
           keyLabel: this.keyLabel( keyCode ),
           event: e,
-        }));
-      }
-      else if (
-        this.options.navigation.enabled &&
-        this.options.navigation.binds[keyCode] !== undefined
-      )
-      {
-        e.preventDefault();
+          groupName: name,
+        };
 
-        setTimeout( () =>
-          Navigation.commit( this.options.navigation.binds[keyCode]!, this )
-        );
-      }
-    });
-
-    document.addEventListener( "keyup", e =>
-    {
-      this.key[e.code as KeyCode] = false;
-
-      if ( this.options.preventDefaultKeys.has( e.code as KeyCode ) ) e.preventDefault();
+        this._groupEmitter.emit( name, event );
+        this._emitter.emit( "group", event );
+      });
     });
   }
 }
