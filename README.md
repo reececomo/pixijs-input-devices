@@ -76,8 +76,8 @@ Access global events directly through the manager:
 
 ```ts
 InputDevice.on( "deviceconnected", ({ device }) => {
-  // a device was connected
-  // do additional setup here, show a dialog, etc.
+    // a device was connected
+    // do additional setup here, show a dialog, etc.
 })
 
 InputDevice.off( "deviceconnected" ) // stop listening
@@ -98,6 +98,10 @@ let keyboard = InputDevice.keyboard
 
 if ( keyboard.key.ControlLeft ) {  // ...
 ```
+
+> [!NOTE]
+> **Detection:** On mobiles/tablets the keyboard will not appear in `InputDevice.devices` until
+> a keyboard is detected. See `keyboard.detected`.
 
 #### Keyboard Layout - detection
 
@@ -449,7 +453,7 @@ Container events  | description
 
 ## Advanced usage
 
-### Device assignment
+### Local Player Assignment
 
 Use the `<device>.meta` property to set assorted meta data on devices as needed.
 
@@ -468,6 +472,34 @@ for ( const device of InputDevice.devices )
         // use assigned input device!
     }
 }
+```
+
+### On-Screen Inputs
+
+You can easily map an on-screen input device using the `CustomDevice` interface.
+
+```ts
+export class OnScreenInputContainer extends Container implements CustomDevice {
+    id = "onscreen";
+    type = "custom" as const;
+    meta: Record<string, any> = {};
+
+    inputs = {
+        moveX: 0.0
+        jump: false,
+    }
+
+    update( now )
+    {
+        this.moveX = this._virtualJoystick.x
+        this.jump = this._jumpButton.isTouching()
+    }
+}
+
+const onscreen = new OnScreenInputContainer();
+
+InputDevice.add( onscreen )
+InputDevice.remove( onscreen )
 ```
 
 ### Two Users; One Keyboard
