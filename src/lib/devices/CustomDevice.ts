@@ -4,6 +4,9 @@ export interface CustomDevice
   readonly id: string;
   readonly meta: Record<string, any>;
 
+  /** Timestamp when input was last modified. */
+  readonly lastInteraction: number;
+
   /** Triggered during the polling function. */
   update( now: number ): void;
 

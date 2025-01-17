@@ -46,7 +46,8 @@ export class KeyboardDevice
    */
   public readonly meta: Record<string, any> = {};
 
-  public lastUpdated = performance.now();
+  /** Timestamp of when the keyboard was last interacted with. */
+  public lastInteraction = performance.now();
 
   /**
    * Detect layout from keypresses.
@@ -277,8 +278,6 @@ export class KeyboardDevice
       this._deferredKeydown.forEach( (event) => this._processDeferredKeydownEvent(event) );
       this._deferredKeydown.length = 0;
     }
-
-    this.lastUpdated = now;
   }
 
   /**
@@ -305,13 +304,18 @@ export class KeyboardDevice
       {
         k[e.code] = true;
         d.push( e );
+        this.lastInteraction = performance.now();
       },
       { passive: true, capture: true }
     );
 
     window.addEventListener(
       "keyup",
-      e => k[e.code] = false,
+      e =>
+      {
+        k[e.code] = false;
+        this.lastInteraction = performance.now();
+      },
       { passive: true, capture: true }
     );
   }

@@ -34,16 +34,6 @@ declare module 'pixi.js' {
 export {};
 import { Container } from 'pixi.js';
 
-declare class GamepadJoystick {
-	private _owner;
-	private _xidx;
-	private _yidx;
-	constructor(_owner: GamepadDeviceSource, _xidx: number, _yidx: number);
-	/** A scalar -1.0 to 1.0 representing the X-axis position on the stick */
-	get x(): number;
-	/** A scalar -1.0 to 1.0 representing the Y-axis position on the stick */
-	get y(): number;
-}
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
 	/** Whether we are a mobile device (including tablets) */
@@ -53,6 +43,10 @@ declare class InputDeviceManager {
 	/** Global keyboard input device */
 	readonly keyboard: KeyboardDevice;
 	options: {
+		/**
+		 * Require window/document to be in foreground.
+		 */
+		requireFocus: boolean;
 		/**
 		 * When the window loses focus, this triggers the clear
 		 * input function.
@@ -66,6 +60,7 @@ declare class InputDeviceManager {
 	private readonly _emitter;
 	private readonly _groupEmitter;
 	private _hasFocus;
+	private _lastInteractedDevice?;
 	private constructor();
 	/**
 	 * Connected devices.
@@ -85,6 +80,10 @@ declare class InputDeviceManager {
 	 * Keep in mind these inputs may only be up-to-date from the last update().
 	 */
 	get custom(): readonly CustomDevice[];
+	/**
+	 * The device with the most recent interaction.
+	 */
+	get lastInteractedDevice(): Device | undefined;
 	/** Add an event listener */
 	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided) */
@@ -93,6 +92,8 @@ declare class InputDeviceManager {
 	onGroup(name: string, listener: (event: NamedGroupEvent) => void): this;
 	/** Remove a named group event listener (or all if none provided). */
 	offGroup(name: string, listener?: (event: NamedGroupEvent) => void): this;
+	/** Report a named group event (from a CustomDevice). */
+	emitGroup(e: NamedGroupEvent): void;
 	/** Add a custom device. */
 	add(device: Device): void;
 	/** Remove a custom device. */
@@ -101,10 +102,11 @@ declare class InputDeviceManager {
 	 * Performs a poll of latest input from all devices
 	 */
 	update(): ReadonlyArray<Device>;
+	private _updateLastInteracted;
 	/**
 	 * @returns updates connected gamepads, performing a poll of latest input
 	 */
-	pollGamepads(now: number): ReadonlyArray<GamepadDevice>;
+	private _pollGamepads;
 	private _removeGamepad;
 }
 declare class NavigationManager {
@@ -219,6 +221,26 @@ export declare class GamepadDevice {
 			enabled: boolean;
 			binds: Partial<Record<Button, NavigationIntent>>;
 		};
+		/**
+		 * The range of movement in a joystick recognized as input, to
+		 * prevent unintended movements caused by imprecision or wear.
+		 *
+		 * @default [ 0, 1 ]
+		 */
+		joystickDeadzone: [
+			number,
+			number
+		];
+		/**
+		 * The range of movement in a trigger recognized as input, to
+		 * revent unintended movements caused by imprecision or wear.
+		 *
+		 * @default [ 0, 1 ]
+		 */
+		triggerDeadzone: [
+			number,
+			number
+		];
 		intent: {
 			joystickCommitSensitivity: number;
 			firstCooldownMs: number;
@@ -239,10 +261,8 @@ export declare class GamepadDevice {
 	 * Associate custom meta data with a device.
 	 */
 	readonly meta: Record<string, any>;
-	/** When the gamepad was last checked for input. */
-	lastUpdated: number;
 	/** When the gamepad was last interacted with. */
-	lastActive: number;
+	lastInteraction: number;
 	/**
 	 * Platform of this gamepad, useful for configuring standard
 	 * button layouts or displaying branded icons.
@@ -250,8 +270,14 @@ export declare class GamepadDevice {
 	 */
 	layout: GamepadLayout;
 	options: typeof GamepadDevice.defaultOptions;
-	readonly leftJoystick: GamepadJoystick;
-	readonly rightJoystick: GamepadJoystick;
+	readonly leftJoystick: {
+		x: number;
+		y: number;
+	};
+	readonly rightJoystick: {
+		x: number;
+		y: number;
+	};
 	/** Accessors for buttons */
 	button: Record<ButtonCode, boolean>;
 	private _btnPrevState;
@@ -260,14 +286,14 @@ export declare class GamepadDevice {
 	private readonly _throttleIdLeftStickY;
 	private readonly _emitter;
 	private readonly _groupEmitter;
-	/** A scalar 0.0 to 1.0 representing the trigger pull */
-	get leftTrigger(): number;
-	/** A scalar 0.0 to 1.0 representing the trigger pull */
-	get rightTrigger(): number;
-	/** A scalar 0.0 to 1.0 representing the trigger pull */
-	get leftShoulder(): number;
-	/** A scalar 0.0 to 1.0 representing the trigger pull */
-	get rightShoulder(): number;
+	/** A scalar 0.0 to 1.0 representing the left trigger value */
+	leftTrigger: number;
+	/** A scalar 0.0 to 1.0 representing the right trigger value */
+	rightTrigger: number;
+	/** A scalar 0.0 to 1.0 representing the left shoulder value */
+	leftShoulder: number;
+	/** A scalar 0.0 to 1.0 representing the right shoulder value */
+	rightShoulder: number;
 	/** @returns true if any button from the named group is pressed. */
 	groupPressed(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
@@ -302,7 +328,8 @@ export declare class KeyboardDevice {
 	 * Associate custom meta data with a device.
 	 */
 	readonly meta: Record<string, any>;
-	lastUpdated: number;
+	/** Timestamp of when the keyboard was last interacted with. */
+	lastInteraction: number;
 	/**
 	 * Detect layout from keypresses.
 	 *
@@ -604,6 +631,8 @@ export interface CustomDevice {
 	readonly type: "custom";
 	readonly id: string;
 	readonly meta: Record<string, any>;
+	/** Timestamp when input was last modified. */
+	readonly lastInteraction: number;
 	/** Triggered during the polling function. */
 	update(now: number): void;
 	/**
@@ -681,9 +710,6 @@ export type GamepadDeviceEvent = {
 	[button in ButtonCode]: GamepadButtonPressEvent;
 } & {
 	[button in Button]: GamepadButtonPressEvent;
-};
-export type GamepadDeviceSource = {
-	source: Gamepad;
 };
 export type GamepadVibration = GamepadEffectParameters & {
 	vibrationType?: GamepadHapticEffectType;

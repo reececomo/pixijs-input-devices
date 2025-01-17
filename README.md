@@ -63,8 +63,9 @@ for ( const device of InputDevice.devices ) {  // ...
 
 | Property | Type | Description |
 |---|---|---|
-| `InputDevice.isMobile` | `boolean` | Whether the user's device is a mobile device. |
-| `InputDevice.isTouchCapable` | `boolean` | Whether the user's device has touchscreen capability. |
+| `InputDevice.isMobile` | `boolean` | Whether the context is mobile (including tablets). |
+| `InputDevice.isTouchCapable` | `boolean` | Whether the context has touchscreen capability. |
+| `InputDevice.lastInteractedDevice` | `Device?` | The most recently interacted device (or first if multiple). |
 | `InputDevice.devices` | `Device[]` | All active, connected devices. |
 | `InputDevice.keyboard` | `KeyboardDevice` | The global keyboard. |
 | `InputDevice.gamepads` | `GamepadDevice[]` | Connected gamepads. |

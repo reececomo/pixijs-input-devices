@@ -32,6 +32,11 @@ class InputDeviceManager
 
   public options = {
     /**
+     * Require window/document to be in foreground.
+     */
+    requireFocus: true,
+
+    /**
      * When the window loses focus, this triggers the clear
      * input function.
      */
@@ -45,7 +50,8 @@ class InputDeviceManager
   private readonly _emitter = new EventEmitter<InputDeviceEvent>();
   private readonly _groupEmitter = new EventEmitter<Record<string, NamedGroupEvent>>();
 
-  private _hasFocus = false;
+  private _hasFocus: boolean = false;
+  private _lastInteractedDevice?: Device;
 
   private constructor()
   {
@@ -57,7 +63,7 @@ class InputDeviceManager
     else window.addEventListener( "keydown", () => this.add( this.keyboard ), { once: true }); // defer until used
 
     // configure gamepads:
-    window.addEventListener( "gamepadconnected", () => this.pollGamepads( performance.now() )); // trigger register
+    window.addEventListener( "gamepadconnected", () => this._pollGamepads( performance.now() )); // trigger register
     window.addEventListener( "gamepaddisconnected", ( e ) => this._removeGamepad( e.gamepad.index ));
   }
 
@@ -89,6 +95,14 @@ class InputDeviceManager
   public get custom(): readonly CustomDevice[]
   {
     return this._customDevices;
+  }
+
+  /**
+   * The device with the most recent interaction.
+   */
+  public get lastInteractedDevice(): Device | undefined
+  {
+    return this._lastInteractedDevice;
   }
 
   // ----- Events: -----
@@ -133,6 +147,12 @@ class InputDeviceManager
     return this;
   }
 
+  /** Report a named group event (from a CustomDevice). */
+  public emitGroup( e: NamedGroupEvent ): void
+  {
+    this._groupEmitter.emit( e.groupName, e );
+  }
+
   // ----- Devices: -----
 
   /** Add a custom device. */
@@ -150,7 +170,7 @@ class InputDeviceManager
       device.detected = true;
 
       // forward group events
-      device.on( "group", (e) => this._groupEmitter.emit( e.groupName, e ) );
+      device.on( "group", (e) => this.emitGroup(e) );
     }
     else if ( device instanceof GamepadDevice )
     {
@@ -158,7 +178,7 @@ class InputDeviceManager
       this._gamepadDevices.push( device );
 
       // forward group events
-      device.on( "group", (e) => this._groupEmitter.emit( e.groupName, e ) );
+      device.on( "group", (e) => this.emitGroup(e) );
     }
     else
     {
@@ -196,13 +216,13 @@ class InputDeviceManager
    */
   public update(): ReadonlyArray<Device>
   {
-    if ( !document.hasFocus() )
+    if ( this.options.requireFocus && ! document.hasFocus() )
     {
       // early exit: window not in focus
 
       if ( this._hasFocus && this.options.clearInputInBackground )
       {
-        // clear input
+        // clear input when focus is lost
         this.devices.forEach( device => device.clear?.() );
       }
 
@@ -212,24 +232,50 @@ class InputDeviceManager
     }
 
     this._hasFocus = true;
-
     const now = performance.now();
 
-    this.keyboard.update( now );
-    this.pollGamepads( now );
+    // keyboard
+    if ( this.keyboard.detected ) this.keyboard.update( now );
 
+    // gamepads
+    this._pollGamepads( now );
+
+    // custom
     if ( this._customDevices.length > 0 )
     {
       this._customDevices.forEach( custom => custom.update( now ) );
     }
 
+    this._updateLastInteracted();
+
     return this._devices;
+  }
+
+  private _updateLastInteracted(): void
+  {
+    if ( this._devices.length === 0 ) return;
+
+    let last: Device;
+    if ( this._devices.length === 1 ) last = this._devices[0]!;
+    else
+    {
+      for ( const device of this._devices )
+      {
+        if ( last === undefined ) last = device;
+        else if ( device.lastInteraction > last.lastInteraction )
+        {
+          last = device;
+        }
+      }
+    }
+
+    this._lastInteractedDevice = last;
   }
 
   /**
    * @returns updates connected gamepads, performing a poll of latest input
    */
-  public pollGamepads( now: number ): ReadonlyArray<GamepadDevice>
+  private _pollGamepads( now: number ): ReadonlyArray<GamepadDevice>
   {
     if ( !document.hasFocus() ) return this._gamepadDevices;
     if ( navigator.getGamepads === undefined ) return this._gamepadDevices;

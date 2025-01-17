@@ -92,6 +92,22 @@ export class GamepadDevice
       } as Partial<Record<Button, NavigationIntent>>,
     },
 
+    /**
+     * The range of movement in a joystick recognized as input, to
+     * prevent unintended movements caused by imprecision or wear.
+     *
+     * @default [ 0, 1 ]
+     */
+    joystickDeadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
+
+    /**
+     * The range of movement in a trigger recognized as input, to
+     * revent unintended movements caused by imprecision or wear.
+     *
+     * @default [ 0, 1 ]
+     */
+    triggerDeadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
+
     intent: {
       joystickCommitSensitivity: 0.5,
       firstCooldownMs: 400,
@@ -116,11 +132,8 @@ export class GamepadDevice
    */
   public readonly meta: Record<string, any> = {};
 
-  /** When the gamepad was last checked for input. */
-  public lastUpdated = performance.now();
-
   /** When the gamepad was last interacted with. */
-  public lastActive = performance.now();
+  public lastInteraction = performance.now();
 
   /**
    * Platform of this gamepad, useful for configuring standard
@@ -134,8 +147,14 @@ export class GamepadDevice
 
   // ----- Joysticks: -----
 
-  public readonly leftJoystick: GamepadJoystick;
-  public readonly rightJoystick: GamepadJoystick;
+  public readonly leftJoystick = {
+    x: 0.0,
+    y: 0.0,
+  };
+  public readonly rightJoystick = {
+    x: 0.0,
+    y: 0.0,
+  };
 
   // ----- Buttons: -----
 
@@ -158,21 +177,14 @@ export class GamepadDevice
 
   // ----- Triggers: -----
 
-  /** A scalar 0.0 to 1.0 representing the trigger pull */
-  public get leftTrigger(): number
-  { return this.source.buttons[Button.LeftTrigger].value; }
-
-  /** A scalar 0.0 to 1.0 representing the trigger pull */
-  public get rightTrigger(): number
-  { return this.source.buttons[Button.RightTrigger].value; }
-
-  /** A scalar 0.0 to 1.0 representing the trigger pull */
-  public get leftShoulder(): number
-  { return this.source.buttons[Button.LeftShoulder].value; }
-
-  /** A scalar 0.0 to 1.0 representing the trigger pull */
-  public get rightShoulder(): number
-  { return this.source.buttons[Button.RightShoulder].value; }
+  /** A scalar 0.0 to 1.0 representing the left trigger value */
+  public leftTrigger = 0;
+  /** A scalar 0.0 to 1.0 representing the right trigger value */
+  public rightTrigger = 0;
+  /** A scalar 0.0 to 1.0 representing the left shoulder value */
+  public leftShoulder = 0;
+  /** A scalar 0.0 to 1.0 representing the right shoulder value */
+  public rightShoulder = 0;
 
   // ----- Button helpers: -----
 
@@ -271,14 +283,16 @@ export class GamepadDevice
     if ( !this.options.vibration.enabled ) return;
     if ( !this.source.vibrationActuator ) return;
 
+    const intensity = this.options.vibration.intensity;
+
     try {
       this.source.vibrationActuator.playEffect( vibrationType, {
         duration,
         startDelay,
-        weakMagnitude,
-        strongMagnitude,
-        leftTrigger,
-        rightTrigger,
+        weakMagnitude: intensity * weakMagnitude,
+        strongMagnitude: intensity * strongMagnitude,
+        leftTrigger: intensity * leftTrigger,
+        rightTrigger: intensity * rightTrigger,
       });
     }
     catch ( error )
@@ -293,7 +307,6 @@ export class GamepadDevice
   {
     this.updatePresses( source, now );
     this.source = source;
-    this.lastUpdated = now;
   }
 
   public clear(): void
@@ -306,8 +319,6 @@ export class GamepadDevice
   {
     this.id = "gamepad" + source.index;
     this.layout = detectLayout( source );
-    this.leftJoystick = new GamepadJoystick( this, Axis.LeftStickX, Axis.LeftStickY );
-    this.rightJoystick = new GamepadJoystick( this, Axis.RightStickX, Axis.RightStickY );
 
     // cooldown ids:
     this._throttleIdLeftStickX = this.id + "-lsx";
@@ -350,7 +361,7 @@ export class GamepadDevice
         continue; // skip: no change
       }
 
-      this.lastActive = now;
+      this.lastInteraction = now;
 
       // update
       const isPressed = source.buttons[_b]?.pressed ?? false;
@@ -403,14 +414,31 @@ export class GamepadDevice
       }
     }
 
-    // axis
-    const leftStickX = source.axes[Axis.LeftStickX] ?? 0;
-    const leftStickY = source.axes[Axis.LeftStickY] ?? 0;
+    // triggers
+    const tdz = this.options.triggerDeadzone;
+    this.leftTrigger = _scale( this.source.buttons[Button.LeftTrigger].value, tdz );
+    this.rightTrigger = _scale( this.source.buttons[Button.RightTrigger].value, tdz );
+    this.leftShoulder = _scale( this.source.buttons[Button.LeftShoulder].value, tdz );
+    this.rightShoulder = _scale( this.source.buttons[Button.RightShoulder].value, tdz );
 
-    // x-axis
-    if ( Math.abs( leftStickX ) >= this.options.intent.joystickCommitSensitivity )
+    // joysticks
+    const jdz = this.options.joystickDeadzone;
+    this.leftJoystick.x = _scale( source.axes[Axis.LeftStickX] ?? 0, jdz );
+    this.leftJoystick.y = _scale( source.axes[Axis.LeftStickY] ?? 0, jdz);
+    this.rightJoystick.x = _scale( source.axes[Axis.RightStickX] ?? 0, jdz );
+    this.rightJoystick.y = _scale( source.axes[Axis.RightStickY] ?? 0, jdz );
+
+    if (
+      this.leftJoystick.x !== 0
+      || this.leftJoystick.y !== 0
+      || this.rightJoystick.x !== 0
+      || this.rightJoystick.y !== 0
+    ) this.lastInteraction = now;
+
+    // left joystick navigation: left/right
+    if ( Math.abs( this.leftJoystick.x ) >= this.options.intent.joystickCommitSensitivity )
     {
-      const xIntent: NavigationIntent = leftStickX < 0 ? "navigateLeft" : "navigateRight";
+      const xIntent: NavigationIntent = this.leftJoystick.x < 0 ? "navigateLeft" : "navigateRight";
 
       // if we sent an intent too recently, this will slow us down.
       const cooldownDuration = this._axisIntents[ Axis.LeftStickX ]
@@ -432,10 +460,10 @@ export class GamepadDevice
       this._axisIntents[ Axis.LeftStickX ] = false;
     }
 
-    // y-axis
-    if ( Math.abs( leftStickY ) >= this.options.intent.joystickCommitSensitivity )
+    // left joystick navigation: up/down
+    if ( Math.abs( this.leftJoystick.y ) >= this.options.intent.joystickCommitSensitivity )
     {
-      const yIntent: NavigationIntent = leftStickY < 0 ? "navigateUp" : "navigateDown";
+      const yIntent: NavigationIntent = this.leftJoystick.y < 0 ? "navigateUp" : "navigateDown";
 
       // if we sent an intent too recently, this will slow us down.
       const cooldownDuration = this._axisIntents[ Axis.LeftStickY ]
@@ -459,26 +487,10 @@ export class GamepadDevice
   }
 }
 
-type GamepadDeviceSource = { source: Gamepad };
-
-class GamepadJoystick
+function _scale( value: number, range: [ min: number, max: number ] ): number
 {
-  public constructor(
-    private _owner: GamepadDeviceSource,
-    private _xidx: number,
-    private _yidx: number,
-  )
-  {}
-
-  /** A scalar -1.0 to 1.0 representing the X-axis position on the stick */
-  public get x(): number
-  {
-    return this._owner.source.axes[this._xidx];
-  }
-
-  /** A scalar -1.0 to 1.0 representing the Y-axis position on the stick */
-  public get y(): number
-  {
-    return this._owner.source.axes[this._yidx];
-  }
+  const scaled = (Math.abs(value) - range[0]) / (range[1] - range[0]);
+  return scaled >= 0 && scaled <= 1
+    ? Math.sign(value) * scaled
+    : scaled > 1 ? Math.sign(value) * 1 : 0;
 }
