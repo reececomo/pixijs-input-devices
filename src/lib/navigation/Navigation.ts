@@ -135,8 +135,8 @@ class NavigationManager
 
       if ( navigatable === undefined )
       {
-        // early exit: no navigatable views found
-        console.debug( "navigation: no navigatable views found", intent );
+        // early exit: no containers found
+        console.debug( "navigation: no navigatable containers found" );
         return;
       }
 

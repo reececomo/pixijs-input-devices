@@ -413,16 +413,19 @@ export declare class KeyboardDevice {
 	/** Remove a named group event listener (or all if none provided). */
 	offGroup(name: string, listener?: (event: KeyboardDeviceNamedGroupKeydownEvent) => void): this;
 	/**
-	 * Get the label for the given key code in the current keyboard layout.
+	 * Get the label for the given key code in the current keyboard
+	 * layout. Attempts to use the Navigator KeyboardLayoutMap API
+	 * before falling back to defaults.
+	 *
+	 * @see https://caniuse.com/mdn-api_keyboardlayoutmap
 	 *
 	 * @example
-	 * // when AZERTY
-	 * keyboard.localeLabel( "KeyQ" ) // "A"
-	 *
-	 * // when JCUKEN
-	 * keyboard.localeLabel( "KeyQ" ) // "Й"
+	 * keyboard.getKeyLabel( "KeyZ" ) === "W" // AZERTY
+	 * keyboard.getKeyLabel( "KeyZ" ) === "Я" // JCUKEN
+	 * keyboard.getKeyLabel( "KeyZ" ) === "Z" // QWERTY
+	 * keyboard.getKeyLabel( "KeyZ" ) === "Y" // QWERTZ
 	 */
-	keyLabel(key: KeyCode, layout?: KeyboardLayout): string;
+	getKeyLabel(key: KeyCode, layout?: KeyboardLayout): string;
 	/**
 	 * Process pending keyboard events.
 	 *

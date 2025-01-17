@@ -295,9 +295,9 @@ export class GamepadDevice
         rightTrigger: intensity * rightTrigger,
       });
     }
-    catch ( error )
+    catch
     {
-      console.warn( "gamepad vibrationActuator failed with error:", error );
+      // fail silently
     }
   }
 

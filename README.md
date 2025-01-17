@@ -108,12 +108,17 @@ if ( keyboard.key.ControlLeft ) {  // ...
 
 ```ts
 keyboard.layout  // "AZERTY" | "JCUKEN" | "QWERTY" | "QWERTZ"
+
+keyboard.getKeyLabel( "KeyZ" )  // Я
 ```
 
 > [!NOTE]
 > **Layout support:** Detects the **"big four"** (AZERTY, JCUKEN, QWERTY and QWERTZ).
 > Almost every keyboard is one of these four (or a regional derivative &ndash; e.g. Hangeul,
 > Kana). There is no built-in detection for specialist or esoteric layouts (e.g. Dvorak, Colemak, BÉPO).
+>
+> The `keyboard.getKeyLabel( key )` uses the [KeyboardLayoutMap API](https://caniuse.com/mdn-api_keyboardlayoutmap)
+> when available, before falling back to default AZERTY, JCUKEN, QWERTY or QWERTZ key values.
 
 The keyboard layout is automatically detected from (in order):
 
@@ -127,7 +132,7 @@ You can also manually force the layout:
 // force layout
 InputDevice.keyboard.layout = "JCUKEN"
 
-InputDevice.keyboard.keyLabel( "KeyW" )  // "Ц"
+InputDevice.keyboard.getKeyLabel( "KeyW" )  // "Ц"
 InputDevice.keyboard.layoutSource  // "manual"
 ```
 

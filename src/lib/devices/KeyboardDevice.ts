@@ -1,5 +1,5 @@
 import { KeyCode } from "./keyboard/keys";
-import { requestKeyboardLayout, getLayoutLabel, inferKeyboardLayoutFromLang, KeyboardLayout, KeyboardLayoutSource, detectKeyboardLayoutFromKeydown } from "./keyboard/layouts";
+import { requestKeyboardLayout, getLayoutKeyLabel, inferKeyboardLayoutFromLang, KeyboardLayout, KeyboardLayoutSource, detectKeyboardLayoutFromKeydown, getNavigatorKeyLabel } from "./keyboard/layouts";
 import { NavigationIntent } from "../navigation/NavigationIntent";
 import { Navigation } from "../navigation/Navigation";
 import { EventEmitter } from "../utils/events";
@@ -131,6 +131,7 @@ export class KeyboardDevice
 
       this._layoutSource = "browser";
       this._layout = layout;
+      this.detectLayoutOnKeypress = false;
 
       this._emitter.emit( "layoutdetected", {
         layoutSource: "browser",
@@ -168,6 +169,7 @@ export class KeyboardDevice
   {
     this._layoutSource = "manual";
     this._layout = value;
+    this.detectLayoutOnKeypress = false;
   }
 
   /** How the keyboard layout was determined. */
@@ -252,18 +254,24 @@ export class KeyboardDevice
   // ----- Helpers: -----
 
   /**
-   * Get the label for the given key code in the current keyboard layout.
+   * Get the label for the given key code in the current keyboard
+   * layout. Attempts to use the Navigator KeyboardLayoutMap API
+   * before falling back to defaults.
+   *
+   * @see https://caniuse.com/mdn-api_keyboardlayoutmap
    *
    * @example
-   * // when AZERTY
-   * keyboard.localeLabel( "KeyQ" ) // "A"
-   *
-   * // when JCUKEN
-   * keyboard.localeLabel( "KeyQ" ) // "Й"
+   * keyboard.getKeyLabel( "KeyZ" ) === "W" // AZERTY
+   * keyboard.getKeyLabel( "KeyZ" ) === "Я" // JCUKEN
+   * keyboard.getKeyLabel( "KeyZ" ) === "Z" // QWERTY
+   * keyboard.getKeyLabel( "KeyZ" ) === "Y" // QWERTZ
    */
-  public keyLabel( key: KeyCode, layout = this._layout ): string
+  public getKeyLabel( key: KeyCode, layout?: KeyboardLayout ): string
   {
-    return getLayoutLabel( key, layout );
+    if ( layout ) return getLayoutKeyLabel( key, layout );
+
+    return getNavigatorKeyLabel( key )
+      ?? getLayoutKeyLabel( key, layout ?? this._layout );
   }
 
   /**
@@ -348,7 +356,7 @@ export class KeyboardDevice
       setTimeout( () => this._emitter.emit( keyCode, {
         device: this,
         keyCode,
-        keyLabel: this.keyLabel( keyCode ),
+        keyLabel: this.getKeyLabel( keyCode ),
         event: e,
       }));
     }
@@ -375,7 +383,7 @@ export class KeyboardDevice
         const event = {
           device: this,
           keyCode,
-          keyLabel: this.keyLabel( keyCode ),
+          keyLabel: this.getKeyLabel( keyCode ),
           event: e,
           groupName: name,
         };

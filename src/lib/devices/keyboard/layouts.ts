@@ -4,6 +4,10 @@ import { KeyCode } from "./keys";
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
 
+// lazy init:
+let _navigatorLayoutMap: Map<KeyCode, string> | undefined;
+let _keyLabels: undefined | Record<KeyboardLayout, Partial<Record<KeyCode, string>>>;
+
 const MACRO_AZERTY = [
   "fr", // French
   "mg", // Malagasy
@@ -71,6 +75,7 @@ export async function requestKeyboardLayout(): Promise<undefined | KeyboardLayou
   try
   {
     const layoutMap = await n.keyboard.getLayoutMap();
+    _navigatorLayoutMap = layoutMap;
 
     const q = layoutMap.get("KeyQ");
     const a = layoutMap.get("KeyA");
@@ -81,9 +86,9 @@ export async function requestKeyboardLayout(): Promise<undefined | KeyboardLayou
     if (q === "q" && z === "z" && a === "a") return "QWERTY";
     if (q === "й" && z === "я" && a === "ф") return "JCUKEN";
   }
-  catch (err)
+  catch
   {
-    console.error( "Error detecting keyboard layout:", err );
+    // fail silently
   }
 
   return undefined;
@@ -210,18 +215,27 @@ export function detectKeyboardLayoutFromKeydown(
     : undefined;
 }
 
-// lazy init:
-let _labels: undefined | Record<KeyboardLayout, Record<KeyCode, string>>;
-
-export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
+/**
+ * Note: `_navigatorLayoutMap` must be hydrated by `requestKeyboardLayout()` first.
+ *
+ * @see https://caniuse.com/mdn-api_keyboardlayoutmap
+ */
+export function getNavigatorKeyLabel( key: KeyCode ): string | undefined
 {
-  if (_labels === undefined)
+  const value = _navigatorLayoutMap?.get( key );
+  return value === undefined ? undefined : _toLocaleTitleCase( value );
+}
+
+export function getLayoutKeyLabel( key: KeyCode, layout: KeyboardLayout ): string
+{
+  if (_keyLabels === undefined)
   {
-    const QWERTY_LABELS: Record<KeyCode, string> = {
-      ArrowLeft: "←",
-      ArrowRight: "→",
-      ArrowUp: "↑",
-      ArrowDown: "↓",
+    // default labels are in QWERTY
+    const DEFAULT_LABELS: Record<KeyCode, string> = {
+      ArrowLeft: "⬅",
+      ArrowRight: "➡",
+      ArrowUp: "⬆",
+      ArrowDown: "⬇",
       AltLeft: "Left Alt",
       AltRight: "Right Alt",
       Backquote: "`",
@@ -229,7 +243,7 @@ export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
       Backspace: "Backspace",
       BracketLeft: "[",
       BracketRight: "]",
-      CapsLock: "Caps Lock",
+      CapsLock: "CapsLock",
       Comma: ",",
       ContextMenu: "Context Menu",
       ControlLeft: "Left Ctrl",
@@ -347,13 +361,12 @@ export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
       Space: "Space",
       Tab: "Tab",
       VolumeDown: "Volume Down",
-      VolumeMute: "Mute",
+      VolumeMute: "Volume Mute",
       VolumeUp: "Volume Up",
       WakeUp: "Wake Up",
     };
 
-    const AZERTY_LABELS: Record<KeyCode, string> = {
-      ...QWERTY_LABELS,
+    const AZERTY_LABELS: Partial<Record<KeyCode, string>> = {
       KeyA: "Q",
       KeyQ: "A",
       KeyW: "Z",
@@ -363,8 +376,7 @@ export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
       BracketRight: "»",
     };
 
-    const JCUKEN_LABELS: Record<KeyCode, string> = {
-      ...QWERTY_LABELS,
+    const JCUKEN_LABELS: Partial<Record<KeyCode, string>> = {
       KeyA: "Ф",
       KeyB: "И",
       KeyC: "С",
@@ -401,8 +413,7 @@ export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
       Slash: "И",
     };
 
-    const QWERTZ_LABELS: Record<KeyCode, string> = {
-      ...QWERTY_LABELS,
+    const QWERTZ_LABELS: Partial<Record<KeyCode, string>> = {
       KeyY: "Z",
       KeyZ: "Y",
       BracketLeft: "ü",
@@ -410,15 +421,17 @@ export function getLayoutLabel( key: KeyCode, layout: KeyboardLayout ): string
       Slash: "-",
     };
 
-    _labels = {
+    _keyLabels = {
       AZERTY: AZERTY_LABELS,
       JCUKEN: JCUKEN_LABELS,
-      QWERTY: QWERTY_LABELS,
+      QWERTY: DEFAULT_LABELS,
       QWERTZ: QWERTZ_LABELS,
     };
   }
 
-  return _labels[layout][key];
+  return _keyLabels[layout][key]
+    ?? _keyLabels["QWERTY"][key]
+    ?? key;
 }
 
 function getMetaKeyLabel(): string
@@ -432,4 +445,12 @@ function getMetaKeyLabel(): string
   if (userAgent.includes("android")) return "Search";
   if (userAgent.includes("iphone") || userAgent.includes("ipad")) return "⌘";
   return "⊞"; // Windows key
+}
+
+function _toLocaleTitleCase( input: string ): string
+{
+  return input
+    .split(/\s+/)
+    .map( word => word.charAt(0).toLocaleUpperCase() + word.slice(1) )
+    .join(' ');
 }
