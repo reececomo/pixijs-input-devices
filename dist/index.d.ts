@@ -151,11 +151,16 @@ declare class NavigationManager {
 	 * Set the new top-most global interaction target.
 	 */
 	pushResponder(responder: NavigationResponder): void;
+	/**
+	 * Focus on the first navigatable element.
+	 */
+	autoFocus(): void;
 	private _propagateIntent;
 	private _handleGlobalIntent;
 	private _emitBlur;
 	private _emitFocus;
 	private _emitTrigger;
+	private _clearFocusIfNeeded;
 }
 declare const ButtonCode: readonly [
 	"A",
@@ -614,6 +619,7 @@ export declare const KeyCode: {
  * Set stage to enable the global responder behaviors.
  */
 export declare const Navigation: NavigationManager;
+export declare const REPEATABLE_NAV_INTENTS: readonly NavigationIntent[];
 /**
  * @returns all navigatable containers in some container
  */
@@ -624,6 +630,7 @@ export declare function getAllNavigatables(target: Container, navigatables?: Nav
 export declare function getFirstNavigatable(root: Container, currentFocus?: Container, nearestDirection?: NavigationDirection, { minimumDistance, }?: {
 	minimumDistance?: number;
 }): NavigatableContainer | undefined;
+export declare function isChildOf(child: Container, root: Container): boolean;
 /**
  * Register the mixin for PIXI.Container.
  *
@@ -681,6 +688,13 @@ export interface KeyboardDeviceNamedGroupKeydownEvent extends KeyboardDeviceKeyd
  * A target that responds to navigation on the stack.
  */
 export interface NavigationResponder {
+	/**
+	 * Whether to auto-focus on the element with the highest priority when
+	 * pushed onto the responder stack.
+	 *
+	 * @default true
+	 */
+	autoFocus?: boolean;
 	/**
 	 * Called when received a navigation intent. The target should handle, and
 	 * respond with a boolean indicating whether or not the intent was handled.

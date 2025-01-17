@@ -46,6 +46,21 @@ export function getFirstNavigatable(
   });
 }
 
+export function isChildOf(
+  child: Container,
+  root: Container
+): boolean
+{
+  while ( child != null )
+  {
+    if ( child === root ) return true;
+    child = child.parent;
+  }
+
+  return false;
+}
+
+
 /** @returns the first navigatable container in the given direction */
 function chooseFirstNavigatableInDirection(
   navigatables: NavigatableContainer[],
@@ -66,10 +81,10 @@ function chooseFirstNavigatableInDirection(
   // verify currentFocus is in the list of navigatables
   const focusedElement = elements.find( ( el ) => el === currentFocus );
 
-  // no focused element? select the one with the highest priority
+  // no focused element? select the one with the largest priority
   if  ( focusedElement === undefined )
   {
-    elements.sort( ( a, b ) => a.navigationPriority - b.navigationPriority );
+    elements.sort( ( a, b ) => b.navigationPriority - a.navigationPriority );
 
     return elements[0];
   }

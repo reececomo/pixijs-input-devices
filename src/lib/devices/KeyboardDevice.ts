@@ -1,6 +1,6 @@
 import { KeyCode } from "./keyboard/keys";
 import { requestKeyboardLayout, getLayoutKeyLabel, inferKeyboardLayoutFromLang, KeyboardLayout, KeyboardLayoutSource, detectKeyboardLayoutFromKeydown, getNavigatorKeyLabel } from "./keyboard/layouts";
-import { NavigationIntent } from "../navigation/NavigationIntent";
+import { NavigationIntent, REPEATABLE_NAV_INTENTS } from "../navigation/NavigationIntent";
 import { Navigation } from "../navigation/Navigation";
 import { EventEmitter } from "../utils/events";
 
@@ -363,22 +363,7 @@ export class KeyboardDevice
           event: e,
         }));
       }
-    }
 
-    // navigation
-    if (
-      Navigation.options.enabled &&
-      this.options.navigation.enabled &&
-      this.options.navigation.binds[keyCode] !== undefined
-    )
-    {
-      setTimeout( () =>
-        Navigation.commit( this.options.navigation.binds[keyCode]!, this )
-      );
-    }
-
-    if ( !e.repeat )
-    {
       // check named groups
       Object.entries( this.options.namedGroups ).forEach(([ name, keys ]) =>
       {
@@ -398,6 +383,23 @@ export class KeyboardDevice
           this._emitter.emit( "group", event );
         });
       });
+    }
+
+    // navigation
+    if (
+      Navigation.options.enabled &&
+      this.options.navigation.enabled &&
+      this.options.navigation.binds[keyCode] !== undefined
+    )
+    {
+      const intent = this.options.navigation.binds[keyCode]!;
+
+      if ( !e.repeat || REPEATABLE_NAV_INTENTS.includes(intent) )
+      {
+        setTimeout( () =>
+          Navigation.commit( this.options.navigation.binds[keyCode]!, this )
+        );
+      }
     }
   }
 }

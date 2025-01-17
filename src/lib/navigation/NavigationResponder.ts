@@ -6,6 +6,14 @@ import { NavigationIntent } from "./NavigationIntent";
  */
 export interface NavigationResponder {
   /**
+   * Whether to auto-focus on the element with the highest priority when
+   * pushed onto the responder stack.
+   *
+   * @default true
+   */
+  autoFocus?: boolean
+
+  /**
    * Called when received a navigation intent. The target should handle, and
    * respond with a boolean indicating whether or not the intent was handled.
    *

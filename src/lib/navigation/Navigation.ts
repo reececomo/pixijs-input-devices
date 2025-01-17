@@ -3,7 +3,7 @@ import { Container } from "pixi.js";
 import { Device } from "../InputDevice";
 import { NavigationIntent } from "./NavigationIntent";
 import { NavigationResponder } from "./NavigationResponder";
-import { getFirstNavigatable } from "./Navigatable";
+import { getFirstNavigatable, isChildOf } from "./Navigatable";
 
 
 class NavigationManager
@@ -70,8 +70,14 @@ class NavigationManager
   {
     const responder = this._responderStack.shift();
 
-    this.firstResponder?.becameFirstResponder?.();
     responder?.resignedAsFirstResponder?.();
+    this._clearFocusIfNeeded();
+
+    if ( this.firstResponder )
+    {
+      this.firstResponder.becameFirstResponder?.();
+      if ( this.firstResponder.autoFocus ?? true ) this.autoFocus();
+    }
 
     return responder;
   }
@@ -90,8 +96,35 @@ class NavigationManager
 
     this._responderStack.unshift( responder );
 
-    responder.becameFirstResponder?.();
     previousResponder?.resignedAsFirstResponder?.();
+    this._clearFocusIfNeeded();
+
+    responder.becameFirstResponder?.();
+    if ( responder.autoFocus ?? true ) this.autoFocus();
+  }
+
+  /**
+   * Focus on the first navigatable element.
+   */
+  public autoFocus(): void
+  {
+    const responderStage = this.responders.find( isContainer ) ?? this.stage;
+
+    if ( !responderStage ) return;
+
+    const navigatable = getFirstNavigatable( responderStage );
+
+    if ( navigatable === undefined )
+    {
+      // early exit: no containers found
+      console.debug( "navigation: no navigatable containers found" );
+      return;
+    }
+
+    if ( navigatable === this._focused ) return;
+    if ( this._focused ) this._emitBlur( this._focused );
+    this._emitFocus( navigatable );
+    this._focused = navigatable;
   }
 
   // ----- Implementation: -----
@@ -119,7 +152,8 @@ class NavigationManager
     }
     else
     {
-      this._handleGlobalIntent( this.stage, intent );
+      const responderStage = this.responders.find( isContainer ) ?? this.stage;
+      this._handleGlobalIntent( responderStage, intent );
     }
   }
 
@@ -131,17 +165,7 @@ class NavigationManager
     // if we currently have no focus target, then find one.
     if ( this._focused === undefined )
     {
-      const navigatable = getFirstNavigatable( root );
-
-      if ( navigatable === undefined )
-      {
-        // early exit: no containers found
-        console.debug( "navigation: no navigatable containers found" );
-        return;
-      }
-
-      this._emitFocus( navigatable );
-      this._focused = navigatable;
+      this.autoFocus();
 
       return;
     }
@@ -161,7 +185,8 @@ class NavigationManager
       return;
     }
 
-    const nextTarget = getFirstNavigatable( this.stage, this._focused, intent ) ?? this._focused;
+    const responderStage = this.responders.find( isContainer ) ?? this.stage;
+    const nextTarget = getFirstNavigatable( responderStage, this._focused, intent ) ?? this._focused;
 
     if ( nextTarget === this._focused )
     {
@@ -221,6 +246,26 @@ class NavigationManager
     // always dispatch the blur event
     target.emit( "trigger" );
   }
+
+  private _clearFocusIfNeeded(): void
+  {
+    const responderStage = this.responders.find( isContainer ) ?? this.stage;
+
+    if ( !responderStage )
+    {
+      return;
+    }
+
+    if ( this._focused && !isChildOf( this._focused, responderStage ) )
+    {
+      this._focused = undefined;
+    }
+  }
+}
+
+function isContainer( responder: NavigationResponder ): responder is NavigationResponder & Container
+{
+  return "children" in responder;
 }
 
 /**

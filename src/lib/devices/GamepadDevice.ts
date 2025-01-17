@@ -383,18 +383,6 @@ export class GamepadDevice
           }) );
         }
 
-        // navigation
-        if (
-          Navigation.options.enabled &&
-          this.options.navigation.enabled &&
-          this.options.navigation.binds[b] !== undefined
-        )
-        {
-          setTimeout( () =>
-            Navigation.commit( this.options.navigation.binds[b], this )
-          );
-        }
-
         // check named group events
         Object.entries( this.options.namedGroups ).forEach(([ name, buttons ]) =>
         {
@@ -412,6 +400,18 @@ export class GamepadDevice
             this._emitter.emit( "group", event );
           });
         });
+
+        // navigation
+        if (
+          Navigation.options.enabled &&
+          this.options.navigation.enabled &&
+          this.options.navigation.binds[b] !== undefined
+        )
+        {
+          setTimeout( () =>
+            Navigation.commit( this.options.navigation.binds[b], this )
+          );
+        }
       }
     }
 

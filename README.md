@@ -349,6 +349,7 @@ for ( const gamepad of InputDevice.gamepads ) {
 Automatically traverse existing pointer/mouse based menus using the `Navigation` API.
 
 ```ts
+// set root container
 Navigation.stage = app.stage
 
 const button = new ButtonSprite()
@@ -377,21 +378,22 @@ You can **disable** the navigation API - either permanently or temporarily - lik
 Navigation.options.enabled = false
 ```
 
-### Navigation Hierarchy
+### NavigationResponders
 
 UIs can be complex! The Navigation API allows you to take over some - or all - of the navigation elements.
+
+You can create **NavigationResponder** controllers, which can be a `Container` that becomes the
+"root" node for navigation. It can also just be any object (like a custom manager class).
+
+It has a method called `handledNavigationIntent(): boolean` which can return a boolean saying whether
+the navigation event was handled. If you return false here, it is bubbled up to the next parent in the
+stack.
+
+To add a responder, just use `Navigation.pushResponder( responder )` - and then remove it with `Navigation.popResponder()`.
 
 ```ts
 class MyVerticalMenu implements NavigationResponder
 {
-    becameFirstResponder() {
-        console.log( "I'm in charge now!" )
-    }
-
-    resignedAsFirstResponder() {
-        console.log( "Nooo! My power is gone!" )
-    }
-
     handledNavigationIntent( intent, device ): boolean {
         if ( intent === "navigateUp" ) this.moveCursorUp()
         else if ( intent === "navigateDown" ) this.moveCursorDown()
@@ -402,6 +404,14 @@ class MyVerticalMenu implements NavigationResponder
         // intents ("navigateLeft", "navigateRight") up to the next responder
         // in the stack - which could be a parent view, etc.
         return false
+    }
+
+    becameFirstResponder() {
+        console.log( "I'm in charge now!" )
+    }
+
+    resignedAsFirstResponder() {
+        console.log( "Nooo! My power is gone!" )
     }
 }
 
