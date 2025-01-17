@@ -220,6 +220,11 @@ export declare class GamepadDevice {
 		navigation: {
 			enabled: boolean;
 			binds: Partial<Record<Button, NavigationIntent>>;
+			joystick: {
+				commitSensitivity: number;
+				repeatCooldownMs: number;
+				firstRepeatCooldownMs: number;
+			};
 		};
 		/**
 		 * The range of movement in a joystick recognized as input, to
@@ -241,11 +246,6 @@ export declare class GamepadDevice {
 			number,
 			number
 		];
-		intent: {
-			joystickCommitSensitivity: number;
-			firstCooldownMs: number;
-			defaultCooldownMs: number;
-		};
 		vibration: {
 			enabled: boolean;
 			intensity: number;

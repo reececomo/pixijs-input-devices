@@ -87,6 +87,7 @@ export class KeyboardDevice
 
     navigation: {
       enabled: true,
+
       binds: {
         "Space": "trigger",
         "Enter": "trigger",
@@ -332,33 +333,36 @@ export class KeyboardDevice
   {
     const keyCode = e.code as KeyCode;
 
-    // detect keyboard layout
-    if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )
+    if ( !e.repeat )
     {
-      const layout = detectKeyboardLayoutFromKeydown( e );
-      if ( layout !== undefined )
+      // detect keyboard layout
+      if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )
       {
-        this._layout = layout;
-        this._layoutSource = "keypress";
-        this.detectLayoutOnKeypress = false;
+        const layout = detectKeyboardLayoutFromKeydown( e );
+        if ( layout !== undefined )
+        {
+          this._layout = layout;
+          this._layoutSource = "keypress";
+          this.detectLayoutOnKeypress = false;
 
-        this._emitter.emit( "layoutdetected", {
-          layout: layout,
-          layoutSource: "keypress",
-          device: this,
-        });
+          this._emitter.emit( "layoutdetected", {
+            layout: layout,
+            layoutSource: "keypress",
+            device: this,
+          });
+        }
       }
-    }
 
-    // dispatch events
-    if ( this._emitter.hasListener( keyCode ) )
-    {
-      setTimeout( () => this._emitter.emit( keyCode, {
-        device: this,
-        keyCode,
-        keyLabel: this.getKeyLabel( keyCode ),
-        event: e,
-      }));
+      // dispatch events
+      if ( this._emitter.hasListener( keyCode ) )
+      {
+        setTimeout( () => this._emitter.emit( keyCode, {
+          device: this,
+          keyCode,
+          keyLabel: this.getKeyLabel( keyCode ),
+          event: e,
+        }));
+      }
     }
 
     // navigation
@@ -373,24 +377,27 @@ export class KeyboardDevice
       );
     }
 
-    // check named groups
-    Object.entries( this.options.namedGroups ).forEach(([ name, keys ]) =>
+    if ( !e.repeat )
     {
-      if ( !keys.includes( keyCode ) ) return;
-
-      setTimeout( () =>
+      // check named groups
+      Object.entries( this.options.namedGroups ).forEach(([ name, keys ]) =>
       {
-        const event = {
-          device: this,
-          keyCode,
-          keyLabel: this.getKeyLabel( keyCode ),
-          event: e,
-          groupName: name,
-        };
+        if ( !keys.includes( keyCode ) ) return;
 
-        this._groupEmitter.emit( name, event );
-        this._emitter.emit( "group", event );
+        setTimeout( () =>
+        {
+          const event = {
+            device: this,
+            keyCode,
+            keyLabel: this.getKeyLabel( keyCode ),
+            event: e,
+            groupName: name,
+          };
+
+          this._groupEmitter.emit( name, event );
+          this._emitter.emit( "group", event );
+        });
       });
-    });
+    }
   }
 }

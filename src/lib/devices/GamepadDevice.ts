@@ -81,6 +81,7 @@ export class GamepadDevice
 
     navigation: {
       enabled: true,
+
       binds: {
         [ Button.A ]: "trigger",
         [ Button.B ]: "navigateBack",
@@ -90,6 +91,12 @@ export class GamepadDevice
         [ Button.DPadRight ]: "navigateRight",
         [ Button.DPadUp ]: "navigateUp",
       } as Partial<Record<Button, NavigationIntent>>,
+
+      joystick: {
+        commitSensitivity: 0.5,
+        repeatCooldownMs: 80,
+        firstRepeatCooldownMs: 400,
+      },
     },
 
     /**
@@ -107,12 +114,6 @@ export class GamepadDevice
      * @default [ 0, 1 ]
      */
     triggerDeadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
-
-    intent: {
-      joystickCommitSensitivity: 0.5,
-      firstCooldownMs: 400,
-      defaultCooldownMs: 80,
-    },
 
     vibration: {
       enabled: true,
@@ -435,15 +436,17 @@ export class GamepadDevice
       || this.rightJoystick.y !== 0
     ) this.lastInteraction = now;
 
+    const jnav = this.options.navigation.joystick;
+
     // left joystick navigation: left/right
-    if ( Math.abs( this.leftJoystick.x ) >= this.options.intent.joystickCommitSensitivity )
+    if ( Math.abs( this.leftJoystick.x ) >= jnav.commitSensitivity )
     {
       const xIntent: NavigationIntent = this.leftJoystick.x < 0 ? "navigateLeft" : "navigateRight";
 
       // if we sent an intent too recently, this will slow us down.
       const cooldownDuration = this._axisIntents[ Axis.LeftStickX ]
-        ? this.options.intent.defaultCooldownMs
-        : this.options.intent.firstCooldownMs;
+        ? jnav.repeatCooldownMs
+        : jnav.firstRepeatCooldownMs;
 
       this._axisIntents[ Axis.LeftStickX ] = true;
 
@@ -461,14 +464,14 @@ export class GamepadDevice
     }
 
     // left joystick navigation: up/down
-    if ( Math.abs( this.leftJoystick.y ) >= this.options.intent.joystickCommitSensitivity )
+    if ( Math.abs( this.leftJoystick.y ) >= jnav.commitSensitivity )
     {
       const yIntent: NavigationIntent = this.leftJoystick.y < 0 ? "navigateUp" : "navigateDown";
 
       // if we sent an intent too recently, this will slow us down.
       const cooldownDuration = this._axisIntents[ Axis.LeftStickY ]
-        ? this.options.intent.defaultCooldownMs
-        : this.options.intent.firstCooldownMs;
+        ? jnav.repeatCooldownMs
+        : jnav.firstRepeatCooldownMs;
 
       this._axisIntents[ Axis.LeftStickY ] = true;
 
