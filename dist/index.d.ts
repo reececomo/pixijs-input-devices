@@ -21,7 +21,7 @@ declare module 'pixi.js' {
      * target with the largest priority is chosen.
      * @default 0
      */
-    readonly navigationPriority: number;
+    navigationPriority: number;
 
     /**
      * Whether this container is explicitly navigatable or not.
