@@ -2,45 +2,45 @@ import { KeyboardDevice } from "../KeyboardDevice";
 
 describe( "KeyboardDevice", () =>
 {
-  describe( "named groups", () =>
+  describe( "named binds", () =>
   {
-    it("correctly maps named groups to their buttons", () =>
+    it("correctly maps named binds to their buttons", () =>
     {
       const now = Date.now();
       const keyboard = KeyboardDevice.global;
       keyboard.options.navigation.enabled = false;
 
-      keyboard.options.namedGroups = {
+      keyboard.options.binds = {
         jump: [ "Space", "ControlLeft" ],
         crouch: [ "ControlLeft", "ShiftLeft" ],
       };
 
-      expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
-      expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );
+      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
+      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
 
       mockKeydown( "ShiftLeft" );
       keyboard.update( now );
 
-      expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
-      expect ( keyboard.groupPressed( "crouch" ) ).toBe( true );
+      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
+      expect( keyboard.pressedBind( "crouch" ) ).toBe( true );
 
       mockKeyup( "ShiftLeft" );
       keyboard.update( now );
 
-      expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
-      expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );
+      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
+      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
 
       mockKeydown( "ControlLeft" );
       keyboard.update( now );
 
-      expect ( keyboard.groupPressed( "jump" ) ).toBe( true );
-      expect ( keyboard.groupPressed( "crouch" ) ).toBe( true );
+      expect( keyboard.pressedBind( "jump" ) ).toBe( true );
+      expect( keyboard.pressedBind( "crouch" ) ).toBe( true );
 
       mockKeyup( "ControlLeft" );
       keyboard.update( now );
 
-      expect ( keyboard.groupPressed( "jump" ) ).toBe( false );
-      expect ( keyboard.groupPressed( "crouch" ) ).toBe( false );
+      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
+      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
     });
   });
 });

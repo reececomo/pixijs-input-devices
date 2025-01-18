@@ -58,7 +58,7 @@ declare class InputDeviceManager {
 	private readonly _gamepadDeviceMap;
 	private readonly _customDevices;
 	private readonly _emitter;
-	private readonly _groupEmitter;
+	private readonly _bindEmitter;
 	private _hasFocus;
 	private _lastInteractedDevice?;
 	private constructor();
@@ -88,12 +88,12 @@ declare class InputDeviceManager {
 	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided) */
 	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
-	/** Add a named group event listener (or all if none provided). */
-	onGroup(name: string, listener: (event: NamedGroupEvent) => void): this;
-	/** Remove a named group event listener (or all if none provided). */
-	offGroup(name: string, listener?: (event: NamedGroupEvent) => void): this;
-	/** Report a named group event (from a CustomDevice). */
-	emitGroup(e: NamedGroupEvent): void;
+	/** Add a named bind event listener (or all if none provided). */
+	onBind(name: string, listener: (event: NamedBindEvent) => void): this;
+	/** Remove a named bind event listener (or all if none provided). */
+	offBind(name: string, listener?: (event: NamedBindEvent) => void): this;
+	/** Report a named bind event (from a CustomDevice). */
+	emitBind(e: NamedBindEvent): void;
 	/** Add a custom device. */
 	add(device: Device): void;
 	/** Remove a custom device. */
@@ -204,24 +204,24 @@ export declare class GamepadDevice {
 		 */
 		remapNintendoMode: RemapNintendoMode;
 		/**
-		 * Create named groups of buttons.
+		 * Create named binds of buttons.
 		 *
-		 * This can be used with `groupPressed( name )`.
+		 * This can be used with `pressedBind( name )`.
 		 *
 		 * @example
 		 * // set by names
-		 * Gamepad.defaultOptions.namedGroups = {
+		 * Gamepad.defaultOptions.binds = {
 		 *   jump: [ "A" ],
 		 *   crouch: [ "X" ],
 		 * }
 		 *
 		 * // check by named presses
-		 * if ( gamepad.groupPressed( "jump" ) )
+		 * if ( gamepad.pressedBind( "jump" ) )
 		 * {
 		 *   // ...
 		 * }
 		 */
-		namedGroups: Partial<Record<string, ButtonCode[]>>;
+		binds: Partial<Record<string, ButtonCode[]>>;
 		navigation: {
 			enabled: boolean;
 			binds: Partial<Record<Button, NavigationIntent>>;
@@ -290,7 +290,7 @@ export declare class GamepadDevice {
 	private readonly _throttleIdLeftStickX;
 	private readonly _throttleIdLeftStickY;
 	private readonly _emitter;
-	private readonly _groupEmitter;
+	private readonly _bindEmitter;
 	/** A scalar 0.0 to 1.0 representing the left trigger value */
 	leftTrigger: number;
 	/** A scalar 0.0 to 1.0 representing the right trigger value */
@@ -299,20 +299,20 @@ export declare class GamepadDevice {
 	leftShoulder: number;
 	/** A scalar 0.0 to 1.0 representing the right shoulder value */
 	rightShoulder: number;
-	/** @returns true if any button from the named group is pressed. */
-	groupPressed(name: string): boolean;
+	/** @returns true if any button from the named bind is pressed. */
+	pressedBind(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
-	anyPressed(btns: ButtonCode[]): boolean;
+	pressedAny(btns: ButtonCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
-	allPressed(btns: ButtonCode[]): boolean;
+	pressedAll(btns: ButtonCode[]): boolean;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
-	/** Add a named group event listener (or all if none provided). */
-	onGroup(name: string, listener: (event: GamepadNamedGroupButtonPressEvent) => void): this;
-	/** Remove a named group event listener (or all if none provided). */
-	offGroup(name: string, listener?: (event: GamepadNamedGroupButtonPressEvent) => void): this;
+	/** Add a named bind event listener (or all if none provided). */
+	onBind(name: string, listener: (event: GamepadNamedBindButtonPressEvent) => void): this;
+	/** Remove a named bind event listener (or all if none provided). */
+	offBind(name: string, listener?: (event: GamepadNamedBindButtonPressEvent) => void): this;
 	/**
 	 * Play a vibration effect (if supported).
 	 *
@@ -348,13 +348,13 @@ export declare class KeyboardDevice {
 	detected: boolean;
 	options: {
 		/**
-		 * Create named groups of buttons.
+		 * Create named binds of buttons.
 		 *
-		 * This can be used with `groupPressed( name )`.
+		 * This can be used with `pressedBind( name )`.
 		 *
 		 * @example
 		 * // set by names
-		 * Keyboard.options.namedGroups = {
+		 * Keyboard.options.binds = {
 		 *   jump: [ "ArrowUp", "KeyW" ],
 		 *   left: [ "ArrowLeft", "KeyA" ],
 		 *   crouch: [ "ArrowDown", "KeyS" ],
@@ -362,12 +362,12 @@ export declare class KeyboardDevice {
 		 * }
 		 *
 		 * // check by named presses
-		 * if ( keyboard.groupPressed( "jump" ) )
+		 * if ( keyboard.pressedBind( "jump" ) )
 		 * {
 		 *   // ...
 		 * }
 		 */
-		namedGroups: Partial<Record<string, KeyCode[]>>;
+		binds: Partial<Record<string, KeyCode[]>>;
 		navigation: {
 			enabled: boolean;
 			binds: NavigationBinds;
@@ -376,7 +376,7 @@ export declare class KeyboardDevice {
 	/** Accessors for keys */
 	key: Record<KeyCode, boolean>;
 	private readonly _emitter;
-	private readonly _groupEmitter;
+	private readonly _bindEmitter;
 	private _layout;
 	private _layoutSource;
 	private _deferredKeydown;
@@ -403,20 +403,20 @@ export declare class KeyboardDevice {
 	set layout(value: KeyboardLayout);
 	/** How the keyboard layout was determined. */
 	get layoutSource(): KeyboardLayoutSource;
-	/** @returns true if any key from the named group is pressed. */
-	groupPressed(name: string): boolean;
+	/** @returns true if any key from the named bind is pressed. */
+	pressedBind(name: string): boolean;
 	/** @returns true if any of the given keys are pressed. */
-	anyPressed(keys: KeyCode[]): boolean;
+	pressedAny(keys: KeyCode[]): boolean;
 	/** @returns true if all of the given keys are pressed. */
-	allPressed(keys: KeyCode[]): boolean;
+	pressedAll(keys: KeyCode[]): boolean;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
-	/** Add a named group event listener (or all if none provided). */
-	onGroup(name: string, listener: (event: KeyboardDeviceNamedGroupKeydownEvent) => void): this;
-	/** Remove a named group event listener (or all if none provided). */
-	offGroup(name: string, listener?: (event: KeyboardDeviceNamedGroupKeydownEvent) => void): this;
+	/** Add a named bind event listener (or all if none provided). */
+	onBind(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
+	/** Remove a named bind event listener (or all if none provided). */
+	offBind(name: string, listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
 	/**
 	 * Get the label for the given key code in the current keyboard
 	 * layout. Attempts to use the Navigator KeyboardLayoutMap API
@@ -432,9 +432,7 @@ export declare class KeyboardDevice {
 	 */
 	getKeyLabel(key: KeyCode, layout?: KeyboardLayout): string;
 	/**
-	 * Process pending keyboard events.
-	 *
-	 * @returns any group events to trigger
+	 * Process deferred keyboard events.
 	 */
 	update(now: number): void;
 	/**
@@ -658,8 +656,8 @@ export interface GamepadButtonPressEvent {
 	button: Button;
 	buttonCode: ButtonCode;
 }
-export interface GamepadNamedGroupButtonPressEvent extends GamepadButtonPressEvent {
-	groupName: string;
+export interface GamepadNamedBindButtonPressEvent extends GamepadButtonPressEvent {
+	name: string;
 }
 export interface InputDeviceEvent {
 	deviceadded: {
@@ -681,8 +679,8 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 	layout: KeyboardLayout;
 	layoutSource: KeyboardLayoutSource;
 }
-export interface KeyboardDeviceNamedGroupKeydownEvent extends KeyboardDeviceKeydownEvent {
-	groupName: string;
+export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydownEvent {
+	name: string;
 }
 /**
  * A target that responds to navigation on the stack.
@@ -722,7 +720,7 @@ export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 export type GamepadDeviceEvent = {
-	group: GamepadNamedGroupButtonPressEvent;
+	bind: GamepadNamedBindButtonPressEvent;
 } & {
 	[button in ButtonCode]: GamepadButtonPressEvent;
 } & {
@@ -734,15 +732,15 @@ export type GamepadVibration = GamepadEffectParameters & {
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
-	group: KeyboardDeviceNamedGroupKeydownEvent;
+	bind: KeyboardDeviceNamedBindKeydownEvent;
 } & {
 	[key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
-export type NamedGroupEvent = {
+export type NamedBindEvent = {
 	device: Device;
-	groupName: string;
+	name: string;
 };
 export type NavigatableContainer = Container;
 export type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;

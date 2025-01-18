@@ -12,9 +12,9 @@ export interface InputDeviceEvent {
 
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 
-type NamedGroupEvent = {
+type NamedBindEvent = {
   device: Device;
-  groupName: string;
+  name: string;
 }
 
 class InputDeviceManager
@@ -48,7 +48,7 @@ class InputDeviceManager
   private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
   private readonly _customDevices: CustomDevice[] = [];
   private readonly _emitter = new EventEmitter<InputDeviceEvent>();
-  private readonly _groupEmitter = new EventEmitter<Record<string, NamedGroupEvent>>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, NamedBindEvent>>();
 
   private _hasFocus: boolean = false;
   private _lastInteractedDevice?: Device;
@@ -63,7 +63,7 @@ class InputDeviceManager
     else window.addEventListener( "keydown", () => this.add( this.keyboard ), { once: true }); // defer until used
 
     // configure gamepads:
-    window.addEventListener( "gamepadconnected", () => this._pollGamepads( performance.now() )); // trigger register
+    window.addEventListener( "gamepadconnected", () => this._pollGamepads( performance.now() )); // register
     window.addEventListener( "gamepaddisconnected", ( e ) => this._removeGamepad( e.gamepad.index ));
   }
 
@@ -127,30 +127,30 @@ class InputDeviceManager
     return this;
   }
 
-  /** Add a named group event listener (or all if none provided). */
-  public onGroup(
+  /** Add a named bind event listener (or all if none provided). */
+  public onBind(
     name: string,
-    listener: ( event: NamedGroupEvent ) => void
+    listener: ( event: NamedBindEvent ) => void
   ): this
   {
-    this._groupEmitter.on( name, listener );
+    this._bindEmitter.on( name, listener );
     return this;
   }
 
-  /** Remove a named group event listener (or all if none provided). */
-  public offGroup(
+  /** Remove a named bind event listener (or all if none provided). */
+  public offBind(
     name: string,
-    listener?: ( event: NamedGroupEvent ) => void
+    listener?: ( event: NamedBindEvent ) => void
   ): this
   {
-    this._groupEmitter.off( name, listener );
+    this._bindEmitter.off( name, listener );
     return this;
   }
 
-  /** Report a named group event (from a CustomDevice). */
-  public emitGroup( e: NamedGroupEvent ): void
+  /** Report a named bind event (from a CustomDevice). */
+  public emitBind( e: NamedBindEvent ): void
   {
-    this._groupEmitter.emit( e.groupName, e );
+    this._bindEmitter.emit( e.name, e );
   }
 
   // ----- Devices: -----
@@ -169,16 +169,16 @@ class InputDeviceManager
     {
       device.detected = true;
 
-      // forward group events
-      device.on( "group", (e) => this.emitGroup(e) );
+      // forward named bind events
+      device.on( "bind", (e) => this.emitBind(e) );
     }
     else if ( device instanceof GamepadDevice )
     {
       this._gamepadDeviceMap.set( device.source.index, device );
       this._gamepadDevices.push( device );
 
-      // forward group events
-      device.on( "group", (e) => this.emitGroup(e) );
+      // forward named bind events
+      device.on( "bind", (e) => this.emitBind(e) );
     }
     else
     {
@@ -238,7 +238,10 @@ class InputDeviceManager
     if ( this.keyboard.detected ) this.keyboard.update( now );
 
     // gamepads
-    this._pollGamepads( now );
+    if ( this._gamepadDevices.length > 0 )
+    {
+      this._pollGamepads( now );
+    }
 
     // custom
     if ( this._customDevices.length > 0 )

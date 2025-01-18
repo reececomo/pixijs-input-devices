@@ -21,13 +21,13 @@ export interface GamepadButtonPressEvent {
   buttonCode: ButtonCode;
 }
 
-export interface GamepadNamedGroupButtonPressEvent extends GamepadButtonPressEvent {
-  groupName: string;
+export interface GamepadNamedBindButtonPressEvent extends GamepadButtonPressEvent {
+  name: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type GamepadDeviceEvent = {
-  group: GamepadNamedGroupButtonPressEvent;
+  bind: GamepadNamedBindButtonPressEvent;
 } & {
   [button in ButtonCode]: GamepadButtonPressEvent;
 } & {
@@ -59,25 +59,24 @@ export class GamepadDevice
     remapNintendoMode: "physical" as RemapNintendoMode,
 
     /**
-     * Create named groups of buttons.
+     * Create named binds of buttons.
      *
-     * This can be used with `groupPressed( name )`.
+     * This can be used with `pressedBind( name )`.
      *
      * @example
      * // set by names
-     * Gamepad.defaultOptions.namedGroups = {
+     * Gamepad.defaultOptions.binds = {
      *   jump: [ "A" ],
      *   crouch: [ "X" ],
      * }
      *
      * // check by named presses
-     * if ( gamepad.groupPressed( "jump" ) )
+     * if ( gamepad.pressedBind( "jump" ) )
      * {
      *   // ...
      * }
      */
-    namedGroups: {
-    } as Partial<Record<string, ButtonCode[]>>,
+    binds: {} as Partial<Record<string, ButtonCode[]>>,
 
     navigation: {
       enabled: true,
@@ -174,7 +173,7 @@ export class GamepadDevice
   private readonly _throttleIdLeftStickX: string;
   private readonly _throttleIdLeftStickY: string;
   private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
-  private readonly _groupEmitter = new EventEmitter<Record<string, GamepadNamedGroupButtonPressEvent>>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindButtonPressEvent>>();
 
   // ----- Triggers: -----
 
@@ -189,15 +188,15 @@ export class GamepadDevice
 
   // ----- Button helpers: -----
 
-  /** @returns true if any button from the named group is pressed. */
-  public groupPressed( name: string ): boolean
+  /** @returns true if any button from the named bind is pressed. */
+  public pressedBind( name: string ): boolean
   {
-    if ( this.options.namedGroups[name] === undefined ) return false;
-    return this.anyPressed( this.options.namedGroups[name] );
+    if ( this.options.binds[name] === undefined ) return false;
+    return this.pressedAny( this.options.binds[name] );
   }
 
   /** @returns true if any of the given buttons are pressed. */
-  public anyPressed( btns: ButtonCode[] ): boolean
+  public pressedAny( btns: ButtonCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -208,7 +207,7 @@ export class GamepadDevice
   }
 
   /** @returns true if all of the given buttons are pressed. */
-  public allPressed( btns: ButtonCode[] ): boolean
+  public pressedAll( btns: ButtonCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -242,23 +241,23 @@ export class GamepadDevice
     return this;
   }
 
-  /** Add a named group event listener (or all if none provided). */
-  public onGroup(
+  /** Add a named bind event listener (or all if none provided). */
+  public onBind(
     name: string,
-    listener: ( event: GamepadNamedGroupButtonPressEvent ) => void
+    listener: ( event: GamepadNamedBindButtonPressEvent ) => void
   ): this
   {
-    this._groupEmitter.on( name, listener );
+    this._bindEmitter.on( name, listener );
     return this;
   }
 
-  /** Remove a named group event listener (or all if none provided). */
-  public offGroup(
+  /** Remove a named bind event listener (or all if none provided). */
+  public offBind(
     name: string,
-    listener?: ( event: GamepadNamedGroupButtonPressEvent ) => void
+    listener?: ( event: GamepadNamedBindButtonPressEvent ) => void
   ): this
   {
-    this._groupEmitter.off( name, listener );
+    this._bindEmitter.off( name, listener );
     return this;
   }
 
@@ -383,8 +382,8 @@ export class GamepadDevice
           }) );
         }
 
-        // check named group events
-        Object.entries( this.options.namedGroups ).forEach(([ name, buttons ]) =>
+        // check named bind events
+        Object.entries( this.options.binds ).forEach(([ name, buttons ]) =>
         {
           if ( !buttons.includes(buttonCode) ) return;
 
@@ -393,11 +392,11 @@ export class GamepadDevice
               device: this,
               button: b,
               buttonCode,
-              groupName: name,
+              name: name,
             };
 
-            this._groupEmitter.emit( name, event );
-            this._emitter.emit( "group", event );
+            this._bindEmitter.emit( name, event );
+            this._emitter.emit( "bind", event );
           });
         });
 

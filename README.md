@@ -7,7 +7,7 @@
 | 🎮 Handles [keyboards](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 Flexible [low-level](#real-time) and [event-driven](#keyboarddevice-events) APIs |
 | 🔮 Resolves browser API inconsistencies <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup> | 🧭 Seamless [navigation](#navigation-api) for pointer/mouse based UIs |
 | 📱 Powerful configuration options, sensible defaults | 🌐 Automatic i18n (built-in [internationalization](#keyboard-layout---detection)) |
-| ⚡ Optimized for speed (best-in-class [INP performance](https://web.dev/articles/inp)) | 🔀 Named binds (for [user-configurable inputs](#named-input-groups)) |
+| ⚡ Optimized for speed (best-in-class [INP performance](https://web.dev/articles/inp)) | 🔀 Named binds (for [user-configurable inputs](#named-binds)) |
 | 🍃 Zero dependencies & tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
 
 
@@ -198,7 +198,7 @@ InputDevice.keyboard.layoutSource  // "manual"
 | Event | Description | Payload |
 |---|---|---|
 | `"layoutdetected"` | `{layout,layoutSource,device}` | The keyboard layout (`"QWERTY"`, `"QWERTZ"`, `"AZERTY"`, or `"JCUKEN"`) has been detected, either from the native API or from keypresses. |
-| `"group"` | `{groupName,event,keyCode,keyLabel,device}` | A **named input group** key was pressed. |
+| `"bind"` | `{name,event,keyCode,keyLabel,device}` | A **named bind** key was pressed. |
 | **Key presses:** | | |
 | `"KeyA"` | `{event,keyCode,keyLabel,device}` | The `"KeyA"` was pressed. |
 | `"KeyB"` | `{event,keyCode,keyLabel,device}` | The `"KeyB"` was pressed. |
@@ -311,7 +311,7 @@ GamepadDevice.defaultOptions.remapNintendoMode = "none"
 
 | Event | Description | Payload |
 |---|---|---|
-| `"group"` | `{groupName,button,buttonCode,device}` | A **named input group** button was pressed. |
+| `"bind"` | `{name,button,buttonCode,device}` | A **named bind** button was pressed. |
 | **Button presses:** | | |
 | `"A"` | `{button,buttonCode,device}` | Standard layout button `"A"` was pressed. Equivalent to `0`. |
 | `"B"` | `{button,buttonCode,device}` | Standard layout button `"B"` was pressed. Equivalent to `1`. |
@@ -343,9 +343,9 @@ export const myDevice: CustomDevice = {
 InputDevice.add( myDevice )
 ```
 
-## Named Input Groups
+## Named Binds
 
-Use named "groups" to create named inputs that can be referenced.
+Use _named binds_ to create mappings between abstract inputs and the keys/buttons that trigger those inputs.
 
 This allows you to change the keys/buttons later (e.g. allow users to override inputs).
 
@@ -371,7 +371,7 @@ These can then be used with either the real-time and event-based APIs.
 
 ```ts
 // listen to all devices:
-InputDevice.onBind( "toggle_graphics", ( e ) => toggleGraphics() )
+InputDevice.onBind( "toggleGraphics", ( e ) => toggleGraphics() )
 
 // listen to specific devices:
 InputDevice.keyboard.onBind( "jump", ( e ) => doJump() )
@@ -402,109 +402,49 @@ for ( const gamepad of InputDevice.gamepads ) {
 
 ## Navigation API
 
-_Automatically traverse existing pointer/mouse based menus using the `Navigation` API._
+_Traverse a UI using input devices._
 
-Devices may issue navigation intents (e.g. `"navigateLeft"`, `"navigateRight"`, `"trigger"`), and the `Navigation` object is responsible for handling the event.
+The Navigation API is centered around a central **Navigation** controller, which listens to navigation intents from devices,
+then handles the intent.
 
-It does this by:
-1. Iterating through its stack of **Navigation Responders** to check whether any of them handled the intent directly
-2. If not handled, then it checks the **current root container** to see if it can handle the intent.
+The **Navigation** controller maintains a stack of `NavigationResponder` objects, which represent the **current navigation context**. For
+example, you might add a `NavigationResponder` for a drop-down UI. A normal `Container` can be used as a `NavigationResponder`, and any
+container on the stack will become the **current root container**.
 
 > [!NOTE]
 > The **current root container** is the top-most `Container` on the navigation responder stack, or otherwise `Navigation.stage`.
 
-### Disable Navigation
+When a device sends a navigation intent, the **Navigation** controller is responsible for asking each of the responders on the stack
+if it can handle the intent. If it can't, it is propagated up all the way to the **current root container**.
 
-You can **disable** the navigation API (either permanently or temporarily):
+### Default UI Navigation Behavior
 
-```ts
-Navigation.options.enabled = false
-```
+When a navigation intent is **not** handled manually by a responder, it is handled in one of the following ways:
 
-### Navigation Responders
-
-UIs can be complex! The Navigation API allows you to take over some - or all - of the navigation elements.
-
-You can create **NavigationResponder** controllers, which can be a `Container` that becomes the
-"root" node for navigation. It can also just be any object (like a custom manager class).
-
-It has a method called `handledNavigationIntent(): boolean` which can return a boolean saying whether
-the navigation event was handled. If you return false here, it is bubbled up to the next parent in the
-stack.
-
-To add a responder, just use `Navigation.pushResponder( responder )` - and then remove it with `Navigation.popResponder()`.
-
-```ts
-class MyVerticalMenu implements NavigationResponder
-{
-    // don't auto-focus to the first navigatable element when pushing
-    // this responder onto the stack
-    autoFocus = false
-
-    handledNavigationIntent( intent, device ): boolean {
-        if ( intent === "navigateUp" ) this.moveCursorUp()
-        else if ( intent === "navigateDown" ) this.moveCursorDown()
-        else if ( intent === "navigateBack" ) this.loseFocus()
-        else if ( intent === "trigger" ) this.clickCursorItem()
-
-        // we are going to return false here, which will propagates unhandled
-        // intents ("navigateLeft", "navigateRight") up to the next responder
-        // in the stack - which could be a parent view, etc.
-        return false
-    }
-
-    becameFirstResponder() {
-        console.log( "I'm in charge now!" )
-    }
-
-    resignedAsFirstResponder() {
-        console.log( "Nooo! My power is gone!" )
-    }
-}
-
-const myMenu = new MyVerticalMenu()
-Navigation.pushResponder( myMenu )
-```
-
-In a game, you might use this to disable navigation outside of menus:
-
-```ts
-class GameScene implements NavigationResponder
-{
-    handledNavigationIntent( intent, device ) {
-        // ignore navigation intents, but allow other navigatable
-        // views to be pushed on top of me - e.g. a dialog window:
-        return true
-    }
-}
-```
-
-### Global Navigation Intents - Behavior
-
-When a navigation intent is **not** handled by a responder, they are handled in the following way:
-
-| Action|Behavior|
+| Intent | Behavior |
 |---|---|
-|`"navigateBack"`|Not handled in the global context.|
+|`"navigateBack"`|<ul><li>No action.</li></ul>|
 |`"navigateLeft"`, `"navigateRight"`, `"navigateUp"`, `"navigateDown"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, fires a `"focus"` event on it.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"` or `"mouseover"` (in that order), it will fire that too.</li><li>If we were previously focused on a container, that previous container fires a `"blur"` event.</li><li>If the blurred container has register an event handler for either `"pointerout"` or `"mouseout"` (in that order), that event handler will be fired too.</li></ul>|
 |`"trigger"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"trigger"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"` or `"mousedown"` (in that order), that event handler will be fired too.</li></ul>|
 
-```ts
-// set root container
-Navigation.stage = app.stage
+Container event  | Description | Equivalent
+-----------------|--------------------------------------------------------
+`trigger`        | Target was triggered. | `"pointerdown"`, `"mousedown"`
+`focus`          | Target became focused. | `"pointerover"`, `"mouseover"`
+`blur`           | Target lost focus. | `"pointerout"`, `"mouseout"`
 
-const button = new ButtonSprite()
-button.on( "mousedown", () => button.run( clickAnimation ) )
-button.on( "mouseout", () => button.run( resetAnimation ) )
-button.on( "mouseover", () => button.run( hoverAnimation ) )
+### Container Navigation
 
-app.stage.addChild( button )
+Containers are extended with a few properties/accesors:
 
-button.isNavigatable  // true
-```
+Container properties | type | default | description
+---------------------|------|---------|--------------
+`isNavigatable`      | `get(): boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
+`navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
+`navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
 
 > [!NOTE]
-> **isNavigatable:** By default, any element with `"mousedown"` or `"pointerdown"` handlers is navigatable.
+> **isNavigatable:** By default, any element with `"pointerdown"` or `"mousedown"` handlers is navigatable.
 
 > [!WARNING]
 > **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `Navigation`
@@ -512,35 +452,13 @@ button.isNavigatable  // true
 > can be disabled by setting `Navigation.options.useFallbackHoverEffect` to `false`.
 
 
-### Default Navigation Binds
+### Disable Navigation
 
-Keyboard and gamepad devices are configured with a few default binds for navigation.
+You can **disable** the navigation API entirely, either permanently or temporaril):
 
-The default binds are below:
-
-Navigation Intent | Keyboard               | Gamepad
-------------------|------------------------|-----------------------------------
-`"navigateLeft"`  | `ArrowLeft`, `KeyA`    | Left Joystick (Left), `DPadLeft`
-`"navigateRight"` | `ArrowRight`, `KeyD`   | Left Joystick (Right), `DPadRight`
-`"navigateUp"`    | `ArrowUp`, `KeyW`      | Left Joystick (Up), `DPadDown`
-`"navigateDown"`  | `ArrowDown`, `KeyS`    | Left Joystick (Down), `DPadUp`
-`"navigateBack"`  | `Escape`, `Backspace`  | `B`, `Back`
-`"trigger"`       | `Enter,` `Space`       | `A`
-
-These can be manually configured in `<device>.options.navigation.binds`.
-
-#### Container Mixin
-
-Container properties | type | default | description
----------------------|------|---------|--------------
-`isNavigatable`      | `boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
-`navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
-`navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
-
-Container events  | description
-------------------|--------------------------------------------------------
-`focus`           | Target became focused.
-`blur`            | Target lost focus.
+```ts
+Navigation.options.enabled = false
+```
 
 
 ## Advanced usage

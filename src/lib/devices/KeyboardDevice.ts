@@ -21,13 +21,13 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
   layoutSource: KeyboardLayoutSource;
 }
 
-export interface KeyboardDeviceNamedGroupKeydownEvent extends KeyboardDeviceKeydownEvent {
-  groupName: string;
+export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydownEvent {
+  name: string;
 }
 
 export type KeyboardDeviceEvent = {
   layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
-  group: KeyboardDeviceNamedGroupKeydownEvent;
+  bind: KeyboardDeviceNamedBindKeydownEvent;
 } & {
   [key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
@@ -64,13 +64,13 @@ export class KeyboardDevice
 
   public options = {
     /**
-     * Create named groups of buttons.
+     * Create named binds of buttons.
      *
-     * This can be used with `groupPressed( name )`.
+     * This can be used with `pressedBind( name )`.
      *
      * @example
      * // set by names
-     * Keyboard.options.namedGroups = {
+     * Keyboard.options.binds = {
      *   jump: [ "ArrowUp", "KeyW" ],
      *   left: [ "ArrowLeft", "KeyA" ],
      *   crouch: [ "ArrowDown", "KeyS" ],
@@ -78,12 +78,12 @@ export class KeyboardDevice
      * }
      *
      * // check by named presses
-     * if ( keyboard.groupPressed( "jump" ) )
+     * if ( keyboard.pressedBind( "jump" ) )
      * {
      *   // ...
      * }
      */
-    namedGroups: {} as Partial<Record<string, KeyCode[]>>,
+    binds: {} as Partial<Record<string, KeyCode[]>>,
 
     navigation: {
       enabled: true,
@@ -114,7 +114,7 @@ export class KeyboardDevice
     }, {} as any );
 
   private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
-  private readonly _groupEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedGroupKeydownEvent>>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
 
   private _layout: KeyboardLayout;
   private _layoutSource: KeyboardLayoutSource;
@@ -181,15 +181,15 @@ export class KeyboardDevice
 
   // ----- Methods: -----
 
-  /** @returns true if any key from the named group is pressed. */
-  public groupPressed( name: string ): boolean
+  /** @returns true if any key from the named bind is pressed. */
+  public pressedBind( name: string ): boolean
   {
-    if ( this.options.namedGroups[name] === undefined ) return false;
-    return this.anyPressed( this.options.namedGroups[name] );
+    if ( this.options.binds[name] === undefined ) return false;
+    return this.pressedAny( this.options.binds[name] );
   }
 
   /** @returns true if any of the given keys are pressed. */
-  public anyPressed( keys: KeyCode[] ): boolean
+  public pressedAny( keys: KeyCode[] ): boolean
   {
     for ( let i = 0; i < keys.length; i++ )
     {
@@ -200,7 +200,7 @@ export class KeyboardDevice
   }
 
   /** @returns true if all of the given keys are pressed. */
-  public allPressed( keys: KeyCode[] ): boolean
+  public pressedAll( keys: KeyCode[] ): boolean
   {
     for ( let i = 0; i < keys.length; i++ )
     {
@@ -232,23 +232,23 @@ export class KeyboardDevice
     return this;
   }
 
-  /** Add a named group event listener (or all if none provided). */
-  public onGroup(
+  /** Add a named bind event listener (or all if none provided). */
+  public onBind(
     name: string,
-    listener: ( event: KeyboardDeviceNamedGroupKeydownEvent ) => void
+    listener: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void
   ): this
   {
-    this._groupEmitter.on( name, listener );
+    this._bindEmitter.on( name, listener );
     return this;
   }
 
-  /** Remove a named group event listener (or all if none provided). */
-  public offGroup(
+  /** Remove a named bind event listener (or all if none provided). */
+  public offBind(
     name: string,
-    listener?: ( event: KeyboardDeviceNamedGroupKeydownEvent ) => void
+    listener?: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void
   ): this
   {
-    this._groupEmitter.off( name, listener );
+    this._bindEmitter.off( name, listener );
     return this;
   }
 
@@ -276,9 +276,7 @@ export class KeyboardDevice
   }
 
   /**
-   * Process pending keyboard events.
-   *
-   * @returns any group events to trigger
+   * Process deferred keyboard events.
    */
   public update( now: number ): void
   {
@@ -364,8 +362,8 @@ export class KeyboardDevice
         }));
       }
 
-      // check named groups
-      Object.entries( this.options.namedGroups ).forEach(([ name, keys ]) =>
+      // check named binds
+      Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
       {
         if ( !keys.includes( keyCode ) ) return;
 
@@ -376,11 +374,11 @@ export class KeyboardDevice
             keyCode,
             keyLabel: this.getKeyLabel( keyCode ),
             event: e,
-            groupName: name,
+            name: name,
           };
 
-          this._groupEmitter.emit( name, event );
-          this._emitter.emit( "group", event );
+          this._bindEmitter.emit( name, event );
+          this._emitter.emit( "bind", event );
         });
       });
     }
