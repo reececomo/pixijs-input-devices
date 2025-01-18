@@ -68,18 +68,14 @@ yarn add pixijs-input-devices --dev
 **2.** Register the update loop:
 
 ```ts
-import * as PIXI from 'pixi.js';
+import { Ticker } from 'pixi.js';
 import { InputDevice } from 'pixijs-input-devices';
 
-// register `InputDevice.update()` with shared ticker
 Ticker.shared.add(ticker => InputDevice.update());
 ```
 
 > [!TIP]
-> **Input polling:** In the context of a video game, you may want to put the input update at the start of your game event loop insteaad
-
-> [!NOTE]
-> _If not using a PixiJS ticker, then just put `Action.tick(elapsedMs)` in the appropriate equivalent place (i.e. your `requestAnimationFrame()` render loop)._
+> **Input polling:** In the context of a video game, you may want to put the input update at the start of your game event loop instead.
 
 **3.** (Optional) enable the Navigation API
 
