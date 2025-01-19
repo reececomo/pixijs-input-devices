@@ -4,10 +4,10 @@
 
 | | |
 | ------ | ------ |
-| 🎮 Handles [keyboards](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 Flexible [low-level](#real-time) and [event-driven](#keyboarddevice-events) APIs |
-| 🔮 Resolves browser API inconsistencies <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup> | 🧭 Seamless [navigation](#navigation-api) for pointer/mouse based UIs |
-| 📱 Powerful configuration options, sensible defaults | 🌐 Automatic i18n (built-in [internationalization](#keyboard-layout---detection)) |
-| ⚡ Optimized for speed (best-in-class [INP performance](https://web.dev/articles/inp)) | 🔀 Named binds (for [user-configurable inputs](#named-binds)) |
+| 🎮 Handles [keyboards](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 Flexible [update](#real-time) and [event-driven](#keyboarddevice-events) APIs |
+| ⚡ Optimized for [INP performance](https://web.dev/articles/inp) | 🪄 Built-in [named binds](#named-binds) |
+| 🔮 Highly configurable | 🌐 Built-in [international keyboard](#keyboard-layout---detection) support |
+| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🧭 Built-in [UI navigation](#navigation-api) _(optional)_ |
 | 🍃 Zero dependencies & tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
 
 
