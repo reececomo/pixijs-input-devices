@@ -2,7 +2,7 @@ import { Container } from "pixi.js";
 
 
 type NavigatableContainer = Container;
-type NavigationDirection = "navigateLeft" | "navigateRight" | "navigateUp" | "navigateDown";
+type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
 
 /**
  * @returns all navigatable containers in some container
@@ -12,7 +12,7 @@ export function getAllNavigatables(
   navigatables: NavigatableContainer[] = []
 ): NavigatableContainer[]
 {
-  for ( const child of target.children )
+  for ( const child of target.children ?? [] )
   {
     if ( ( child as any ).isNavigatable )
     {
@@ -35,15 +35,18 @@ export function getFirstNavigatable(
   currentFocus?: Container,
   nearestDirection?: NavigationDirection,
   {
-    minimumDistance = 3,
+    minimumDistance = 0,
   } = {}
 ): NavigatableContainer | undefined
 {
   const navigatables = getAllNavigatables( root );
 
-  return chooseFirstNavigatableInDirection( navigatables, currentFocus, nearestDirection, {
+  return chooseFirstNavigatableInDirection(
+    navigatables,
+    currentFocus,
+    nearestDirection,
     minimumDistance,
-  });
+  );
 }
 
 export function isChildOf(
@@ -66,9 +69,7 @@ function chooseFirstNavigatableInDirection(
   navigatables: NavigatableContainer[],
   currentFocus?: Container,
   nearestDirection?: NavigationDirection,
-  {
-    minimumDistance = 3,
-  } = {}
+  minimumDistance: number = 0,
 ): NavigatableContainer | undefined
 {
   const elements = navigatables
@@ -103,61 +104,64 @@ function chooseFirstNavigatableInDirection(
     return navigatables[0] ?? fallbackElement;
   }
 
+  const focusedGlobalPos = focusedElement.getGlobalPosition();
   const focusedBounds = focusedElement.getBounds();
   const focusedCenter = {
-    x: focusedBounds.left + focusedBounds.width / 2,
-    y: focusedBounds.top + focusedBounds.height / 2,
+    x: focusedGlobalPos.x + focusedBounds.left + focusedBounds.width / 2,
+    y: focusedGlobalPos.y + focusedBounds.top + focusedBounds.height / 2,
   };
 
   const otherElements = elements
     .filter( ( el ) => el !== focusedElement )
     .map( ( el ) =>
     {
+      const globalPos = el.getGlobalPosition();
       const bounds = el.getBounds();
 
       const center = {
-        x: bounds.left + bounds.width / 2,
-        y: bounds.top + bounds.height / 2,
+        x: globalPos.x + bounds.left + bounds.width / 2,
+        y: globalPos.y + bounds.top + bounds.height / 2,
       };
 
       return {
         element: el,
         bounds: bounds,
         center: center,
-        distSqrd: squaredDist( center, focusedCenter ),
+        xDistSqrd: weightedDistSquared( center, focusedCenter, 1, 3 ),
+        yDistSqrd: weightedDistSquared( center, focusedCenter, 3, 1 ),
       };
     });
 
   switch ( nearestDirection )
   {
-    case "navigateUp": {
+    case "navigate.up": {
       const sortedUp = otherElements
         .filter( ( el ) => el.center.y < focusedCenter.y - minimumDistance )
-        .sort( ( a, b ) => a.distSqrd - b.distSqrd );
+        .sort( ( a, b ) => a.yDistSqrd - b.yDistSqrd );
 
       return sortedUp[0]?.element ?? fallbackElement;
     }
 
-    case "navigateLeft": {
+    case "navigate.left": {
       const sortedLeft = otherElements
         .filter( ( el ) => el.center.x < focusedCenter.x - minimumDistance )
-        .sort( ( a, b ) => a.distSqrd - b.distSqrd );
+        .sort( ( a, b ) => a.xDistSqrd - b.xDistSqrd );
 
       return sortedLeft[0]?.element ?? fallbackElement;
     }
 
-    case "navigateRight": {
+    case "navigate.right": {
       const sortedRight = otherElements
         .filter( ( el ) => el.center.x > focusedCenter.x + minimumDistance )
-        .sort( ( a, b ) => a.distSqrd - b.distSqrd );
+        .sort( ( a, b ) => a.xDistSqrd - b.xDistSqrd );
 
       return sortedRight[0]?.element ?? fallbackElement;
     }
 
-    case "navigateDown": {
+    case "navigate.down": {
       const sortedDown = otherElements
         .filter( ( el ) => el.center.y > focusedCenter.y + minimumDistance )
-        .sort( ( a, b ) => a.distSqrd - b.distSqrd );
+        .sort( ( a, b ) => a.yDistSqrd - b.yDistSqrd );
 
       return sortedDown[0]?.element ?? fallbackElement;
     }
@@ -168,18 +172,20 @@ function chooseFirstNavigatableInDirection(
   }
 }
 
-function squaredDist(
+function weightedDistSquared(
   a: { x: number, y : number },
-  b: { x: number, y : number }
+  b: { x: number, y : number },
+  xw: number,
+  yw: number
 ): number
 {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
 
-  return dx * dx + dy * dy;
+  return dx * dx * xw + dy * dy * yw;
 }
 
-function isVisible(
+export function isVisible(
   target: Container
 ): boolean
 {

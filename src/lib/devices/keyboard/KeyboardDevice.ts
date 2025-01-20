@@ -1,8 +1,14 @@
-import { KeyCode } from "./keyboard/keys";
-import { requestKeyboardLayout, getLayoutKeyLabel, inferKeyboardLayoutFromLang, KeyboardLayout, KeyboardLayoutSource, detectKeyboardLayoutFromKeydown, getNavigatorKeyLabel } from "./keyboard/layouts";
-import { NavigationIntent, REPEATABLE_NAV_INTENTS } from "../navigation/NavigationIntent";
-import { Navigation } from "../navigation/Navigation";
-import { EventEmitter } from "../utils/events";
+import { KeyCode } from "./keys";
+import { EventEmitter } from "../../utils/events";
+import {
+  requestKeyboardLayout,
+  getLayoutKeyLabel,
+  inferKeyboardLayoutFromLang,
+  KeyboardLayout,
+  KeyboardLayoutSource,
+  detectKeyboardLayoutFromKeydown,
+  getNavigatorKeyLabel
+} from "./layouts";
 
 
 export { KeyCode, KeyboardLayout };
@@ -23,6 +29,7 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 
 export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydownEvent {
   name: string;
+  repeat: boolean;
 }
 
 export type KeyboardDeviceEvent = {
@@ -31,8 +38,6 @@ export type KeyboardDeviceEvent = {
 } & {
   [key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
-
-type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;
 
 export class KeyboardDevice
 {
@@ -83,26 +88,27 @@ export class KeyboardDevice
      *   // ...
      * }
      */
-    binds: {} as Partial<Record<string, KeyCode[]>>,
+    binds: {
+      "navigate.back":  [ "Escape", "Backspace" ],
+      "navigate.down":  [ "ArrowDown", "KeyS" ],
+      "navigate.left":  [ "ArrowLeft", "KeyA" ],
+      "navigate.right":  [ "ArrowRight", "KeyD" ],
+      "navigate.trigger":  [ "Enter", "Space" ],
+      "navigate.up":  [ "ArrowUp", "KeyW" ],
+    } as Partial<Record<string, KeyCode[]>>,
 
-    navigation: {
-      enabled: true,
-
-      binds: {
-        "Space": "trigger",
-        "Enter": "trigger",
-        "Escape": "navigateBack",
-        "Backspace": "navigateBack",
-        "ArrowDown": "navigateDown",
-        "ArrowLeft": "navigateLeft",
-        "ArrowRight": "navigateRight",
-        "ArrowUp": "navigateUp",
-        "KeyA": "navigateLeft",
-        "KeyD": "navigateRight",
-        "KeyS": "navigateDown",
-        "KeyW": "navigateUp",
-      } as NavigationBinds,
-    },
+    /**
+     * These are the binds that are allowed to repeat when a key
+     * is held down.
+     *
+     * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
+     */
+    repeatableBinds: [
+      "navigate.down",
+      "navigate.left",
+      "navigate.right",
+      "navigate.up",
+    ]
   };
 
   /** Accessors for keys */
@@ -210,6 +216,15 @@ export class KeyboardDevice
     return true;
   }
 
+  /** Set custom binds */
+  public configureBinds( binds: Partial<Record<string, KeyCode[]>> ): void
+  {
+    this.options.binds = {
+      ...this.options.binds,
+      ...binds,
+    };
+  }
+
   // ----- Events: -----
 
   /** Add an event listener. */
@@ -225,7 +240,7 @@ export class KeyboardDevice
   /** Remove an event listener (or all if none provided). */
   public off<K extends keyof KeyboardDeviceEvent>(
     event: K,
-    listener: (event: KeyboardDeviceEvent[K]) => void
+    listener?: (event: KeyboardDeviceEvent[K]) => void
   ): this
   {
     this._emitter.off(event, listener);
@@ -361,43 +376,31 @@ export class KeyboardDevice
           event: e,
         }));
       }
-
-      // check named binds
-      Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
-      {
-        if ( !keys.includes( keyCode ) ) return;
-
-        setTimeout( () =>
-        {
-          const event = {
-            device: this,
-            keyCode,
-            keyLabel: this.getKeyLabel( keyCode ),
-            event: e,
-            name: name,
-          };
-
-          this._bindEmitter.emit( name, event );
-          this._emitter.emit( "bind", event );
-        });
-      });
     }
 
-    // navigation
-    if (
-      Navigation.options.enabled &&
-      this.options.navigation.enabled &&
-      this.options.navigation.binds[keyCode] !== undefined
-    )
+    // check named binds
+    Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
     {
-      const intent = this.options.navigation.binds[keyCode]!;
-
-      if ( !e.repeat || REPEATABLE_NAV_INTENTS.includes(intent) )
+      if ( !keys.includes( keyCode ) ) return;
+      if ( e.repeat && !this.options.repeatableBinds.includes( name ))
       {
-        setTimeout( () =>
-          Navigation.commit( this.options.navigation.binds[keyCode]!, this )
-        );
+        return;
       }
-    }
+
+      setTimeout( () =>
+      {
+        const event = {
+          device: this,
+          keyCode,
+          keyLabel: this.getKeyLabel( keyCode ),
+          event: e,
+          name: name,
+          repeat: e.repeat,
+        };
+
+        this._bindEmitter.emit( name, event );
+        this._emitter.emit( "bind", event );
+      });
+    });
   }
 }

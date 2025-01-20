@@ -1,4 +1,4 @@
-import { KeyboardDevice } from "../KeyboardDevice";
+import { KeyboardDevice } from "../keyboard/KeyboardDevice";
 
 describe( "KeyboardDevice", () =>
 {
@@ -8,7 +8,6 @@ describe( "KeyboardDevice", () =>
     {
       const now = Date.now();
       const keyboard = KeyboardDevice.global;
-      keyboard.options.navigation.enabled = false;
 
       keyboard.options.binds = {
         jump: [ "Space", "ControlLeft" ],

@@ -1,5 +1,6 @@
+import { Container } from "pixi.js";
 import { Device } from "../InputDevice";
-import { NavigationIntent } from "./NavigationIntent";
+import { type NavigationIntent } from "./NavigationIntent";
 
 /**
  * A target that responds to navigation on the stack.
@@ -12,6 +13,11 @@ export interface NavigationResponder {
    * @default true
    */
   autoFocus?: boolean
+
+  /**
+   * Currently focused container.
+   */
+  focusTarget?: Container,
 
   /**
    * Called when received a navigation intent. The target should handle, and

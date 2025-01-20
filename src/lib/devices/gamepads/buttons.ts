@@ -4,6 +4,19 @@ export const Axis = {
   RightStickX: 2,
   RightStickY: 3,
 } as const;
+export type Axis = (typeof Axis)[keyof typeof Axis];
+
+export const AxisCode = [
+  "LeftStickLeft",
+  "LeftStickRight",
+  "LeftStickUp",
+  "LeftStickDown",
+  "RightStickLeft",
+  "RightStickRight",
+  "RightStickUp",
+  "RightStickDown",
+] as const;
+export type AxisCode = typeof AxisCode[number];
 
 export const Button = {
   /** A Button (Xbox / Nintendo: "A", PlayStation: "Cross") */
@@ -27,9 +40,9 @@ export const Button = {
   /** Start Button (Xbox: "Start", PlayStation: "Options", Nintendo: "Plus") */
   Start: 9,
   /** Left Stick Press (Xbox / PlayStation: "LS", Nintendo: "L3") */
-  LeftStick: 10,
+  LeftStickClick: 10,
   /** Right Stick Press (Xbox / PlayStation: "RS", Nintendo: "R3") */
-  RightStick: 11,
+  RightStickClick: 11,
   /** D-Pad Up */
   DPadUp: 12,
   /** D-Pad Down */
@@ -53,8 +66,8 @@ export const ButtonCode = [
   "RightTrigger",
   "Back",
   "Start",
-  "LeftStick",
-  "RightStick",
+  "LStick",
+  "RStick",
   "DPadUp",
   "DPadDown",
   "DPadLeft",
@@ -74,8 +87,8 @@ export type GamepadButtons = {
   [Button.RightTrigger]: GamepadButton,
   [Button.Back]: GamepadButton,
   [Button.Start]: GamepadButton,
-  [Button.LeftStick]: GamepadButton,
-  [Button.RightStick]: GamepadButton,
+  [Button.LeftStickClick]: GamepadButton,
+  [Button.RightStickClick]: GamepadButton,
   [Button.DPadUp]: GamepadButton,
   [Button.DPadDown]: GamepadButton,
   [Button.DPadLeft]: GamepadButton,

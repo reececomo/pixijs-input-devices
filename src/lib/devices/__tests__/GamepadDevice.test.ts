@@ -1,4 +1,4 @@
-import { Button, GamepadDevice } from "../GamepadDevice";
+import { Button, GamepadDevice } from "../gamepads/GamepadDevice";
 import { Axis } from "../gamepads/buttons";
 import { mockGamepadSource } from "./__fixtures__/gamepad";
 
@@ -33,7 +33,6 @@ describe( "GamepadDevice", () =>
         id: input,
       });
       const gamepad = new GamepadDevice( source );
-      gamepad.options.navigation.enabled = false;
 
       expect( gamepad.layout ).toBe( expected );
     });
@@ -45,7 +44,6 @@ describe( "GamepadDevice", () =>
     {
       const source = mockGamepadSource();
       const gamepad = new GamepadDevice( source );
-      gamepad.options.navigation.enabled = false;
 
       gamepad.options.binds = {
         jump: [ "A", "B" ],
@@ -82,37 +80,45 @@ describe( "GamepadDevice", () =>
     });
   });
 
-  describe( "buttons and triggers", () =>
+  it( "maps axis, buttons and triggers", () =>
   {
-    it( "maps triggers", () =>
-    {
-      const source = mockGamepadSource();
-      const gamepad = new GamepadDevice( source );
-      gamepad.options.navigation.enabled = false;
+    const source = mockGamepadSource();
+    const gamepad = new GamepadDevice( source );
 
-      (source.buttons[Button.A] as any).pressed = true;
-      (source.buttons[Button.RightTrigger] as any).pressed = true;
-      (source.buttons[Button.RightTrigger] as any).value = 0.67;
-      (source.buttons[Button.RightStick] as any).pressed = true;
-      (source.axes[Axis.LeftStickX] as any) = 0.55;
-      (source.axes[Axis.RightStickY] as any) = -0.33;
+    (source.buttons[Button.A] as any).pressed = true;
+    (source.buttons[Button.RightTrigger] as any).pressed = true;
+    (source.buttons[Button.RightTrigger] as any).value = 0.67;
+    (source.buttons[Button.RightStickClick] as any).pressed = true;
+    (source.axes[Axis.LeftStickX] as any) = 0.55;
+    (source.axes[Axis.RightStickY] as any) = -0.15;
 
-      gamepad.update( source, Date.now() );
+    gamepad.update( source, Date.now() );
 
-      // triggers
-      expect( gamepad.leftTrigger ).toBe( 0.0 );
-      expect( gamepad.rightTrigger ).toBe( 0.67 );
+    // buttons
+    expect( gamepad.button.A ).toBe( true );
+    expect( gamepad.button.RStick ).toBe( true );
 
-      // joysticks
-      expect( gamepad.leftJoystick.x ).toBe( 0.55 );
-      expect( gamepad.leftJoystick.y ).toBe( 0.0 );
-      expect( gamepad.rightJoystick.x ).toBe( 0.0 );
-      expect( gamepad.rightJoystick.y ).toBe( -0.33 );
+    // joysticks
+    expect( gamepad.leftJoystick.x ).toBe( 0.55 );
+    expect( gamepad.leftJoystick.y ).toBe( 0.0 );
+    expect( gamepad.button.LeftStickLeft ).toBe( false );
+    expect( gamepad.button.LeftStickDown ).toBe( false );
+    expect( gamepad.button.LeftStickUp ).toBe( false );
+    expect( gamepad.button.LeftStickRight ).toBe( true );
 
-      // buttons
-      expect( gamepad.button.A ).toBe( true );
-      expect( gamepad.button.RightStick ).toBe( true );
-    });
+    expect( gamepad.rightJoystick.x ).toBe( 0.0 );
+    expect( gamepad.rightJoystick.y ).toBe( -0.15 );
+    expect( gamepad.button.RightStickLeft ).toBe( false );
+    expect( gamepad.button.RightStickDown ).toBe( false );
+    expect( gamepad.button.RightStickUp ).toBe( false );
+    expect( gamepad.button.RightStickRight ).toBe( false );
+
+    // triggers
+    expect( gamepad.leftTrigger ).toBe( 0.0 );
+    expect( gamepad.button.LeftTrigger ).toBe( false );
+
+    expect( gamepad.rightTrigger ).toBe( 0.67 );
+    expect( gamepad.button.RightTrigger ).toBe( true );
   });
 
   describe( "nintendo layout remapping options", () =>
@@ -123,7 +129,6 @@ describe( "GamepadDevice", () =>
         id: "Nintendo Switch Pro"
       });
       const gamepad = new GamepadDevice( source );
-      gamepad.options.navigation.enabled = false;
 
       // sanity check:
       expect( gamepad.layout ).toBe( "nintendo" );

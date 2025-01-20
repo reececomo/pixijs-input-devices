@@ -1,10 +1,15 @@
+let _registered = false;
+
 /**
  * Register the mixin for PIXI.Container.
  *
  * @param container A reference to `PIXI.Container`.
  */
-export function registerPixiJSInputDeviceMixin(container: any): void
+export function registerPixiJSNavigationMixin( container: any ): void
 {
+  if (_registered) return;
+  _registered = true;
+
   const prototype = container.prototype;
 
   // - Properties:
@@ -15,17 +20,19 @@ export function registerPixiJSInputDeviceMixin(container: any): void
   Object.defineProperty(prototype, "isNavigatable", {
     get: function(): boolean
     {
-      if ( this.navigationMode === "auto" )
-      {
-        if ( ! this.isInteractive ) return false;
+      if ( this.navigationMode === "target" ) return true;
+      if ( this.navigationMode === "none" ) return false;
 
-        const onEvents = this.eventNames();
+      // if (
+      //   this.interactive === false
+      //   || (this.isInteractive !== undefined)
+      //   && !this.isInteractive()
+      // ) return false;
 
-        return onEvents.includes("pointerdown")
-          || onEvents.includes("mousedown");
-      }
+      const onEvents = this.eventNames();
 
-      return this.navigationMode === "target";
+      return onEvents.includes("pointerdown")
+        || onEvents.includes("mousedown");
     },
     configurable: true,
     enumerable: false,

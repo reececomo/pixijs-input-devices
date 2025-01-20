@@ -1,6 +1,4 @@
 export type NavigationTargetEvent =
-  | "focus"
-  | "blur"
-  // | "focusHint"
-  // | "blurHint"
-;
+  | "deviceover"
+  | "devicedown"
+  | "deviceout";
