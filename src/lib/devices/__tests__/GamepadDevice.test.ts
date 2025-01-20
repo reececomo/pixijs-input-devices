@@ -7,10 +7,10 @@ describe( "GamepadDevice", () =>
   describe( "layout", () =>
   {
     it.each([
-      [ "generic", "8Bitdo SF30 Pro (Vendor: 2dc8 Product: 6000)" ],
-      [ "generic", "Generic Game Controller" ],
-      [ "generic", "UNKNOWN" ],
-      [ "generic", "USB JOYSTICK PS3 (Vendor: 1f4f Product: 0008)" ],
+      [ "standard", "8Bitdo SF30 Pro (Vendor: 2dc8 Product: 6000)" ],
+      [ "standard", "Generic Game Controller" ],
+      [ "standard", "UNKNOWN" ],
+      [ "standard", "USB JOYSTICK PS3 (Vendor: 1f4f Product: 0008)" ],
       [ "logitech", "046d-c216-Logitech Dual Action" ], // Firefox
       [ "logitech", "46d-c216-Logicool Dual Action" ], // Safari
       [ "logitech", "Input device (Vendor: 046D Product: C216)" ],
@@ -133,7 +133,7 @@ describe( "GamepadDevice", () =>
       // sanity check:
       expect( gamepad.layout ).toBe( "nintendo" );
 
-      gamepad.options.remapNintendoMode = "none";
+      gamepad.options.nintendoRemapMode = "none";
       (source.buttons[0] as any).pressed = true;
       (source.buttons[2] as any).pressed = true;
       gamepad.update( source, Date.now() );
@@ -142,14 +142,14 @@ describe( "GamepadDevice", () =>
       expect( gamepad.button.X ).toBe( true );
       expect( gamepad.button.Y ).toBe( false );
 
-      gamepad.options.remapNintendoMode = "accurate";
+      gamepad.options.nintendoRemapMode = "accurate";
       gamepad.update( source, Date.now() );
       expect( gamepad.button.A ).toBe( true );
       expect( gamepad.button.B ).toBe( true ); // B (1) is now Nintendo "B"
       expect( gamepad.button.X ).toBe( false ); // X (2) is now Nintendo "X"
       expect( gamepad.button.Y ).toBe( false );
 
-      gamepad.options.remapNintendoMode = "physical";
+      gamepad.options.nintendoRemapMode = "physical";
       gamepad.update( source, Date.now() );
       expect( gamepad.button.A ).toBe( false ); // A (0) is now Nintendo "B"
       expect( gamepad.button.B ).toBe( true ); // B (1) is now Nintendo "A"

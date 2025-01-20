@@ -235,7 +235,7 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button # | ButtonCode | Standard | Nintendo* | Playstation | Xbox |
+| Button | BindableCode | Standard | Nintendo <sup>[[1]](#gamepad---nintendo-layout-remapping)</sup> | Playstation | Xbox |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | `0` | `"A"` | **A / FaceButton1** | A | Cross | A |
 | `1` | `"B"` | **B / FaceButton2** | X | Circle | B |
@@ -254,23 +254,21 @@ The gamepad buttons reference **Standard Controller Layout**:
 | `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
 | `15` | `"DPadRight"` | **D-Pad Right** | ➡️ | ➡️ | ➡️ |
 
-*See [Nintendo Layout Remapping](#gamepad---nintendo-layout-remapping) for more context
-
 #### Gamepad Axis Codes
 
 Bindable helpers are available for the joysticks.
 
-| Axis # | AxisCode | AxisCode | Standard | Layout
-|:---:|:---:|:---:|:---:|:---:|
-| `0` | `"LeftStickLeft"` | `"LeftStickRight"` | Left Stick (Left/Right) | ⬅️➡️ |
-| `1` | `"LeftStickUp"` | `"LeftStickDown"` | Left Stick (Up/Down) | ⬆️⬇️ |
-| `2` | `"RightStickLeft"` | `"RightStickRight"` | Right Stick (Left/Right) | ⬅️➡️ |
-| `3` | `"RightStickUp"` | `"RightStickDown"` | Right Stick (Up/Down) | ⬆️⬇️ |
+| Axis # | AxisCode | Standard | Layout
+|:---:|:---:|:---:|:---:|
+| `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (Left/Right)** | ⬅️➡️ |
+| `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Up/Down)** | ⬆️⬇️ |
+| `2` | `"RightStickLeft"`<br/>`"RightStickRight"` | **Right Stick (Left/Right)** | ⬅️➡️ |
+| `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Up/Down)** | ⬆️⬇️ |
 
 #### Gamepad Layouts
 
 ```ts
-gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | "generic"
+gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | "standard"
 ```
 
 Layout detection is **highly non-standard** across major browsers, it should generally be used for aesthetic
@@ -285,10 +283,10 @@ only major brand controller that deviates from the standard.
 > ***Nintendo:** Both the labels and physical positions of the A,B,X,Y buttons are different
 > on Nintendo controllers.
 >
-> Set `GamepadDevice.defaultOptions.remapNintendoMode` to apply the remapping as required.
+> Set `GamepadDevice.defaultOptions.nintendoRemapMode` to apply the remapping as required.
 >
-> - `"physical"` _**(default)**_ &ndash; The A,B,X,Y button codes will refer the physical layout of a standard controller (Left=X, Top=Y, Bottom=A, Right=B).
-> - `"accurate"` &ndash; The A,B,X,Y button codes will correspond to the exact Nintendo labels (Left=Y, Top=X, Bottom=B, Right=A).
+> - `"physical"` _**(default)**_ &ndash; The A,B,X,Y button codes will refer the standard face button positions (Left=X, Top=Y, Bottom=A, Right=B).
+> - `"accurate"` &ndash; The A,B,X,Y button codes will refer to the exact Nintendo labels (Left=Y, Top=X, Bottom=B, Right=A).
 > - `"none"` &ndash; The A,B,X,Y button codes mapping stay at the default indices (Left=Y, Top=B, Bottom=X, Right=A).
 >
 > ```
@@ -308,8 +306,11 @@ only major brand controller that deviates from the standard.
 You can manually override this per-gamepad, or for all gamepads:
 
 ```ts
-gamepad.options.remapNintendoMode = "none"
-GamepadDevice.defaultOptions.remapNintendoMode = "none"
+// set default
+GamepadDevice.defaultOptions.nintendoRemapMode = "none"
+
+// set for a single gamepad
+gamepad.options.nintendoRemapMode = "accurate"
 ```
 
 #### GamepadDevice Events

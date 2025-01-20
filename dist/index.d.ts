@@ -220,7 +220,7 @@ declare const ButtonCode: readonly [
 export declare class GamepadDevice {
 	source: Gamepad;
 	/** Set named binds for newly connected gamepads */
-	static configureDefaultBinds(binds: Partial<Record<string, Bindable[]>>): void;
+	static configureDefaultBinds(binds: Partial<Record<string, BindableCode[]>>): void;
 	static defaultOptions: {
 		/**
 		 * When set to `"physical"` _(default)_, ABXY refer to the equivalent
@@ -232,7 +232,7 @@ export declare class GamepadDevice {
 		 * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
 		 * 2, and 3 positions respectively.
 		 */
-		remapNintendoMode: RemapNintendoMode;
+		nintendoRemapMode: NintendoRemapMode;
 		/**
 		 * Create named binds of buttons.
 		 *
@@ -252,7 +252,7 @@ export declare class GamepadDevice {
 		 *   // ...
 		 * }
 		 */
-		binds: Partial<Record<string, Bindable[]>>;
+		binds: Partial<Record<string, BindableCode[]>>;
 		joystick: {
 			/**
 			 * The range of movement in a joystick recognized as input, to
@@ -340,11 +340,11 @@ export declare class GamepadDevice {
 	/** @returns true if any button from the named bind is pressed. */
 	pressedBind(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
-	pressedAny(btns: Bindable[]): boolean;
+	pressedAny(btns: BindableCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
-	pressedAll(btns: Bindable[]): boolean;
+	pressedAll(btns: BindableCode[]): boolean;
 	/** Set named binds for this gamepad */
-	configureBinds(binds: Partial<Record<string, Bindable[]>>): void;
+	configureBinds(binds: Partial<Record<string, BindableCode[]>>): void;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
@@ -777,7 +777,10 @@ export interface NavigationResponder {
 }
 export type Axis = (typeof Axis)[keyof typeof Axis];
 export type AxisCode = typeof AxisCode[number];
-export type Bindable = ButtonCode | AxisCode;
+/**
+ * Bindable codes for button and joystick events.
+ */
+export type BindableCode = ButtonCode | AxisCode;
 export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
@@ -822,13 +825,13 @@ export type NavigatableContainer = Container;
 export type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
 export type NavigationIntent = typeof navigationIntents[number];
 export type NavigationTargetEvent = "deviceover" | "devicedown" | "deviceout";
-export type RemapNintendoMode = "none" | "accurate" | "physical";
+export type NintendoRemapMode = "none" | "accurate" | "physical";
 /**
  * Common gamepad platform layouts, which may indicate button layout.
  *
  * Note: Non-comprehensive list, covers the most brands only.
  */
-type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "generic";
+type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
 
 export {
 	GamepadLayout as GamepadPlatform,

@@ -6,10 +6,9 @@ import { throttle } from "../../utils/throttle";
 import { EventEmitter } from "../../utils/events";
 
 
-export { Button as Button, GamepadLayout as GamepadPlatform };
+export { Button, GamepadLayout };
 
-type RemapNintendoMode = "none" | "accurate" | "physical";
-type Bindable = ButtonCode | AxisCode;
+type NintendoRemapMode = "none" | "accurate" | "physical";
 
 export type GamepadVibration = GamepadEffectParameters & { vibrationType?: GamepadHapticEffectType };
 export type GamepadButtonDownEvent = ( gamepad: GamepadDevice, button: Button ) => void;
@@ -50,6 +49,11 @@ export type GamepadDeviceEvent = {
 };
 
 /**
+ * Bindable codes for button and joystick events.
+ */
+export type BindableCode = ButtonCode | AxisCode;
+
+/**
  * A gamepad (game controller).
  *
  * Provides bindings and accessors for standard controller/gamepad layout:
@@ -62,7 +66,7 @@ export class GamepadDevice
 {
   /** Set named binds for newly connected gamepads */
   public static configureDefaultBinds(
-    binds: Partial<Record<string, Bindable[]>>
+    binds: Partial<Record<string, BindableCode[]>>
   ): void
   {
     this.defaultOptions.binds = {
@@ -82,7 +86,7 @@ export class GamepadDevice
      * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
      * 2, and 3 positions respectively.
      */
-    remapNintendoMode: "physical" as RemapNintendoMode,
+    nintendoRemapMode: "physical" as NintendoRemapMode,
 
     /**
      * Create named binds of buttons.
@@ -110,7 +114,7 @@ export class GamepadDevice
       "navigate.right": [ "DPadRight", "LeftStickRight" ],
       "navigate.trigger": [ "A" ],
       "navigate.up": [ "DPadUp", "LeftStickUp" ],
-    } as Partial<Record<string, Bindable[]>>,
+    } as Partial<Record<string, BindableCode[]>>,
 
     joystick: {
       /**
@@ -219,7 +223,7 @@ export class GamepadDevice
   }
 
   /** @returns true if any of the given buttons are pressed. */
-  public pressedAny( btns: Bindable[] ): boolean
+  public pressedAny( btns: BindableCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -230,7 +234,7 @@ export class GamepadDevice
   }
 
   /** @returns true if all of the given buttons are pressed. */
-  public pressedAll( btns: Bindable[] ): boolean
+  public pressedAll( btns: BindableCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -241,7 +245,7 @@ export class GamepadDevice
   }
 
   /** Set named binds for this gamepad */
-  public configureBinds( binds: Partial<Record<string, Bindable[]>> ): void
+  public configureBinds( binds: Partial<Record<string, BindableCode[]>> ): void
   {
     this.options.binds = {
       ...this.options.binds,
@@ -420,10 +424,10 @@ export class GamepadDevice
       // remap nintendo binds (if enabled)
       if (
         this.layout === "nintendo" &&
-        this.options.remapNintendoMode !== "none"
+        this.options.nintendoRemapMode !== "none"
       )
       {
-        if ( this.options.remapNintendoMode === "physical" )
+        if ( this.options.nintendoRemapMode === "physical" )
         {
           // physical:
           // set A,B,X,Y to be the equivalent physical positions
