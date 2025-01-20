@@ -45,10 +45,10 @@ The core concepts are:
 
 1. **Devices:** _Any human interface device_
 2. **Binds:** _Custom, named input actions that can be triggered by assigned keys or buttons_
-3. **Navigation:** _A global controller that allows non-pointer devices to navigate UIs_
+3. **UINavigation:** _A global controller that allows non-pointer devices to navigate UIs_
 
 > [!NOTE]
-> _See [Navigation API](#navigation-api) for more information._
+> _See [UINavigation API](#uinavigation-api) for more information._
 
 
 ## Installation
@@ -77,19 +77,17 @@ Ticker.shared.add(ticker => InputDevice.update());
 > [!TIP]
 > **Input polling:** In the context of a video game, you may want to put the input update at the start of your game event loop instead.
 
-**3.** (Optional) enable the Navigation API
+**3.** (Optional) enable the UINavigation API
 
 ```ts
 import * as PIXI from 'pixi.js';
-import { Navigation, registerPixiJSInputDevicesMixin } from 'pixijs-input-devices';
-
-// register container mixin
-registerPixiJSInputDevicesMixin(PIXI.Container);
+import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-devices';
 
 const app = new PIXI.Application(/*…*/)
 
-// set the root view for device navigation
-Navigation.stage = app.stage
+// enable the navigation API
+UINavigation.configureWithRoot( app.stage )
+registerPixiJSNavigationMixin( PIXI.Container )
 ```
 
 ✨ You are now ready to use inputs!
@@ -237,31 +235,40 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button # | ButtonCode | Standard | Nintendo* | Playstation | Xbox |
+| Button | BindableCode | Standard | Nintendo <sup>[[1]](#gamepad---nintendo-layout-remapping)</sup> | Playstation | Xbox |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| `0` | `"A"` | **A** | A | Cross | A |
-| `1` | `"B"` | **B** | X | Circle | B |
-| `2` | `"X"` | **X** | B | Square | X |
-| `3` | `"Y"` | **Y** | Y | Triangle | Y |
+| `0` | `"A"` | **A / FaceButton1** | A | Cross | A |
+| `1` | `"B"` | **B / FaceButton2** | X | Circle | B |
+| `2` | `"X"` | **X / FaceButton3** | B | Square | X |
+| `3` | `"Y"` | **Y / FaceButton4** | Y | Triangle | Y |
 | `4` | `"LeftShoulder"` | **Left Shoulder** | L | L1 | LB |
 | `5` | `"RightShoulder"` | **Right Shoulder** | R | R1 | RB |
 | `6` | `"LeftTrigger"` | **Left Trigger** | L2 | ZL | LT |
 | `7` | `"RightTrigger"` | **Right Trigger** | R2 | ZR | RT |
 | `8` | `"Back"` | **Back** | Minus | Options | Back |
 | `9` | `"Start"` | **Start** | Plus | Select | Start |
-| `10` | `"LeftStick"` | **Left Stick (click)** | L3 | L3 | LSB |
-| `11` | `"RightStick"` | **Right Stick (click)** | R3 | R3 | RSB |
+| `10` | `"LeftStickClick"` | **Left Stick Click** | L3 | L3 | LSB |
+| `11` | `"RightStickClick"` | **Right Stick Click** | R3 | R3 | RSB |
 | `12` | `"DPadUp"` | **D-Pad Up** | ⬆️ | ⬆️ | ⬆️ |
 | `13` | `"DPadDown"` | **D-Pad Down** | ⬇️ | ⬇️ | ⬇️ |
 | `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
 | `15` | `"DPadRight"` | **D-Pad Right** | ➡️ | ➡️ | ➡️ |
 
-*See [Nintendo Layout Remapping](#gamepad---nintendo-layout-remapping) for more context
+#### Gamepad Axis Codes
+
+Bindable helpers are available for the joysticks.
+
+| Axis # | AxisCode | Standard | Layout
+|:---:|:---:|:---:|:---:|
+| `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (Left/Right)** | ⬅️➡️ |
+| `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Up/Down)** | ⬆️⬇️ |
+| `2` | `"RightStickLeft"`<br/>`"RightStickRight"` | **Right Stick (Left/Right)** | ⬅️➡️ |
+| `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Up/Down)** | ⬆️⬇️ |
 
 #### Gamepad Layouts
 
 ```ts
-gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | "generic"
+gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | "standard"
 ```
 
 Layout detection is **highly non-standard** across major browsers, it should generally be used for aesthetic
@@ -276,10 +283,10 @@ only major brand controller that deviates from the standard.
 > ***Nintendo:** Both the labels and physical positions of the A,B,X,Y buttons are different
 > on Nintendo controllers.
 >
-> Set `GamepadDevice.defaultOptions.remapNintendoMode` to apply the remapping as required.
+> Set `GamepadDevice.defaultOptions.nintendoRemapMode` to apply the remapping as required.
 >
-> - `"physical"` _**(default)**_ &ndash; The A,B,X,Y button codes will refer the physical layout of a standard controller (Left=X, Top=Y, Bottom=A, Right=B).
-> - `"accurate"` &ndash; The A,B,X,Y button codes will correspond to the exact Nintendo labels (Left=Y, Top=X, Bottom=B, Right=A).
+> - `"physical"` _**(default)**_ &ndash; The A,B,X,Y button codes will refer the standard face button positions (Left=X, Top=Y, Bottom=A, Right=B).
+> - `"accurate"` &ndash; The A,B,X,Y button codes will refer to the exact Nintendo labels (Left=Y, Top=X, Bottom=B, Right=A).
 > - `"none"` &ndash; The A,B,X,Y button codes mapping stay at the default indices (Left=Y, Top=B, Bottom=X, Right=A).
 >
 > ```
@@ -299,8 +306,11 @@ only major brand controller that deviates from the standard.
 You can manually override this per-gamepad, or for all gamepads:
 
 ```ts
-gamepad.options.remapNintendoMode = "none"
-GamepadDevice.defaultOptions.remapNintendoMode = "none"
+// set default
+GamepadDevice.defaultOptions.nintendoRemapMode = "none"
+
+// set for a single gamepad
+gamepad.options.nintendoRemapMode = "accurate"
 ```
 
 #### GamepadDevice Events
@@ -347,18 +357,18 @@ This allows you to change the keys/buttons later (e.g. allow users to override i
 
 ```ts
 // keyboard:
-InputDevice.keyboard.options.binds = {
+InputDevice.keyboard.configureBinds({
     jump: [ "ArrowUp", "Space", "KeyW" ],
     crouch: [ "ArrowDown", "KeyS" ],
     toggleGraphics: [ "KeyB" ],
-}
+})
 
 // all gamepads:
-GamepadDevice.defaultOptions.binds = {
-    jump: [ "A" ],
+GamepadDevice.configureDefaultBinds({
+    jump: [ "A", "LeftStickUp" ],
     crouch: [ "B", "X", "RightTrigger" ],
-    toggleGraphics: [ "RightStick" ],
-}
+    toggleGraphics: [ "RightStickUp", "RightStickDown" ],
+})
 ```
 
 These can then be used with either the real-time and event-based APIs.
@@ -380,14 +390,14 @@ InputDevice.gamepads[0].onBind( "jump", ( e ) => doJump() )
 let jump = false, crouch = false, moveX = 0
 
 const keyboard = InputDevice.keyboard
-if ( keyboard.bindPressed( "jump" ) ) jump = true
-if ( keyboard.bindPressed( "crouch" ) ) crouch = true
+if ( keyboard.pressedBind( "jump" ) ) jump = true
+if ( keyboard.pressedBind( "crouch" ) ) crouch = true
 if ( keyboard.key.ArrowLeft ) moveX = -1
 else if ( keyboard.key.ArrowRight ) moveX = 1
 
 for ( const gamepad of InputDevice.gamepads ) {
-    if ( gamepad.bindPressed( "jump" ) ) jump = true
-    if ( gamepad.bindPressed( "crouch" ) ) crouch = true
+    if ( gamepad.pressedBind( "jump" ) ) jump = true
+    if ( gamepad.pressedBind( "crouch" ) ) crouch = true
 
     // gamepads have additional analog inputs
     // we're going to apply these only if touched
@@ -396,42 +406,55 @@ for ( const gamepad of InputDevice.gamepads ) {
 }
 ```
 
-## Navigation API
+## UINavigation API
 
 _Traverse a UI using input devices._
 
-The Navigation API is centered around a central **Navigation** controller, which listens to navigation intents from devices,
-then handles the intent.
+```ts
+UINavigation.configureWithRoot( app.stage )  // (or any Container)
+```
 
-The **Navigation** controller maintains a stack of `NavigationResponder` objects, which represent the **current navigation context**. For
-example, you might add a `NavigationResponder` for a drop-down UI. A normal `Container` can be used as a `NavigationResponder`, and any
-container on the stack will become the **current root container**.
+You can manually take control of navigation using:
 
-> [!NOTE]
-> The **current root container** is the top-most `Container` on the navigation responder stack, or otherwise `Navigation.stage`.
+```ts
+// take control
+UINavigation.pushResponder( myModalView )
 
-When a device sends a navigation intent, the **Navigation** controller is responsible for asking each of the responders on the stack
-if it can handle the intent. If it can't, it is propagated up all the way to the **current root container**.
+// relinquish control
+UINavigation.popResponder()
+```
 
-### Default UI Navigation Behavior
+The Navigation API is centered around the **UINavigation** manager, which
+receives navigation intents from devices and forwards it to the UI context.
+
+The **UINavigation** manager maintains a stack of responders, which can be a
+`Container`, or any object that implements the `NavigationResponder` interface.
+
+When a device sends a navigation intent, the **UINavigation** manager is
+responsible for asking the **first responder** whether it can handle the intent.
+
+If it returns `false`, any other responders are checked (if they exist),
+otherwise the default global navigation behavior kicks in.
+
+### Default Global Navigation Behaviors
 
 When a navigation intent is **not** handled manually by a responder, it is handled in one of the following ways:
 
 | Intent | Behavior |
 |---|---|
-|`"navigateBack"`|<ul><li>No action.</li></ul>|
-|`"navigateLeft"`, `"navigateRight"`, `"navigateUp"`, `"navigateDown"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, fires a `"focus"` event on it.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"` or `"mouseover"` (in that order), it will fire that too.</li><li>If we were previously focused on a container, that previous container fires a `"blur"` event.</li><li>If the blurred container has register an event handler for either `"pointerout"` or `"mouseout"` (in that order), that event handler will be fired too.</li></ul>|
-|`"trigger"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"trigger"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"` or `"mousedown"` (in that order), that event handler will be fired too.</li></ul>|
+|`"navigate.back"`|<ul><li>No action.</li></ul>|
+|`"navigate.left"`, `"navigate.right"`, `"navigate.up"`, `"navigate.down"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, receives a `"deviceover"` event.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"` or `"mouseover"` (in that order), it will fire that too.</li><li>If we were previously focused on a container, that previous container receives a `"deviceout"` event.</li><li>If the blurred container has register an event handler for either `"pointerout"` or `"mouseout"` (in that order), that event handler will be fired too.</li></ul>|
+|`"navigate.trigger"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"devicedown"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"` or `"mousedown"` (in that order), that event handler will be fired too.</li></ul>|
 
-Container event  | Description | Equivalent
+Container event  | Description | Compatibility
 -----------------|--------------------------------------------------------
-`trigger`        | Target was triggered. | `"pointerdown"`, `"mousedown"`
-`focus`          | Target became focused. | `"pointerover"`, `"mouseover"`
-`blur`           | Target lost focus. | `"pointerout"`, `"mouseout"`
+`"devicedown"`   | Target was triggered. | `"pointerdown"`, `"mousedown"`
+`"deviceover"`   | Target became focused. | `"pointerover"`, `"mouseover"`
+`"deviceout"`    | Target lost focus. | `"pointerout"`, `"mouseout"`
 
-### Container Navigation
+### Container Navigatability
 
-Containers are extended with a few properties/accesors:
+Containers are extended with a few properties/accessors:
 
 Container properties | type | default | description
 ---------------------|------|---------|--------------
@@ -443,18 +466,9 @@ Container properties | type | default | description
 > **isNavigatable:** By default, any element with `"pointerdown"` or `"mousedown"` handlers is navigatable.
 
 > [!WARNING]
-> **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `Navigation`
+> **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `UINavigation`
 >  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
-> can be disabled by setting `Navigation.options.useFallbackHoverEffect` to `false`.
-
-
-### Disable Navigation
-
-You can **disable** the navigation API entirely, either permanently or temporaril):
-
-```ts
-Navigation.options.enabled = false
-```
+> can be disabled by setting `UINavigation.options.useFallbackHoverEffect` to `false`.
 
 
 ## Advanced usage
@@ -513,7 +527,7 @@ InputDevice.remove( onscreen )
 You could set up multiple named inputs:
 
 ```ts
-InputDevice.keyboard.options.binds = {
+InputDevice.keyboard.configureBinds({
     jump: [ "ArrowUp", "KeyW" ],
     defend: [ "ArrowDown", "KeyS" ],
     left: [ "ArrowLeft", "KeyA" ],
@@ -528,7 +542,7 @@ InputDevice.keyboard.options.binds = {
     p2_defend: [ "ArrowDown" ],
     p2_left: [ "ArrowLeft" ],
     p2_right: [ "ArrowRight" ],
-}
+})
 ```
 
 and then switch groups depending on the mode:
@@ -536,22 +550,22 @@ and then switch groups depending on the mode:
 ```ts
 if ( gameMode === "multiplayer" )
 {
-    player1.jump   = device.bindPressed( "p1_jump" )
-    player1.defend = device.bindPressed( "p1_defend" )
-    player1.moveX += device.bindPressed( "p1_left" ) ? -1 : 0
-    player1.moveX += device.bindPressed( "p1_right" ) ? 1 : 0
+    player1.jump   = device.pressedBind( "p1_jump" )
+    player1.defend = device.pressedBind( "p1_defend" )
+    player1.moveX += device.pressedBind( "p1_left" ) ? -1 : 0
+    player1.moveX += device.pressedBind( "p1_right" ) ? 1 : 0
 
-    player2.jump   = device.bindPressed( "p2_jump" )
-    player2.defend = device.bindPressed( "p2_defend" )
-    player2.moveX += device.bindPressed( "p2_left" ) ? -1 : 0
-    player2.moveX += device.bindPressed( "p2_right" ) ? 1 : 0
+    player2.jump   = device.pressedBind( "p2_jump" )
+    player2.defend = device.pressedBind( "p2_defend" )
+    player2.moveX += device.pressedBind( "p2_left" ) ? -1 : 0
+    player2.moveX += device.pressedBind( "p2_right" ) ? 1 : 0
 }
 else
 {
-    player1.jump   = device.bindPressed( "jump" )
-    player1.defend = device.bindPressed( "defend" )
-    player1.moveX += device.bindPressed( "left" ) ? -1 : 0
-    player1.moveX += device.bindPressed( "right" ) ? 1 : 0
+    player1.jump   = device.pressedBind( "jump" )
+    player1.defend = device.pressedBind( "defend" )
+    player1.moveX += device.pressedBind( "left" ) ? -1 : 0
+    player1.moveX += device.pressedBind( "right" ) ? 1 : 0
 
     updateComputerPlayerInput( player2 )
 }

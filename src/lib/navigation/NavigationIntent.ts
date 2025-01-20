@@ -1,12 +1,10 @@
-export type NavigationIntent =
-  | "navigateBack"
-  | "navigateDown"
-  | "navigateLeft"
-  | "navigateRight"
-  | "navigateUp"
-  | "trigger"
-;
+export const navigationIntents = [
+  "navigate.left",
+  "navigate.right",
+  "navigate.up",
+  "navigate.down",
+  "navigate.back",
+  "navigate.trigger",
+] as const;
 
-export const REPEATABLE_NAV_INTENTS: readonly NavigationIntent[] = [
-  "navigateLeft", "navigateRight", "navigateUp", "navigateDown"
-];
+export type NavigationIntent = typeof navigationIntents[number];

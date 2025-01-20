@@ -195,7 +195,7 @@ export function detectKeyboardLayoutFromKeydown(
 
   // xxERTY
   else if (
-    code === "KeyY" && key === "Y"
+    code === "KeyY" && key === "y"
   )
   {
     _possibleLayouts.delete("QWERTZ");

@@ -1,16 +1,14 @@
 /* eslint-disable brace-style */
 
-import { Axis, Button, ButtonCode } from "./gamepads/buttons";
-import { detectLayout, GamepadLayout } from "./gamepads/layouts";
-import { Navigation } from "../navigation/Navigation";
-import { NavigationIntent } from "../navigation/NavigationIntent";
-import { throttle } from "../utils/throttle";
-import { EventEmitter } from "../utils/events";
+import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
+import { detectLayout, GamepadLayout } from "./layouts";
+import { throttle } from "../../utils/throttle";
+import { EventEmitter } from "../../utils/events";
 
 
-export { Button, GamepadLayout as GamepadPlatform };
+export { Button, GamepadLayout };
 
-type RemapNintendoMode = "none" | "accurate" | "physical";
+type NintendoRemapMode = "none" | "accurate" | "physical";
 
 export type GamepadVibration = GamepadEffectParameters & { vibrationType?: GamepadHapticEffectType };
 export type GamepadButtonDownEvent = ( gamepad: GamepadDevice, button: Button ) => void;
@@ -21,18 +19,39 @@ export interface GamepadButtonPressEvent {
   buttonCode: ButtonCode;
 }
 
-export interface GamepadNamedBindButtonPressEvent extends GamepadButtonPressEvent {
+export interface GamepadAxisEvent {
+  device: GamepadDevice;
+  axis: Axis;
+  axisCode: AxisCode;
+}
+
+export type GamepadNamedBindEvent = {
+  device: GamepadDevice;
   name: string;
+  type: "button";
+  button: Button;
+  buttonCode: ButtonCode;
+} | {
+  device: GamepadDevice;
+  name: string;
+  type: "axis";
+  axis: Axis;
+  axisCode: AxisCode;
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type GamepadDeviceEvent = {
-  bind: GamepadNamedBindButtonPressEvent;
+  bind: GamepadNamedBindEvent;
+} & {
+  [axis in AxisCode]: GamepadAxisEvent;
 } & {
   [button in ButtonCode]: GamepadButtonPressEvent;
-} & {
-  [button in Button]: GamepadButtonPressEvent;
 };
+
+/**
+ * Bindable codes for button and joystick events.
+ */
+export type BindableCode = ButtonCode | AxisCode;
 
 /**
  * A gamepad (game controller).
@@ -45,6 +64,17 @@ export type GamepadDeviceEvent = {
  */
 export class GamepadDevice
 {
+  /** Set named binds for newly connected gamepads */
+  public static configureDefaultBinds(
+    binds: Partial<Record<string, BindableCode[]>>
+  ): void
+  {
+    this.defaultOptions.binds = {
+      ...this.defaultOptions.binds,
+      ...binds,
+    };
+  }
+
   public static defaultOptions = {
     /**
      * When set to `"physical"` _(default)_, ABXY refer to the equivalent
@@ -56,7 +86,7 @@ export class GamepadDevice
      * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
      * 2, and 3 positions respectively.
      */
-    remapNintendoMode: "physical" as RemapNintendoMode,
+    nintendoRemapMode: "physical" as NintendoRemapMode,
 
     /**
      * Create named binds of buttons.
@@ -66,6 +96,7 @@ export class GamepadDevice
      * @example
      * // set by names
      * Gamepad.defaultOptions.binds = {
+     *   ...Gamepad.defaultOptions.binds,
      *   jump: [ "A" ],
      *   crouch: [ "X" ],
      * }
@@ -76,43 +107,49 @@ export class GamepadDevice
      *   // ...
      * }
      */
-    binds: {} as Partial<Record<string, ButtonCode[]>>,
+    binds: {
+      "navigate.back": [ "B", "Back" ],
+      "navigate.down": [ "DPadDown", "LeftStickDown" ],
+      "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
+      "navigate.right": [ "DPadRight", "LeftStickRight" ],
+      "navigate.trigger": [ "A" ],
+      "navigate.up": [ "DPadUp", "LeftStickUp" ],
+    } as Partial<Record<string, BindableCode[]>>,
 
-    navigation: {
-      enabled: true,
+    joystick: {
+      /**
+       * The range of movement in a joystick recognized as input, to
+       * prevent unintended movements caused by imprecision or wear.
+       *
+       * @default [ 0, 1 ]
+       */
+      deadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
 
-      binds: {
-        [ Button.A ]: "trigger",
-        [ Button.B ]: "navigateBack",
-        [ Button.Back ]: "navigateBack",
-        [ Button.DPadDown ]: "navigateDown",
-        [ Button.DPadLeft ]: "navigateLeft",
-        [ Button.DPadRight ]: "navigateRight",
-        [ Button.DPadUp ]: "navigateUp",
-      } as Partial<Record<Button, NavigationIntent>>,
+      /**
+       * The threshold joysticks must reach to emit navigation and bind events.
+       *
+       * @default 0.25
+       */
+      threshold: 0.25,
 
-      joystick: {
-        commitSensitivity: 0.5,
-        repeatCooldownMs: 80,
-        firstRepeatCooldownMs: 400,
-      },
+      /**
+       * The amount of time (in milliseconds) between emitting axis events in a
+       * given direction, given as [first, subsequent].
+       *
+       * @default [ delay: 400, repeat: 80 ]
+       */
+      autoRepeatDelayMs: [400, 80] satisfies [ delay: number, subsequent: number ],
     },
 
-    /**
-     * The range of movement in a joystick recognized as input, to
-     * prevent unintended movements caused by imprecision or wear.
-     *
-     * @default [ 0, 1 ]
-     */
-    joystickDeadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
-
-    /**
-     * The range of movement in a trigger recognized as input, to
-     * revent unintended movements caused by imprecision or wear.
-     *
-     * @default [ 0, 1 ]
-     */
-    triggerDeadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
+    trigger: {
+      /**
+       * The range of movement in a trigger recognized as input, to
+       * revent unintended movements caused by imprecision or wear.
+       *
+       * @default [ 0, 1 ]
+       */
+      deadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
+    },
 
     vibration: {
       enabled: true,
@@ -147,20 +184,14 @@ export class GamepadDevice
 
   // ----- Joysticks: -----
 
-  public readonly leftJoystick = {
-    x: 0.0,
-    y: 0.0,
-  };
-  public readonly rightJoystick = {
-    x: 0.0,
-    y: 0.0,
-  };
+  public readonly leftJoystick = { x: 0, y: 0 };
+  public readonly rightJoystick = { x: 0, y: 0 };
 
   // ----- Buttons: -----
 
   /** Accessors for buttons */
-  public button: Record<ButtonCode, boolean> =
-    Object.keys(Button).reduce( (obj, key) =>
+  public button: Record<AxisCode | ButtonCode, boolean> =
+    [...ButtonCode, ...AxisCode ].reduce( (obj, key) =>
     {
       obj[key] = false;
       return obj;
@@ -168,12 +199,8 @@ export class GamepadDevice
 
   // ----- Internal: -----
 
-  private _btnPrevState = new Array<boolean>(16);
-  private _axisIntents = new Array<boolean>(2);
-  private readonly _throttleIdLeftStickX: string;
-  private readonly _throttleIdLeftStickY: string;
   private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
-  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindButtonPressEvent>>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
 
   // ----- Triggers: -----
 
@@ -196,7 +223,7 @@ export class GamepadDevice
   }
 
   /** @returns true if any of the given buttons are pressed. */
-  public pressedAny( btns: ButtonCode[] ): boolean
+  public pressedAny( btns: BindableCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -207,7 +234,7 @@ export class GamepadDevice
   }
 
   /** @returns true if all of the given buttons are pressed. */
-  public pressedAll( btns: ButtonCode[] ): boolean
+  public pressedAll( btns: BindableCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -215,6 +242,15 @@ export class GamepadDevice
     }
 
     return true;
+  }
+
+  /** Set named binds for this gamepad */
+  public configureBinds( binds: Partial<Record<string, BindableCode[]>> ): void
+  {
+    this.options.binds = {
+      ...this.options.binds,
+      ...binds,
+    };
   }
 
   // ----- Events: -----
@@ -225,8 +261,7 @@ export class GamepadDevice
     listener: (event: GamepadDeviceEvent[K]) => void
   ): this
   {
-    const e = typeof event === "number" ? ButtonCode[event] : event;
-    this._emitter.on(e, listener);
+    this._emitter.on(event, listener);
     return this;
   }
 
@@ -236,15 +271,14 @@ export class GamepadDevice
     listener?: (event: GamepadDeviceEvent[K]) => void
   ): this
   {
-    const e = typeof event === "number" ? ButtonCode[event] : event;
-    this._emitter.off(e, listener);
+    this._emitter.off(event, listener);
     return this;
   }
 
   /** Add a named bind event listener (or all if none provided). */
   public onBind(
     name: string,
-    listener: ( event: GamepadNamedBindButtonPressEvent ) => void
+    listener: ( event: GamepadNamedBindEvent ) => void
   ): this
   {
     this._bindEmitter.on( name, listener );
@@ -254,7 +288,7 @@ export class GamepadDevice
   /** Remove a named bind event listener (or all if none provided). */
   public offBind(
     name: string,
-    listener?: ( event: GamepadNamedBindButtonPressEvent ) => void
+    listener?: ( event: GamepadNamedBindEvent ) => void
   ): this
   {
     this._bindEmitter.off( name, listener );
@@ -311,23 +345,76 @@ export class GamepadDevice
 
   public clear(): void
   {
-    this._axisIntents = this._axisIntents.map(() => false);
-    this._btnPrevState = this._btnPrevState.map(() => false);
+    this.button = [...AxisCode, ...ButtonCode].reduce( (obj, key) =>
+    {
+      obj[key] = false;
+      return obj;
+    }, {} as any );
   }
 
   public constructor( public source: Gamepad )
   {
     this.id = "gamepad" + source.index;
     this.layout = detectLayout( source );
-
-    // cooldown ids:
-    this._throttleIdLeftStickX = this.id + "-lsx";
-    this._throttleIdLeftStickY = this.id + "-lsy";
   }
 
   private updatePresses( source: Gamepad, now: number ): void
   {
-    const buttonCount = this._btnPrevState.length;
+    const axisCount = 4;
+    const buttonCount = 16;
+    const joy = this.options.joystick;
+
+    // axis
+    for ( let a = 0; a < axisCount; a++ )
+    {
+      const value = _scale( source.axes[a], joy.deadzone );
+      const axisCode = AxisCode[a * 2 + ( value > 0 ? 1 : 0 )];
+
+      if ( Math.abs( value ) < joy.threshold )
+      {
+        this.button[ axisCode ] = false;
+      }
+      else
+      {
+        const throttleMs = joy.autoRepeatDelayMs[+this.button[ axisCode ]];
+
+        this.button[ axisCode ] = true;
+
+        if ( !throttle( axisCode, throttleMs ) )
+        {
+          this.lastInteraction = now;
+
+          // emit events
+          if ( this._emitter.hasListener( axisCode ) )
+          {
+            setTimeout( () => this._emitter.emit( axisCode, {
+              device: this,
+              axis: a as Axis,
+              axisCode,
+            }) );
+          }
+
+          // check named bind events
+          Object.entries( this.options.binds ).forEach(([ name, values ]) =>
+          {
+            if ( !values.includes(axisCode) ) return;
+
+            setTimeout( () => {
+              const event: GamepadNamedBindEvent = {
+                device: this,
+                type: "axis",
+                axis: a as Axis,
+                axisCode,
+                name: name,
+              };
+
+              this._bindEmitter.emit( name, event );
+              this._emitter.emit( "bind", event );
+            });
+          });
+        }
+      }
+    }
 
     // buttons
     for (let _b = 0; _b < buttonCount; _b++)
@@ -337,11 +424,12 @@ export class GamepadDevice
       // remap nintendo binds (if enabled)
       if (
         this.layout === "nintendo" &&
-        this.options.remapNintendoMode !== "none"
+        this.options.nintendoRemapMode !== "none"
       )
       {
-        if ( this.options.remapNintendoMode === "physical" )
+        if ( this.options.nintendoRemapMode === "physical" )
         {
+          // physical:
           // set A,B,X,Y to be the equivalent physical positions
           if ( b === Button.B ) b = Button.A;
           else if ( b === Button.A ) b = Button.B;
@@ -350,13 +438,16 @@ export class GamepadDevice
         }
         else
         {
+          // accurate:
           // set A,B,X,Y to match nintendo labels
           if ( b === Button.B ) b = Button.X;
           else if ( b === Button.X ) b = Button.B;
         }
       }
 
-      if ( this._btnPrevState[b] === source.buttons[_b]?.pressed )
+      const buttonCode = ButtonCode[b];
+
+      if ( this.button[buttonCode] === source.buttons[_b]?.pressed )
       {
         continue; // skip: no change
       }
@@ -365,9 +456,6 @@ export class GamepadDevice
 
       // update
       const isPressed = source.buttons[_b]?.pressed ?? false;
-      const buttonCode = ButtonCode[b];
-
-      this._btnPrevState[b] = isPressed;
       this.button[buttonCode] = isPressed;
 
       if ( isPressed )
@@ -388,8 +476,9 @@ export class GamepadDevice
           if ( !buttons.includes(buttonCode) ) return;
 
           setTimeout( () => {
-            const event = {
+            const event: GamepadNamedBindEvent = {
               device: this,
+              type: "button",
               button: b,
               buttonCode,
               name: name,
@@ -399,93 +488,22 @@ export class GamepadDevice
             this._emitter.emit( "bind", event );
           });
         });
-
-        // navigation
-        if (
-          Navigation.options.enabled &&
-          this.options.navigation.enabled &&
-          this.options.navigation.binds[b] !== undefined
-        )
-        {
-          setTimeout( () =>
-            Navigation.commit( this.options.navigation.binds[b], this )
-          );
-        }
       }
     }
 
     // triggers
-    const tdz = this.options.triggerDeadzone;
-    this.leftTrigger = _scale( this.source.buttons[Button.LeftTrigger].value, tdz );
-    this.rightTrigger = _scale( this.source.buttons[Button.RightTrigger].value, tdz );
-    this.leftShoulder = _scale( this.source.buttons[Button.LeftShoulder].value, tdz );
-    this.rightShoulder = _scale( this.source.buttons[Button.RightShoulder].value, tdz );
+    const tdz = this.options.trigger.deadzone;
+    this.leftTrigger = _scale( source.buttons[Button.LeftTrigger].value, tdz );
+    this.rightTrigger = _scale( source.buttons[Button.RightTrigger].value, tdz );
+    this.leftShoulder = _scale( source.buttons[Button.LeftShoulder].value, tdz );
+    this.rightShoulder = _scale( source.buttons[Button.RightShoulder].value, tdz );
 
     // joysticks
-    const jdz = this.options.joystickDeadzone;
+    const jdz = joy.deadzone;
     this.leftJoystick.x = _scale( source.axes[Axis.LeftStickX] ?? 0, jdz );
     this.leftJoystick.y = _scale( source.axes[Axis.LeftStickY] ?? 0, jdz);
     this.rightJoystick.x = _scale( source.axes[Axis.RightStickX] ?? 0, jdz );
     this.rightJoystick.y = _scale( source.axes[Axis.RightStickY] ?? 0, jdz );
-
-    if (
-      this.leftJoystick.x !== 0
-      || this.leftJoystick.y !== 0
-      || this.rightJoystick.x !== 0
-      || this.rightJoystick.y !== 0
-    ) this.lastInteraction = now;
-
-    const jnav = this.options.navigation.joystick;
-
-    // left joystick navigation: left/right
-    if ( Math.abs( this.leftJoystick.x ) >= jnav.commitSensitivity )
-    {
-      const xIntent: NavigationIntent = this.leftJoystick.x < 0 ? "navigateLeft" : "navigateRight";
-
-      // if we sent an intent too recently, this will slow us down.
-      const cooldownDuration = this._axisIntents[ Axis.LeftStickX ]
-        ? jnav.repeatCooldownMs
-        : jnav.firstRepeatCooldownMs;
-
-      this._axisIntents[ Axis.LeftStickX ] = true;
-
-      if (
-        this.options.navigation.enabled &&
-        !throttle( this._throttleIdLeftStickX, cooldownDuration )
-      )
-      {
-        setTimeout( () => Navigation.commit( xIntent, this ) );
-      }
-    }
-    else
-    {
-      this._axisIntents[ Axis.LeftStickX ] = false;
-    }
-
-    // left joystick navigation: up/down
-    if ( Math.abs( this.leftJoystick.y ) >= jnav.commitSensitivity )
-    {
-      const yIntent: NavigationIntent = this.leftJoystick.y < 0 ? "navigateUp" : "navigateDown";
-
-      // if we sent an intent too recently, this will slow us down.
-      const cooldownDuration = this._axisIntents[ Axis.LeftStickY ]
-        ? jnav.repeatCooldownMs
-        : jnav.firstRepeatCooldownMs;
-
-      this._axisIntents[ Axis.LeftStickY ] = true;
-
-      if (
-        this.options.navigation.enabled &&
-        !throttle( this._throttleIdLeftStickY, cooldownDuration )
-      )
-      {
-        setTimeout( () => Navigation.commit( yIntent, this ) );
-      }
-    }
-    else
-    {
-      this._axisIntents[ Axis.LeftStickY ] = false;
-    }
   }
 }
 

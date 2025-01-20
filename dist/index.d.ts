@@ -88,10 +88,10 @@ declare class InputDeviceManager {
 	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided) */
 	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
-	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: NamedBindEvent) => void): this;
+	/** Adds a named bind event listener. */
+	onBind<N extends string>(name: N | readonly N[], listener: (event: NamedBindEvent<N>) => void): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: string, listener?: (event: NamedBindEvent) => void): this;
+	offBind(name: string | string[], listener?: (event: NamedBindEvent) => void): this;
 	/** Report a named bind event (from a CustomDevice). */
 	emitBind(e: NamedBindEvent): void;
 	/** Add a custom device. */
@@ -111,38 +111,46 @@ declare class InputDeviceManager {
 }
 declare class NavigationManager {
 	static global: NavigationManager;
-	/**
-	 * Set the stage root to automatically handle global
-	 * navigation intents.
-	 */
-	stage?: Container;
 	options: {
-		/**
-		 * When set to false, navigation will be disabled globally.
-		 */
-		enabled: boolean;
 		/**
 		 * When enabled, if no "pointover"/"mouseover" listeners
 		 * exist, a default alpha effect will be used instead.
 		 */
 		useFallbackHoverEffect: boolean;
+		/**
+		 * Minimum distance in a direction that a container has to be to
+		 * appear as selectable in that direction.
+		 */
+		minimumDirectionDistance: number;
 	};
-	private _focused?;
-	private _responderStack;
+	/**
+	 * Whether navigation is enabled globally.
+	 */
+	enabled: boolean;
+	private _responders;
+	private _root?;
+	private _rootFocused?;
 	private constructor();
 	/**
-	 * Active global interaction target
+	 * Current navigation target.
+	 */
+	get focusTarget(): Container | undefined;
+	set focusTarget(target: Container | undefined);
+	/**
+	 * Active global interaction target.
 	 */
 	get firstResponder(): NavigationResponder | undefined;
 	/**
-	 * Stack of global interaction targets
+	 * Stack of global interaction targets.
 	 */
 	get responders(): readonly NavigationResponder[];
 	/**
-	 * Emit interaction intent to the first responder,
-	 * or the global responder if none.
+	 * Initialize navigation and set the root navigation responder.
+	 *
+	 * @param stage - Root navigation responder container, where navigatable
+	 * containers can live.
 	 */
-	commit(intent: NavigationIntent, device: Device): void;
+	configureWithRoot(stage: Container): void;
 	/**
 	 * Remove the top-most global interaction target
 	 */
@@ -150,18 +158,38 @@ declare class NavigationManager {
 	/**
 	 * Set the new top-most global interaction target.
 	 */
-	pushResponder(responder: NavigationResponder): void;
+	pushResponder(responder: Container | NavigationResponder): void;
 	/**
 	 * Focus on the first navigatable element.
 	 */
 	autoFocus(): void;
-	private _propagateIntent;
+	/**
+	 * Current root container for navigation.
+	 */
+	getResponderStage(): Container;
+	private _propagate;
 	private _handleGlobalIntent;
 	private _emitBlur;
 	private _emitFocus;
 	private _emitTrigger;
-	private _clearFocusIfNeeded;
+	private _invalidateFocusedIfNeeded;
 }
+declare const Axis: {
+	readonly LeftStickX: 0;
+	readonly LeftStickY: 1;
+	readonly RightStickX: 2;
+	readonly RightStickY: 3;
+};
+declare const AxisCode: readonly [
+	"LeftStickLeft",
+	"LeftStickRight",
+	"LeftStickUp",
+	"LeftStickDown",
+	"RightStickLeft",
+	"RightStickRight",
+	"RightStickUp",
+	"RightStickDown"
+];
 declare const ButtonCode: readonly [
 	"A",
 	"B",
@@ -173,8 +201,8 @@ declare const ButtonCode: readonly [
 	"RightTrigger",
 	"Back",
 	"Start",
-	"LeftStick",
-	"RightStick",
+	"LStick",
+	"RStick",
 	"DPadUp",
 	"DPadDown",
 	"DPadLeft",
@@ -191,6 +219,8 @@ declare const ButtonCode: readonly [
  */
 export declare class GamepadDevice {
 	source: Gamepad;
+	/** Set named binds for newly connected gamepads */
+	static configureDefaultBinds(binds: Partial<Record<string, BindableCode[]>>): void;
 	static defaultOptions: {
 		/**
 		 * When set to `"physical"` _(default)_, ABXY refer to the equivalent
@@ -202,7 +232,7 @@ export declare class GamepadDevice {
 		 * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
 		 * 2, and 3 positions respectively.
 		 */
-		remapNintendoMode: RemapNintendoMode;
+		nintendoRemapMode: NintendoRemapMode;
 		/**
 		 * Create named binds of buttons.
 		 *
@@ -211,6 +241,7 @@ export declare class GamepadDevice {
 		 * @example
 		 * // set by names
 		 * Gamepad.defaultOptions.binds = {
+		 *   ...Gamepad.defaultOptions.binds,
 		 *   jump: [ "A" ],
 		 *   crouch: [ "X" ],
 		 * }
@@ -221,36 +252,47 @@ export declare class GamepadDevice {
 		 *   // ...
 		 * }
 		 */
-		binds: Partial<Record<string, ButtonCode[]>>;
-		navigation: {
-			enabled: boolean;
-			binds: Partial<Record<Button, NavigationIntent>>;
-			joystick: {
-				commitSensitivity: number;
-				repeatCooldownMs: number;
-				firstRepeatCooldownMs: number;
-			};
+		binds: Partial<Record<string, BindableCode[]>>;
+		joystick: {
+			/**
+			 * The range of movement in a joystick recognized as input, to
+			 * prevent unintended movements caused by imprecision or wear.
+			 *
+			 * @default [ 0, 1 ]
+			 */
+			deadzone: [
+				number,
+				number
+			];
+			/**
+			 * The threshold joysticks must reach to emit navigation and bind events.
+			 *
+			 * @default 0.25
+			 */
+			threshold: number;
+			/**
+			 * The amount of time (in milliseconds) between emitting axis events in a
+			 * given direction, given as [first, subsequent].
+			 *
+			 * @default [ delay: 400, repeat: 80 ]
+			 */
+			autoRepeatDelayMs: [
+				number,
+				number
+			];
 		};
-		/**
-		 * The range of movement in a joystick recognized as input, to
-		 * prevent unintended movements caused by imprecision or wear.
-		 *
-		 * @default [ 0, 1 ]
-		 */
-		joystickDeadzone: [
-			number,
-			number
-		];
-		/**
-		 * The range of movement in a trigger recognized as input, to
-		 * revent unintended movements caused by imprecision or wear.
-		 *
-		 * @default [ 0, 1 ]
-		 */
-		triggerDeadzone: [
-			number,
-			number
-		];
+		trigger: {
+			/**
+			 * The range of movement in a trigger recognized as input, to
+			 * revent unintended movements caused by imprecision or wear.
+			 *
+			 * @default [ 0, 1 ]
+			 */
+			deadzone: [
+				number,
+				number
+			];
+		};
 		vibration: {
 			enabled: boolean;
 			intensity: number;
@@ -284,11 +326,7 @@ export declare class GamepadDevice {
 		y: number;
 	};
 	/** Accessors for buttons */
-	button: Record<ButtonCode, boolean>;
-	private _btnPrevState;
-	private _axisIntents;
-	private readonly _throttleIdLeftStickX;
-	private readonly _throttleIdLeftStickY;
+	button: Record<AxisCode | ButtonCode, boolean>;
 	private readonly _emitter;
 	private readonly _bindEmitter;
 	/** A scalar 0.0 to 1.0 representing the left trigger value */
@@ -302,17 +340,19 @@ export declare class GamepadDevice {
 	/** @returns true if any button from the named bind is pressed. */
 	pressedBind(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
-	pressedAny(btns: ButtonCode[]): boolean;
+	pressedAny(btns: BindableCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
-	pressedAll(btns: ButtonCode[]): boolean;
+	pressedAll(btns: BindableCode[]): boolean;
+	/** Set named binds for this gamepad */
+	configureBinds(binds: Partial<Record<string, BindableCode[]>>): void;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: GamepadNamedBindButtonPressEvent) => void): this;
+	onBind(name: string, listener: (event: GamepadNamedBindEvent) => void): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: string, listener?: (event: GamepadNamedBindButtonPressEvent) => void): this;
+	offBind(name: string, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/**
 	 * Play a vibration effect (if supported).
 	 *
@@ -368,10 +408,13 @@ export declare class KeyboardDevice {
 		 * }
 		 */
 		binds: Partial<Record<string, KeyCode[]>>;
-		navigation: {
-			enabled: boolean;
-			binds: NavigationBinds;
-		};
+		/**
+		 * These are the binds that are allowed to repeat when a key
+		 * is held down.
+		 *
+		 * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
+		 */
+		repeatableBinds: string[];
 	};
 	/** Accessors for keys */
 	key: Record<KeyCode, boolean>;
@@ -409,10 +452,12 @@ export declare class KeyboardDevice {
 	pressedAny(keys: KeyCode[]): boolean;
 	/** @returns true if all of the given keys are pressed. */
 	pressedAll(keys: KeyCode[]): boolean;
+	/** Set custom binds */
+	configureBinds(binds: Partial<Record<string, KeyCode[]>>): void;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Remove an event listener (or all if none provided). */
-	off<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
+	off<K extends keyof KeyboardDeviceEvent>(event: K, listener?: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
 	onBind(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
 	/** Remove a named bind event listener (or all if none provided). */
@@ -464,9 +509,9 @@ export declare const Button: {
 	/** Start Button (Xbox: "Start", PlayStation: "Options", Nintendo: "Plus") */
 	readonly Start: 9;
 	/** Left Stick Press (Xbox / PlayStation: "LS", Nintendo: "L3") */
-	readonly LeftStick: 10;
+	readonly LeftStickClick: 10;
 	/** Right Stick Press (Xbox / PlayStation: "RS", Nintendo: "R3") */
-	readonly RightStick: 11;
+	readonly RightStickClick: 11;
 	/** D-Pad Up */
 	readonly DPadUp: 12;
 	/** D-Pad Down */
@@ -616,8 +661,15 @@ export declare const KeyCode: {
  *
  * Set stage to enable the global responder behaviors.
  */
-export declare const Navigation: NavigationManager;
-export declare const REPEATABLE_NAV_INTENTS: readonly NavigationIntent[];
+export declare const UINavigation: NavigationManager;
+export declare const navigationIntents: readonly [
+	"navigate.left",
+	"navigate.right",
+	"navigate.up",
+	"navigate.down",
+	"navigate.back",
+	"navigate.trigger"
+];
 /**
  * @returns all navigatable containers in some container
  */
@@ -629,12 +681,13 @@ export declare function getFirstNavigatable(root: Container, currentFocus?: Cont
 	minimumDistance?: number;
 }): NavigatableContainer | undefined;
 export declare function isChildOf(child: Container, root: Container): boolean;
+export declare function isVisible(target: Container): boolean;
 /**
  * Register the mixin for PIXI.Container.
  *
  * @param container A reference to `PIXI.Container`.
  */
-export declare function registerPixiJSInputDeviceMixin(container: any): void;
+export declare function registerPixiJSNavigationMixin(container: any): void;
 export interface CustomDevice {
 	readonly type: "custom";
 	readonly id: string;
@@ -651,13 +704,15 @@ export interface CustomDevice {
 	 */
 	clear?(): void;
 }
+export interface GamepadAxisEvent {
+	device: GamepadDevice;
+	axis: Axis;
+	axisCode: AxisCode;
+}
 export interface GamepadButtonPressEvent {
 	device: GamepadDevice;
 	button: Button;
 	buttonCode: ButtonCode;
-}
-export interface GamepadNamedBindButtonPressEvent extends GamepadButtonPressEvent {
-	name: string;
 }
 export interface InputDeviceEvent {
 	deviceadded: {
@@ -681,6 +736,7 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 }
 export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydownEvent {
 	name: string;
+	repeat: boolean;
 }
 /**
  * A target that responds to navigation on the stack.
@@ -693,6 +749,10 @@ export interface NavigationResponder {
 	 * @default true
 	 */
 	autoFocus?: boolean;
+	/**
+	 * Currently focused container.
+	 */
+	focusTarget?: Container;
 	/**
 	 * Called when received a navigation intent. The target should handle, and
 	 * respond with a boolean indicating whether or not the intent was handled.
@@ -715,16 +775,35 @@ export interface NavigationResponder {
 	 */
 	resignedAsFirstResponder?(): void;
 }
+export type Axis = (typeof Axis)[keyof typeof Axis];
+export type AxisCode = typeof AxisCode[number];
+/**
+ * Bindable codes for button and joystick events.
+ */
+export type BindableCode = ButtonCode | AxisCode;
 export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 export type GamepadDeviceEvent = {
-	bind: GamepadNamedBindButtonPressEvent;
+	bind: GamepadNamedBindEvent;
+} & {
+	[axis in AxisCode]: GamepadAxisEvent;
 } & {
 	[button in ButtonCode]: GamepadButtonPressEvent;
-} & {
-	[button in Button]: GamepadButtonPressEvent;
+};
+export type GamepadNamedBindEvent = {
+	device: GamepadDevice;
+	name: string;
+	type: "button";
+	button: Button;
+	buttonCode: ButtonCode;
+} | {
+	device: GamepadDevice;
+	name: string;
+	type: "axis";
+	axis: Axis;
+	axisCode: AxisCode;
 };
 export type GamepadVibration = GamepadEffectParameters & {
 	vibrationType?: GamepadHapticEffectType;
@@ -738,22 +817,21 @@ export type KeyboardDeviceEvent = {
 };
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
-export type NamedBindEvent = {
+export type NamedBindEvent<BindName extends string = string> = {
 	device: Device;
-	name: string;
+	name: BindName;
 };
 export type NavigatableContainer = Container;
-export type NavigationBinds = Partial<Record<KeyCode, NavigationIntent>>;
-export type NavigationDirection = "navigateLeft" | "navigateRight" | "navigateUp" | "navigateDown";
-export type NavigationIntent = "navigateBack" | "navigateDown" | "navigateLeft" | "navigateRight" | "navigateUp" | "trigger";
-export type NavigationTargetEvent = "focus" | "blur";
-export type RemapNintendoMode = "none" | "accurate" | "physical";
+export type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
+export type NavigationIntent = typeof navigationIntents[number];
+export type NavigationTargetEvent = "deviceover" | "devicedown" | "deviceout";
+export type NintendoRemapMode = "none" | "accurate" | "physical";
 /**
  * Common gamepad platform layouts, which may indicate button layout.
  *
  * Note: Non-comprehensive list, covers the most brands only.
  */
-type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "generic";
+type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
 
 export {
 	GamepadLayout as GamepadPlatform,

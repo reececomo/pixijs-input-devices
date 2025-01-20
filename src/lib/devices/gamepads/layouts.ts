@@ -3,7 +3,7 @@
  *
  * Note: Non-comprehensive list, covers the most brands only.
  */
-export type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "generic";
+export type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
 
 /**
  * Automatically detect layout from Gamepad API `id` field.
@@ -22,5 +22,5 @@ export function detectLayout( gamepad: Gamepad ): GamepadLayout
   if ( /(dualshock|dualsense|sony|054c|0ce6|0810)/.test( id ) ) return "playstation";
   if ( /(xbox|xinput|045e|028e|0291|02a0|02a1|02ea|02ff)/.test( id ) ) return "xbox";
 
-  return "generic";
+  return "standard";
 }

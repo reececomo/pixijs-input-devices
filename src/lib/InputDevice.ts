@@ -1,6 +1,6 @@
 import { CustomDevice } from "./devices/CustomDevice";
-import { GamepadDevice } from "./devices/GamepadDevice";
-import { KeyboardDevice } from "./devices/KeyboardDevice";
+import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
+import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
 import { isMobile, isTouchCapable } from "./utils/detectors";
 import { EventEmitter } from "./utils/events";
 
@@ -12,9 +12,9 @@ export interface InputDeviceEvent {
 
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 
-type NamedBindEvent = {
+export type NamedBindEvent<BindName extends string = string> = {
   device: Device;
-  name: string;
+  name: BindName;
 }
 
 class InputDeviceManager
@@ -127,23 +127,26 @@ class InputDeviceManager
     return this;
   }
 
-  /** Add a named bind event listener (or all if none provided). */
-  public onBind(
-    name: string,
-    listener: ( event: NamedBindEvent ) => void
+  /** Adds a named bind event listener. */
+  public onBind<N extends string>(
+    name: N | readonly N[],
+    listener: ( event: NamedBindEvent<N> ) => void
   ): this
   {
-    this._bindEmitter.on( name, listener );
+    name = Array.isArray( name ) ? name : [name];
+    name.forEach( n => this._bindEmitter.on( n, listener ) );
     return this;
   }
 
   /** Remove a named bind event listener (or all if none provided). */
   public offBind(
-    name: string,
+    name: string | string[],
     listener?: ( event: NamedBindEvent ) => void
   ): this
   {
-    this._bindEmitter.off( name, listener );
+    name = Array.isArray( name ) ? name : [name];
+    name.forEach( n => this._bindEmitter.off( n, listener ) );
+
     return this;
   }
 
