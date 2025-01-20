@@ -1,5 +1,5 @@
 import { KeyCode } from "./keys";
-import { EventEmitter } from "../../utils/events";
+import { EventEmitter, EventOptions } from "../../utils/events";
 import {
   requestKeyboardLayout,
   getLayoutKeyLabel,
@@ -230,10 +230,11 @@ export class KeyboardDevice
   /** Add an event listener. */
   public on<K extends keyof KeyboardDeviceEvent>(
     event: K,
-    listener: (event: KeyboardDeviceEvent[K]) => void
+    listener: (event: KeyboardDeviceEvent[K]) => void,
+    options?: EventOptions,
   ): this
   {
-    this._emitter.on(event, listener);
+    this._emitter.on( event, listener, options );
     return this;
   }
 
@@ -250,10 +251,11 @@ export class KeyboardDevice
   /** Add a named bind event listener (or all if none provided). */
   public onBind(
     name: string,
-    listener: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void
+    listener: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void,
+    options?: EventOptions,
   ): this
   {
-    this._bindEmitter.on( name, listener );
+    this._bindEmitter.on( name, listener, options );
     return this;
   }
 

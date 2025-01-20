@@ -236,7 +236,7 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button Index | BindableCode | Description | Xbox | Playstation | Nintendo<sup>[[?]](#gamepad---nintendo-layout-remapping)</sup> |
+| Button Index | GamepadCode | Description | Xbox | Playstation | Nintendo<sup>[[?]](#gamepad---nintendo-layout-remapping)</sup> |
 |:---:|:---|:---|:---:|:---:|:---:|
 | `0` | `"A"` | **Face Button 0** | A | Cross | A |
 | `1` | `"B"` | **Face Button 1** | B | Circle | X* |
@@ -259,7 +259,7 @@ The gamepad buttons reference **Standard Controller Layout**:
 
 Bindable helpers are available for the joysticks too:
 
-| Axis # | BindableCode | Standard | Layout
+| Axis # | GamepadCode | Standard | Layout
 |:---:|:---:|:---:|:---:|
 | `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (Left/Right)** | ⬅️➡️ |
 | `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Up/Down)** | ⬆️⬇️ |

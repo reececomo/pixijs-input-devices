@@ -89,7 +89,7 @@ declare class InputDeviceManager {
 	/** Remove an event listener (or all if none provided) */
 	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Adds a named bind event listener. */
-	onBind<N extends string>(name: N | readonly N[], listener: (event: NamedBindEvent<N>) => void): this;
+	onBind<N extends string>(name: N | readonly N[], listener: (event: NamedBindEvent<N>) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
 	offBind(name: string | string[], listener?: (event: NamedBindEvent) => void): this;
 	/** Report a named bind event (from a CustomDevice). */
@@ -220,7 +220,7 @@ declare const ButtonCode: readonly [
 export declare class GamepadDevice {
 	source: Gamepad;
 	/** Set named binds for newly connected gamepads */
-	static configureDefaultBinds(binds: Partial<Record<string, BindableCode[]>>): void;
+	static configureDefaultBinds(binds: Partial<Record<string, GamepadCode[]>>): void;
 	static defaultOptions: {
 		/**
 		 * When set to `"physical"` _(default)_, ABXY refer to the equivalent
@@ -252,7 +252,7 @@ export declare class GamepadDevice {
 		 *   // ...
 		 * }
 		 */
-		binds: Partial<Record<string, BindableCode[]>>;
+		binds: Partial<Record<string, GamepadCode[]>>;
 		joystick: {
 			/**
 			 * The range of movement in a joystick recognized as input, to
@@ -340,17 +340,17 @@ export declare class GamepadDevice {
 	/** @returns true if any button from the named bind is pressed. */
 	pressedBind(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
-	pressedAny(btns: BindableCode[]): boolean;
+	pressedAny(btns: GamepadCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
-	pressedAll(btns: BindableCode[]): boolean;
+	pressedAll(btns: GamepadCode[]): boolean;
 	/** Set named binds for this gamepad */
-	configureBinds(binds: Partial<Record<string, BindableCode[]>>): void;
+	configureBinds(binds: Partial<Record<string, GamepadCode[]>>): void;
 	/** Add an event listener */
-	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void): this;
+	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: GamepadNamedBindEvent) => void): this;
+	onBind(name: string, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
 	offBind(name: string, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/**
@@ -455,11 +455,11 @@ export declare class KeyboardDevice {
 	/** Set custom binds */
 	configureBinds(binds: Partial<Record<string, KeyCode[]>>): void;
 	/** Add an event listener. */
-	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void): this;
+	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof KeyboardDeviceEvent>(event: K, listener?: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
+	onBind(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
 	offBind(name: string, listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
 	/**
@@ -688,6 +688,9 @@ export interface CustomDevice {
 	 */
 	clear?(): void;
 }
+export interface EventOptions {
+	once?: boolean;
+}
 export interface GamepadAxisEvent {
 	device: GamepadDevice;
 	axis: Axis;
@@ -761,14 +764,14 @@ export interface NavigationResponder {
 }
 export type Axis = (typeof Axis)[keyof typeof Axis];
 export type AxisCode = typeof AxisCode[number];
-/**
- * Bindable codes for button and joystick events.
- */
-export type BindableCode = ButtonCode | AxisCode;
 export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
+/**
+ * Bindable codes for button and joystick events.
+ */
+export type GamepadCode = ButtonCode | AxisCode;
 export type GamepadDeviceEvent = {
 	bind: GamepadNamedBindEvent;
 } & {

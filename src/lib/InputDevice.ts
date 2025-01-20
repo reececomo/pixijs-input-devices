@@ -2,7 +2,7 @@ import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
 import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
 import { isMobile, isTouchCapable } from "./utils/detectors";
-import { EventEmitter } from "./utils/events";
+import { EventEmitter, EventOptions } from "./utils/events";
 
 
 export interface InputDeviceEvent {
@@ -130,11 +130,12 @@ class InputDeviceManager
   /** Adds a named bind event listener. */
   public onBind<N extends string>(
     name: N | readonly N[],
-    listener: ( event: NamedBindEvent<N> ) => void
+    listener: ( event: NamedBindEvent<N> ) => void,
+    options?: EventOptions,
   ): this
   {
     name = Array.isArray( name ) ? name : [name];
-    name.forEach( n => this._bindEmitter.on( n, listener ) );
+    name.forEach( n => this._bindEmitter.on( n, listener, options ) );
     return this;
   }
 

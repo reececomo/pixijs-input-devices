@@ -3,7 +3,7 @@
 import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
 import { detectLayout, GamepadLayout } from "./layouts";
 import { throttle } from "../../utils/throttle";
-import { EventEmitter } from "../../utils/events";
+import { EventEmitter, EventOptions } from "../../utils/events";
 
 
 export { Button, GamepadLayout };
@@ -51,7 +51,7 @@ export type GamepadDeviceEvent = {
 /**
  * Bindable codes for button and joystick events.
  */
-export type BindableCode = ButtonCode | AxisCode;
+export type GamepadCode = ButtonCode | AxisCode;
 
 /**
  * A gamepad (game controller).
@@ -66,7 +66,7 @@ export class GamepadDevice
 {
   /** Set named binds for newly connected gamepads */
   public static configureDefaultBinds(
-    binds: Partial<Record<string, BindableCode[]>>
+    binds: Partial<Record<string, GamepadCode[]>>
   ): void
   {
     this.defaultOptions.binds = {
@@ -114,7 +114,7 @@ export class GamepadDevice
       "navigate.right": [ "DPadRight", "LeftStickRight" ],
       "navigate.trigger": [ "A" ],
       "navigate.up": [ "DPadUp", "LeftStickUp" ],
-    } as Partial<Record<string, BindableCode[]>>,
+    } as Partial<Record<string, GamepadCode[]>>,
 
     joystick: {
       /**
@@ -223,7 +223,7 @@ export class GamepadDevice
   }
 
   /** @returns true if any of the given buttons are pressed. */
-  public pressedAny( btns: BindableCode[] ): boolean
+  public pressedAny( btns: GamepadCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -234,7 +234,7 @@ export class GamepadDevice
   }
 
   /** @returns true if all of the given buttons are pressed. */
-  public pressedAll( btns: BindableCode[] ): boolean
+  public pressedAll( btns: GamepadCode[] ): boolean
   {
     for ( let i = 0; i < btns.length; i++ )
     {
@@ -245,7 +245,7 @@ export class GamepadDevice
   }
 
   /** Set named binds for this gamepad */
-  public configureBinds( binds: Partial<Record<string, BindableCode[]>> ): void
+  public configureBinds( binds: Partial<Record<string, GamepadCode[]>> ): void
   {
     this.options.binds = {
       ...this.options.binds,
@@ -258,10 +258,11 @@ export class GamepadDevice
   /** Add an event listener */
   public on<K extends keyof GamepadDeviceEvent>(
     event: K,
-    listener: (event: GamepadDeviceEvent[K]) => void
+    listener: (event: GamepadDeviceEvent[K]) => void,
+    options?: EventOptions,
   ): this
   {
-    this._emitter.on(event, listener);
+    this._emitter.on( event, listener, options );
     return this;
   }
 
@@ -278,10 +279,11 @@ export class GamepadDevice
   /** Add a named bind event listener (or all if none provided). */
   public onBind(
     name: string,
-    listener: ( event: GamepadNamedBindEvent ) => void
+    listener: ( event: GamepadNamedBindEvent ) => void,
+    options?: EventOptions,
   ): this
   {
-    this._bindEmitter.on( name, listener );
+    this._bindEmitter.on( name, listener, options );
     return this;
   }
 
