@@ -105,11 +105,11 @@ export class GamepadDevice
      */
     binds: {
       "navigate.back": [ "B", "Back" ],
-      "navigate.down": [ "DPadDown" ],
-      "navigate.left": [ "DPadLeft" ],
-      "navigate.right": [ "DPadRight" ],
+      "navigate.down": [ "DPadDown", "LeftStickDown" ],
+      "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
+      "navigate.right": [ "DPadRight", "LeftStickRight" ],
       "navigate.trigger": [ "A" ],
-      "navigate.up": [ "DPadUp" ],
+      "navigate.up": [ "DPadUp", "LeftStickUp" ],
     } as Partial<Record<string, Bindable[]>>,
 
     joystick: {
@@ -129,12 +129,12 @@ export class GamepadDevice
       threshold: 0.25,
 
       /**
-       * The amount of time in milliseconds to wait before emitting another
-       * axis event in a given direction.
+       * The amount of time (in milliseconds) between emitting axis events in a
+       * given direction, given as [first, subsequent].
        *
-       * @default [ first: 400, default: 100 ]
+       * @default [ delay: 400, repeat: 80 ]
        */
-      repeatCooldownMs: [400, 100] satisfies [ first: number, subsequent: number ],
+      autoRepeatDelayMs: [400, 80] satisfies [ delay: number, subsequent: number ],
     },
 
     trigger: {
@@ -187,7 +187,7 @@ export class GamepadDevice
 
   /** Accessors for buttons */
   public button: Record<AxisCode | ButtonCode, boolean> =
-    [...AxisCode, ...ButtonCode].reduce( (obj, key) =>
+    [...ButtonCode, ...AxisCode ].reduce( (obj, key) =>
     {
       obj[key] = false;
       return obj;
@@ -372,7 +372,7 @@ export class GamepadDevice
       }
       else
       {
-        const throttleMs = joy.repeatCooldownMs[+this.button[ axisCode ]];
+        const throttleMs = joy.autoRepeatDelayMs[+this.button[ axisCode ]];
 
         this.button[ axisCode ] = true;
 
