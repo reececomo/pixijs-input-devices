@@ -19,37 +19,21 @@ export const AxisCode = [
 export type AxisCode = typeof AxisCode[number];
 
 export const Button = {
-  /** A Button (Xbox / Nintendo: "A", PlayStation: "Cross") */
   A: 0,
-  /** B Button (Xbox: "B", PlayStation: "Circle", Nintendo: "X") */
   B: 1,
-  /** X Button (Xbox: "X", PlayStation: "Square", Nintendo: "B") */
   X: 2,
-  /** Y Button (Xbox / Nintendo: "Y", PlayStation: "Triangle") */
   Y: 3,
-  /** Left Shoulder Button (Xbox: "LB", PlayStation: "L1", Nintendo: "L") */
   LeftShoulder: 4,
-  /** Right Shoulder Button (Xbox: "RB", PlayStation: "R1", Nintendo: "R") */
   RightShoulder: 5,
-  /** Left Trigger (Xbox: "LT", PlayStation: "L2", Nintendo: "ZL") */
   LeftTrigger: 6,
-  /** Right Trigger (Xbox: "RT", PlayStation: "R2", Nintendo: "ZR") */
   RightTrigger: 7,
-  /** Back Button (Xbox: "Back", PlayStation: "Share", Nintendo: "Minus") */
   Back: 8,
-  /** Start Button (Xbox: "Start", PlayStation: "Options", Nintendo: "Plus") */
   Start: 9,
-  /** Left Stick Press (Xbox / PlayStation: "LS", Nintendo: "L3") */
   LeftStickClick: 10,
-  /** Right Stick Press (Xbox / PlayStation: "RS", Nintendo: "R3") */
   RightStickClick: 11,
-  /** D-Pad Up */
   DPadUp: 12,
-  /** D-Pad Down */
   DPadDown: 13,
-  /** D-Pad Left */
   DPadLeft: 14,
-  /** D-Pad Right */
   DPadRight: 15,
 } as const;
 
@@ -66,8 +50,8 @@ export const ButtonCode = [
   "RightTrigger",
   "Back",
   "Start",
-  "LStick",
-  "RStick",
+  "LeftStickClick",
+  "RightStickClick",
   "DPadUp",
   "DPadDown",
   "DPadLeft",

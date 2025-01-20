@@ -1,13 +1,13 @@
-# 🕹️ pixijs-input-devices &nbsp;[![License](https://badgen.net/npm/license/pixijs-input-devices)](https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE) [![Tests](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg)](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml) [![Downloads per month](https://img.shields.io/npm/dm/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices) [![NPM version](https://img.shields.io/npm/v/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices)
+# 🎮 PixiJS Input Devices &nbsp;[![License](https://badgen.net/npm/license/pixijs-input-devices)](https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE) [![Tests](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg)](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml) [![Downloads per month](https://img.shields.io/npm/dm/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices) [![NPM version](https://img.shields.io/npm/v/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices)
 
-⚡ Powerful, high-performance input device management for PixiJS
+⚡ Simple keyboard & gamepad management for PixiJS
 
 | | |
 | ------ | ------ |
-| 🎮 Handles [keyboards](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 Flexible [update](#real-time) and [event-driven](#keyboarddevice-events) APIs |
+| 🎮 Interface [keyboards](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 Flexible [update](#real-time) and [event-driven](#keyboarddevice-events) APIs |
 | ⚡ Optimized for [INP performance](https://web.dev/articles/inp) | 🪄 Built-in [named binds](#named-binds) |
 | 🔮 Highly configurable | 🌐 Built-in [international keyboard](#keyboard-layout---detection) support |
-| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🧭 Built-in [UI navigation](#navigation-api) _(optional)_ |
+| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🧭 Built-in [UI navigation](#uinavigation-api) _(optional)_ |
 | 🍃 Zero dependencies & tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
 
 
@@ -16,22 +16,23 @@
 *Handle device inputs with ease.*
 
 ```ts
-import { InputDevice } from "pixijs-input-devices";
+import { InputDevice, GamepadDevice } from "pixijs-input-devices";
 
-// Iterative
-let jump = false
+// Set named binds
+InputDevice.keyboard.configureBinds({ jump: [ "Space" ] })
+GamepadDevice.configureDefaultBinds({ jump: [ "A", "LeftStickUp" ] })
 
-for (const device of InputDevice.devices) {
-  if (device.type === "keyboard" && device.key.Space) jump = true
-  if (device.type === "gamepad" && device.button.A) jump = true
+// Use binds
+for ( const device of InputDevice.devices ) {
+    if ( device.pressedBind("jump") ) doJump()
 }
 
 // Event-driven
-const gamepad = InputDevice.gamepads[0]
-
-gamepad?.on("LeftShoulder", (e) => {
-    e.device.playVibration({ duration: 100 })
-});
+InputDevice.onBind( "jump", ({ device }) =>
+    if ( device.type === "gamepad" ) {
+        e.device.playVibration({ duration: 100 })
+    }
+);
 ```
 
 ## Getting Started with PixiJS Input Devices
@@ -235,20 +236,20 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button | BindableCode | Standard | Nintendo <sup>[[1]](#gamepad---nintendo-layout-remapping)</sup> | Playstation | Xbox |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| `0` | `"A"` | **A / FaceButton1** | A | Cross | A |
-| `1` | `"B"` | **B / FaceButton2** | X | Circle | B |
-| `2` | `"X"` | **X / FaceButton3** | B | Square | X |
-| `3` | `"Y"` | **Y / FaceButton4** | Y | Triangle | Y |
-| `4` | `"LeftShoulder"` | **Left Shoulder** | L | L1 | LB |
-| `5` | `"RightShoulder"` | **Right Shoulder** | R | R1 | RB |
-| `6` | `"LeftTrigger"` | **Left Trigger** | L2 | ZL | LT |
-| `7` | `"RightTrigger"` | **Right Trigger** | R2 | ZR | RT |
-| `8` | `"Back"` | **Back** | Minus | Options | Back |
-| `9` | `"Start"` | **Start** | Plus | Select | Start |
-| `10` | `"LeftStickClick"` | **Left Stick Click** | L3 | L3 | LSB |
-| `11` | `"RightStickClick"` | **Right Stick Click** | R3 | R3 | RSB |
+| Button Index | BindableCode | Description | Xbox | Playstation | Nintendo<sup>[[?]](#gamepad---nintendo-layout-remapping)</sup> |
+|:---:|:---|:---|:---:|:---:|:---:|
+| `0` | `"A"` | **Face Button 0** | A | Cross | A |
+| `1` | `"B"` | **Face Button 1** | B | Circle | X* |
+| `2` | `"X"` | **Face Button 2** | X | Square | B* |
+| `3` | `"Y"` | **Face Button 3** | Y | Triangle | Y |
+| `4` | `"LeftShoulder"` | **Left Shoulder** | LB | L1 | L |
+| `5` | `"RightShoulder"` | **Right Shoulder** | RB | R1 | R |
+| `6` | `"LeftTrigger"` | **Left Trigger** | LT | L2 | ZL |
+| `7` | `"RightTrigger"` | **Right Trigger** | RT | R2 | ZR |
+| `8` | `"Back"` | **Back** | Back | Options | Minus |
+| `9` | `"Start"` | **Start** | Start | Select | Plus |
+| `10` | `"LeftStickClick"` | **Left Stick Click** | LSB | L3 | L3 |
+| `11` | `"RightStickClick"` | **Right Stick Click** | RSB | R3 | R3 |
 | `12` | `"DPadUp"` | **D-Pad Up** | ⬆️ | ⬆️ | ⬆️ |
 | `13` | `"DPadDown"` | **D-Pad Down** | ⬇️ | ⬇️ | ⬇️ |
 | `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
@@ -256,14 +257,17 @@ The gamepad buttons reference **Standard Controller Layout**:
 
 #### Gamepad Axis Codes
 
-Bindable helpers are available for the joysticks.
+Bindable helpers are available for the joysticks too:
 
-| Axis # | AxisCode | Standard | Layout
+| Axis # | BindableCode | Standard | Layout
 |:---:|:---:|:---:|:---:|
 | `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (Left/Right)** | ⬅️➡️ |
 | `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Up/Down)** | ⬆️⬇️ |
 | `2` | `"RightStickLeft"`<br/>`"RightStickRight"` | **Right Stick (Left/Right)** | ⬅️➡️ |
 | `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Up/Down)** | ⬆️⬇️ |
+
+> [!TIP]
+> Set the `joystick.threshold` option in `GamepadDevice.defaultOptions` to control when this is triggered.
 
 #### Gamepad Layouts
 
@@ -470,6 +474,19 @@ Container properties | type | default | description
 >  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
 > can be disabled by setting `UINavigation.options.useFallbackHoverEffect` to `false`.
 
+
+### Default Binds
+
+The keyboard and gamepad devices are preconfigured with the following binds, feel free to modify them:
+
+Navigation Intent Bind | Keyboard | Gamepad
+---|---|---
+`"navigate.left"` | "ArrowLeft", "KeyA" | "DPadLeft", "LeftStickLeft"
+`"navigate.right"` | "ArrowRight", "KeyD" | "DPadRight", "LeftStickRight"
+`"navigate.up"` | "ArrowUp", "KeyW" | "DPadUp", "LeftStickUp"
+`"navigate.down"` | "ArrowDown", "KeyS" | "DPadDown", "LeftStickDown"
+`"navigate.trigger"` | "Enter", "Space" | "A"
+`"navigate.back"` | "Escape", "Backspace" | "B", "Back"
 
 ## Advanced usage
 

@@ -201,8 +201,8 @@ declare const ButtonCode: readonly [
 	"RightTrigger",
 	"Back",
 	"Start",
-	"LStick",
-	"RStick",
+	"LeftStickClick",
+	"RightStickClick",
 	"DPadUp",
 	"DPadDown",
 	"DPadLeft",
@@ -488,37 +488,21 @@ export declare class KeyboardDevice {
 	private _processDeferredKeydownEvent;
 }
 export declare const Button: {
-	/** A Button (Xbox / Nintendo: "A", PlayStation: "Cross") */
 	readonly A: 0;
-	/** B Button (Xbox: "B", PlayStation: "Circle", Nintendo: "X") */
 	readonly B: 1;
-	/** X Button (Xbox: "X", PlayStation: "Square", Nintendo: "B") */
 	readonly X: 2;
-	/** Y Button (Xbox / Nintendo: "Y", PlayStation: "Triangle") */
 	readonly Y: 3;
-	/** Left Shoulder Button (Xbox: "LB", PlayStation: "L1", Nintendo: "L") */
 	readonly LeftShoulder: 4;
-	/** Right Shoulder Button (Xbox: "RB", PlayStation: "R1", Nintendo: "R") */
 	readonly RightShoulder: 5;
-	/** Left Trigger (Xbox: "LT", PlayStation: "L2", Nintendo: "ZL") */
 	readonly LeftTrigger: 6;
-	/** Right Trigger (Xbox: "RT", PlayStation: "R2", Nintendo: "ZR") */
 	readonly RightTrigger: 7;
-	/** Back Button (Xbox: "Back", PlayStation: "Share", Nintendo: "Minus") */
 	readonly Back: 8;
-	/** Start Button (Xbox: "Start", PlayStation: "Options", Nintendo: "Plus") */
 	readonly Start: 9;
-	/** Left Stick Press (Xbox / PlayStation: "LS", Nintendo: "L3") */
 	readonly LeftStickClick: 10;
-	/** Right Stick Press (Xbox / PlayStation: "RS", Nintendo: "R3") */
 	readonly RightStickClick: 11;
-	/** D-Pad Up */
 	readonly DPadUp: 12;
-	/** D-Pad Down */
 	readonly DPadDown: 13;
-	/** D-Pad Left */
 	readonly DPadLeft: 14;
-	/** D-Pad Right */
 	readonly DPadRight: 15;
 };
 export declare const InputDevice: InputDeviceManager;
@@ -792,6 +776,12 @@ export type GamepadDeviceEvent = {
 } & {
 	[button in ButtonCode]: GamepadButtonPressEvent;
 };
+/**
+ * Common gamepad platform layouts, which may indicate button layout.
+ *
+ * Note: Non-comprehensive list, covers the most brands only.
+ */
+export type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
 export type GamepadNamedBindEvent = {
 	device: GamepadDevice;
 	name: string;
@@ -826,15 +816,5 @@ export type NavigationDirection = "navigate.left" | "navigate.right" | "navigate
 export type NavigationIntent = typeof navigationIntents[number];
 export type NavigationTargetEvent = "deviceover" | "devicedown" | "deviceout";
 export type NintendoRemapMode = "none" | "accurate" | "physical";
-/**
- * Common gamepad platform layouts, which may indicate button layout.
- *
- * Note: Non-comprehensive list, covers the most brands only.
- */
-type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
-
-export {
-	GamepadLayout as GamepadPlatform,
-};
 
 export {};

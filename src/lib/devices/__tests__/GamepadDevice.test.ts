@@ -90,13 +90,13 @@ describe( "GamepadDevice", () =>
     (source.buttons[Button.RightTrigger] as any).value = 0.67;
     (source.buttons[Button.RightStickClick] as any).pressed = true;
     (source.axes[Axis.LeftStickX] as any) = 0.55;
-    (source.axes[Axis.RightStickY] as any) = -0.15;
+    (source.axes[Axis.RightStickY] as any) = -0.35;
 
     gamepad.update( source, Date.now() );
 
     // buttons
     expect( gamepad.button.A ).toBe( true );
-    expect( gamepad.button.RStick ).toBe( true );
+    expect( gamepad.button.RightStickClick ).toBe( true );
 
     // joysticks
     expect( gamepad.leftJoystick.x ).toBe( 0.55 );
@@ -107,10 +107,10 @@ describe( "GamepadDevice", () =>
     expect( gamepad.button.LeftStickRight ).toBe( true );
 
     expect( gamepad.rightJoystick.x ).toBe( 0.0 );
-    expect( gamepad.rightJoystick.y ).toBe( -0.15 );
+    expect( gamepad.rightJoystick.y ).toBe( -0.35 );
     expect( gamepad.button.RightStickLeft ).toBe( false );
     expect( gamepad.button.RightStickDown ).toBe( false );
-    expect( gamepad.button.RightStickUp ).toBe( false );
+    expect( gamepad.button.RightStickUp ).toBe( true );
     expect( gamepad.button.RightStickRight ).toBe( false );
 
     // triggers
