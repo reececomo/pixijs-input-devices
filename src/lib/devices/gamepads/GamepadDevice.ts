@@ -389,11 +389,11 @@ export class GamepadDevice
           // emit events
           if ( this._emitter.hasListener( axisCode ) )
           {
-            setTimeout( () => this._emitter.emit( axisCode, {
+            this._emitter.emit( axisCode, {
               device: this,
               axis: a as Axis,
               axisCode,
-            }) );
+            });
           }
 
           // check named bind events
@@ -401,18 +401,16 @@ export class GamepadDevice
           {
             if ( !values.includes(axisCode) ) return;
 
-            setTimeout( () => {
-              const event: GamepadNamedBindEvent = {
-                device: this,
-                type: "axis",
-                axis: a as Axis,
-                axisCode,
-                name: name,
-              };
+            const event: GamepadNamedBindEvent = {
+              device: this,
+              type: "axis",
+              axis: a as Axis,
+              axisCode,
+              name: name,
+            };
 
-              this._bindEmitter.emit( name, event );
-              this._emitter.emit( "bind", event );
-            });
+            this._bindEmitter.emit( name, event );
+            this._emitter.emit( "bind", event );
           });
         }
       }
@@ -465,11 +463,11 @@ export class GamepadDevice
         // emit events
         if ( this._emitter.hasListener( buttonCode ) )
         {
-          setTimeout( () => this._emitter.emit( buttonCode, {
+          this._emitter.emit( buttonCode, {
             device: this,
             button: b,
             buttonCode,
-          }) );
+          });
         }
 
         // check named bind events
@@ -477,18 +475,16 @@ export class GamepadDevice
         {
           if ( !buttons.includes(buttonCode) ) return;
 
-          setTimeout( () => {
-            const event: GamepadNamedBindEvent = {
-              device: this,
-              type: "button",
-              button: b,
-              buttonCode,
-              name: name,
-            };
+          const event: GamepadNamedBindEvent = {
+            device: this,
+            type: "button",
+            button: b,
+            buttonCode,
+            name: name,
+          };
 
-            this._bindEmitter.emit( name, event );
-            this._emitter.emit( "bind", event );
-          });
+          this._bindEmitter.emit( name, event );
+          this._emitter.emit( "bind", event );
         });
       }
     }

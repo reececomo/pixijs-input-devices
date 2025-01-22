@@ -371,12 +371,12 @@ export class KeyboardDevice
       // dispatch events
       if ( this._emitter.hasListener( keyCode ) )
       {
-        setTimeout( () => this._emitter.emit( keyCode, {
+        this._emitter.emit( keyCode, {
           device: this,
           keyCode,
           keyLabel: this.getKeyLabel( keyCode ),
           event: e,
-        }));
+        });
       }
     }
 
@@ -389,20 +389,17 @@ export class KeyboardDevice
         return;
       }
 
-      setTimeout( () =>
-      {
-        const event = {
-          device: this,
-          keyCode,
-          keyLabel: this.getKeyLabel( keyCode ),
-          event: e,
-          name: name,
-          repeat: e.repeat,
-        };
+      const event = {
+        device: this,
+        keyCode,
+        keyLabel: this.getKeyLabel( keyCode ),
+        event: e,
+        name: name,
+        repeat: e.repeat,
+      };
 
-        this._bindEmitter.emit( name, event );
-        this._emitter.emit( "bind", event );
-      });
+      this._bindEmitter.emit( name, event );
+      this._emitter.emit( "bind", event );
     });
   }
 }
