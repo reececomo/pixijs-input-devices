@@ -419,6 +419,11 @@ export class GamepadDevice
 
       if ( Math.abs( value ) < joy.threshold )
       {
+        if ( !this.button[axisCode] )
+        {
+          this._debounces.delete( axisCode );
+        }
+
         this.button[axisCode] = false;
       }
       else
