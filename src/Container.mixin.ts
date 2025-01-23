@@ -31,8 +31,10 @@ export function registerPixiJSNavigationMixin( container: any ): void
 
       const onEvents = this.eventNames();
 
-      return onEvents.includes("pointerdown")
-        || onEvents.includes("mousedown");
+      return onEvents.length > 0 && (
+        onEvents.includes( "pointerdown" ) ||
+        onEvents.includes( "mousedown" )
+      );
     },
     configurable: true,
     enumerable: false,

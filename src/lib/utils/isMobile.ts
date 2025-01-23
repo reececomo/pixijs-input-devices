@@ -1,5 +1,6 @@
 /* eslint-disable max-len */
 /* eslint-disable no-useless-escape */
+
 export const isMobile = (): boolean =>
 {
   let check = false;
@@ -21,11 +22,3 @@ export const isMobile = (): boolean =>
 
   return check;
 };
-
-/**
- * @see https://stackoverflow.com/a/4819886
- */
-export function isTouchCapable(): boolean
-{
-  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
-}

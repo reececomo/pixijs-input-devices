@@ -10,23 +10,28 @@ declare module 'pixi.js' {
   export interface Container {
 
     /**
-     * @returns true when navigationMode is "target", or
-     * navigationMode is "auto" and the container handles
-     * either "pointerdown" or "mousedown" events.
+     * Whether this container is navigatable or not.
+     *
+     * Set this to "disabled" to manually exclude a container and its children.
+     *
+     * @default "auto"
      */
-    readonly isNavigatable: boolean;
+    navigationMode?: "auto" | "target" | "disabled" | undefined;
 
     /**
      * When selecting a default navigation focus target, the
      * target with the largest priority is chosen.
+     *
      * @default 0
      */
     navigationPriority: number;
 
     /**
-     * Whether this container is explicitly navigatable or not.
+     * @returns true when navigationMode is "target", or
+     * navigationMode is "auto" and the container has an
+     * event handler for a "pointerdown" or "mousedown" event.
      */
-    navigationMode?: "auto" | "target" | "disabled" | undefined;
+    readonly isNavigatable: boolean;
   }
 
 }

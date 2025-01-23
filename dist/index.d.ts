@@ -10,23 +10,28 @@ declare module 'pixi.js' {
   export interface Container {
 
     /**
-     * @returns true when navigationMode is "target", or
-     * navigationMode is "auto" and the container handles
-     * either "pointerdown" or "mousedown" events.
+     * Whether this container is navigatable or not.
+     *
+     * Set this to "disabled" to manually exclude a container and its children.
+     *
+     * @default "auto"
      */
-    readonly isNavigatable: boolean;
+    navigationMode?: "auto" | "target" | "disabled" | undefined;
 
     /**
      * When selecting a default navigation focus target, the
      * target with the largest priority is chosen.
+     *
      * @default 0
      */
     navigationPriority: number;
 
     /**
-     * Whether this container is explicitly navigatable or not.
+     * @returns true when navigationMode is "target", or
+     * navigationMode is "auto" and the container has an
+     * event handler for a "pointerdown" or "mousedown" event.
      */
-    navigationMode?: "auto" | "target" | "disabled" | undefined;
+    readonly isNavigatable: boolean;
   }
 
 }
@@ -36,12 +41,15 @@ import { Container } from 'pixi.js';
 
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
-	/** Whether we are a mobile device (including tablets) */
-	readonly isMobile: boolean;
-	/** Whether a touchscreen is available */
+	/** Whether the context has touchscreen capability. */
 	readonly isTouchCapable: boolean;
-	/** Global keyboard input device */
+	/** Whether the context is a mobile device. */
+	readonly isMobile: boolean;
+	/** Whether the context has a mouse/trackpad pointer. */
+	readonly hasMouseLikePointer: boolean;
+	/** Global keyboard interface (for all virtual & physical keyboards). */
 	readonly keyboard: KeyboardDevice;
+	/** Options that apply to input devices */
 	options: {
 		/**
 		 * Require window/document to be in foreground.
@@ -94,9 +102,13 @@ declare class InputDeviceManager {
 	offBind(name: string | string[], listener?: (event: NamedBindEvent) => void): this;
 	/** Report a named bind event (from a CustomDevice). */
 	emitBind(e: NamedBindEvent): void;
-	/** Add a custom device. */
+	/**
+	 * Add a device.
+	 */
 	add(device: Device): void;
-	/** Remove a custom device. */
+	/**
+	 * Remove a device from the available devices.
+	 */
 	remove(device: Device): void;
 	/**
 	 * Performs a poll of latest input from all devices
@@ -219,9 +231,16 @@ declare const ButtonCode: readonly [
  */
 export declare class GamepadDevice {
 	source: Gamepad;
-	/** Set named binds for newly connected gamepads */
-	static configureDefaultBinds(binds: Partial<Record<string, GamepadCode[]>>): void;
+	/**
+	 * Setup named binds for all newly connecting gamepads.
+	 */
+	static configureDefaultBinds<BindName extends string>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	static defaultOptions: {
+		/**
+		 * When set to false, events are not emitted.
+		 * @default true,
+		 */
+		emitEvents: boolean;
 		/**
 		 * When set to `"physical"` _(default)_, ABXY refer to the equivalent
 		 * positions on a standard layout controller.
@@ -231,28 +250,17 @@ export declare class GamepadDevice {
 		 *
 		 * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
 		 * 2, and 3 positions respectively.
+		 * @default "physical"
 		 */
 		nintendoRemapMode: NintendoRemapMode;
 		/**
-		 * Create named binds of buttons.
-		 *
-		 * This can be used with `pressedBind( name )`.
-		 *
-		 * @example
-		 * // set by names
-		 * Gamepad.defaultOptions.binds = {
-		 *   ...Gamepad.defaultOptions.binds,
-		 *   jump: [ "A" ],
-		 *   crouch: [ "X" ],
-		 * }
-		 *
-		 * // check by named presses
-		 * if ( gamepad.pressedBind( "jump" ) )
-		 * {
-		 *   // ...
-		 * }
+		 * When enabled, all "navigate.*" binds will trigger a default haptic.
+		 * @default true
 		 */
-		binds: Partial<Record<string, GamepadCode[]>>;
+		hapticNavigation: boolean;
+		/**
+		 * Joystick configuration.
+		 */
 		joystick: {
 			/**
 			 * The range of movement in a joystick recognized as input, to
@@ -281,6 +289,9 @@ export declare class GamepadDevice {
 				number
 			];
 		};
+		/**
+		 * Trigger configuration.
+		 */
 		trigger: {
 			/**
 			 * The range of movement in a trigger recognized as input, to
@@ -293,10 +304,28 @@ export declare class GamepadDevice {
 				number
 			];
 		};
+		/**
+		 * Vibration configuration.
+		 */
 		vibration: {
+			/**
+			 * Whether vibration is enabled (when available).
+			 *
+			 * @default true
+			 */
 			enabled: boolean;
+			/**
+			 * Intensity of vibration, between 0.0 and 1.0.
+			 *
+			 * @default 1
+			 */
 			intensity: number;
 		};
+		/**
+		 * Create named binds of buttons.
+		 * This can be used with `pressedBind( name )`.
+		 */
+		binds: Partial<Record<string, GamepadCode[]>>;
 	};
 	/**
 	 * Globally unique identifier for this gamepad slot.
@@ -304,11 +333,15 @@ export declare class GamepadDevice {
 	 */
 	readonly id: string;
 	readonly type = "gamepad";
+	/** Whether this gamepad has vibration capabilties. */
+	readonly isVibrationCapable: boolean;
 	/**
 	 * Associate custom meta data with a device.
 	 */
 	readonly meta: Record<string, any>;
-	/** When the gamepad was last interacted with. */
+	/**
+	 * When the gamepad was last interacted with.
+	 */
 	lastInteraction: number;
 	/**
 	 * Platform of this gamepad, useful for configuring standard
@@ -316,6 +349,9 @@ export declare class GamepadDevice {
 	 * @example "playstation"
 	 */
 	layout: GamepadLayout;
+	/**
+	 * Gamepad configuration options.
+	 */
 	options: typeof GamepadDevice.defaultOptions;
 	readonly leftJoystick: {
 		x: number;
@@ -327,8 +363,6 @@ export declare class GamepadDevice {
 	};
 	/** Accessors for buttons */
 	button: Record<AxisCode | ButtonCode, boolean>;
-	private readonly _emitter;
-	private readonly _bindEmitter;
 	/** A scalar 0.0 to 1.0 representing the left trigger value */
 	leftTrigger: number;
 	/** A scalar 0.0 to 1.0 representing the right trigger value */
@@ -337,6 +371,9 @@ export declare class GamepadDevice {
 	leftShoulder: number;
 	/** A scalar 0.0 to 1.0 representing the right shoulder value */
 	rightShoulder: number;
+	private readonly _emitter;
+	private readonly _bindEmitter;
+	private readonly _debounces;
 	/** @returns true if any button from the named bind is pressed. */
 	pressedBind(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
@@ -344,7 +381,7 @@ export declare class GamepadDevice {
 	/** @returns true if all of the given buttons are pressed. */
 	pressedAll(btns: GamepadCode[]): boolean;
 	/** Set named binds for this gamepad */
-	configureBinds(binds: Partial<Record<string, GamepadCode[]>>): void;
+	configureBinds<BindName extends string>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
@@ -363,7 +400,12 @@ export declare class GamepadDevice {
 	update(source: Gamepad, now: number): void;
 	clear(): void;
 	constructor(source: Gamepad);
-	private updatePresses;
+	private _updatePresses;
+	/**
+	 * Inline relay debouncer.
+	 * @returns true when already in progress and the operation should be skipped
+	 */
+	private _debounce;
 }
 export declare class KeyboardDevice {
 	static global: KeyboardDevice;
@@ -376,36 +418,34 @@ export declare class KeyboardDevice {
 	/** Timestamp of when the keyboard was last interacted with. */
 	lastInteraction: number;
 	/**
-	 * Detect layout from keypresses.
-	 *
-	 * This will continuously check "keydown" events until the
-	 * layout can be determined.
-	 */
-	detectLayoutOnKeypress: boolean;
-	/**
 	 * Keyboard has been detected.
+	 *
+	 * This is true on devices where keyboard is the default device, or on
+	 * other devices when a keyboard is first interacted with.
 	 */
 	detected: boolean;
+	/**
+	 * Keyboard configuration otpions.
+	 */
 	options: {
 		/**
-		 * Create named binds of buttons.
+		 * When set to false, events are not emitted (excluding layout detection).
+		 * @default true,
+		 */
+		emitEvents: boolean;
+		/**
+		 * Whether this keyboard is allowed to check keypresses for the layout.
+		 *
+		 * This is only used when the browser does not provide it, and it is not
+		 * set manually.
+		 *
+		 * Checks "keydown" events until the layout is determined.
+		 */
+		detectLayoutOnKeypress: boolean;
+		/**
+		 * Named binds of keys.
 		 *
 		 * This can be used with `pressedBind( name )`.
-		 *
-		 * @example
-		 * // set by names
-		 * Keyboard.options.binds = {
-		 *   jump: [ "ArrowUp", "KeyW" ],
-		 *   left: [ "ArrowLeft", "KeyA" ],
-		 *   crouch: [ "ArrowDown", "KeyS" ],
-		 *   right: [ "ArrowRight", "KeyD" ],
-		 * }
-		 *
-		 * // check by named presses
-		 * if ( keyboard.pressedBind( "jump" ) )
-		 * {
-		 *   // ...
-		 * }
 		 */
 		binds: Partial<Record<string, KeyCode[]>>;
 		/**
@@ -453,7 +493,7 @@ export declare class KeyboardDevice {
 	/** @returns true if all of the given keys are pressed. */
 	pressedAll(keys: KeyCode[]): boolean;
 	/** Set custom binds */
-	configureBinds(binds: Partial<Record<string, KeyCode[]>>): void;
+	configureBinds<BindName extends string>(binds: Partial<Record<BindName, KeyCode[]>>): void;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
@@ -708,6 +748,9 @@ export interface InputDeviceEvent {
 	deviceremoved: {
 		device: Device;
 	};
+	lastdevicechanged: {
+		device: Device;
+	};
 }
 export interface KeyboardDeviceKeydownEvent {
 	event: KeyboardEvent;
@@ -798,8 +841,15 @@ export type GamepadNamedBindEvent = {
 	axis: Axis;
 	axisCode: AxisCode;
 };
-export type GamepadVibration = GamepadEffectParameters & {
-	vibrationType?: GamepadHapticEffectType;
+export type GamepadVibration = {
+	duration?: number;
+	leftTrigger?: number;
+	rightTrigger?: number;
+	startDelay?: number;
+	strongMagnitude?: number;
+	weakMagnitude?: number;
+} & {
+	vibrationType?: "dual-rumble" | "trigger-rumble";
 };
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {

@@ -55,38 +55,37 @@ export class KeyboardDevice
   public lastInteraction = performance.now();
 
   /**
-   * Detect layout from keypresses.
+   * Keyboard has been detected.
    *
-   * This will continuously check "keydown" events until the
-   * layout can be determined.
+   * This is true on devices where keyboard is the default device, or on
+   * other devices when a keyboard is first interacted with.
    */
-  public detectLayoutOnKeypress = true;
+  public detected: boolean = false;
 
   /**
-   * Keyboard has been detected.
+   * Keyboard configuration otpions.
    */
-  public detected = false;
-
   public options = {
     /**
-     * Create named binds of buttons.
+     * When set to false, events are not emitted (excluding layout detection).
+     * @default true,
+     */
+    emitEvents: true,
+
+    /**
+     * Whether this keyboard is allowed to check keypresses for the layout.
+     *
+     * This is only used when the browser does not provide it, and it is not
+     * set manually.
+     *
+     * Checks "keydown" events until the layout is determined.
+     */
+    detectLayoutOnKeypress: true,
+
+    /**
+     * Named binds of keys.
      *
      * This can be used with `pressedBind( name )`.
-     *
-     * @example
-     * // set by names
-     * Keyboard.options.binds = {
-     *   jump: [ "ArrowUp", "KeyW" ],
-     *   left: [ "ArrowLeft", "KeyA" ],
-     *   crouch: [ "ArrowDown", "KeyS" ],
-     *   right: [ "ArrowRight", "KeyD" ],
-     * }
-     *
-     * // check by named presses
-     * if ( keyboard.pressedBind( "jump" ) )
-     * {
-     *   // ...
-     * }
      */
     binds: {
       "navigate.back":  [ "Escape", "Backspace" ],
@@ -108,7 +107,7 @@ export class KeyboardDevice
       "navigate.left",
       "navigate.right",
       "navigate.up",
-    ]
+    ],
   };
 
   /** Accessors for keys */
@@ -138,7 +137,8 @@ export class KeyboardDevice
 
       this._layoutSource = "browser";
       this._layout = layout;
-      this.detectLayoutOnKeypress = false;
+
+      this.options.detectLayoutOnKeypress = false;
 
       this._emitter.emit( "layoutdetected", {
         layoutSource: "browser",
@@ -176,7 +176,7 @@ export class KeyboardDevice
   {
     this._layoutSource = "manual";
     this._layout = value;
-    this.detectLayoutOnKeypress = false;
+    this.options.detectLayoutOnKeypress = false;
   }
 
   /** How the keyboard layout was determined. */
@@ -217,7 +217,9 @@ export class KeyboardDevice
   }
 
   /** Set custom binds */
-  public configureBinds( binds: Partial<Record<string, KeyCode[]>> ): void
+  public configureBinds<BindName extends string>(
+    binds: Partial<Record<BindName, KeyCode[]>>
+  ): void
   {
     this.options.binds = {
       ...this.options.binds,
@@ -351,14 +353,17 @@ export class KeyboardDevice
     if ( !e.repeat )
     {
       // detect keyboard layout
-      if ( this.detectLayoutOnKeypress && this._layoutSource === "lang" )
+      if (
+        this.options.detectLayoutOnKeypress
+        && this._layoutSource === "lang"
+      )
       {
         const layout = detectKeyboardLayoutFromKeydown( e );
         if ( layout !== undefined )
         {
           this._layout = layout;
           this._layoutSource = "keypress";
-          this.detectLayoutOnKeypress = false;
+          this.options.detectLayoutOnKeypress = false;
 
           this._emitter.emit( "layoutdetected", {
             layout: layout,
@@ -369,7 +374,7 @@ export class KeyboardDevice
       }
 
       // dispatch events
-      if ( this._emitter.hasListener( keyCode ) )
+      if ( this.options.emitEvents && this._emitter.hasListener( keyCode ) )
       {
         this._emitter.emit( keyCode, {
           device: this,
@@ -380,26 +385,29 @@ export class KeyboardDevice
       }
     }
 
-    // check named binds
-    Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
+    if ( this.options.emitEvents )
     {
-      if ( !keys.includes( keyCode ) ) return;
-      if ( e.repeat && !this.options.repeatableBinds.includes( name ))
+      // check named binds
+      Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
       {
-        return;
-      }
+        if ( !keys.includes( keyCode ) ) return;
+        if ( e.repeat && !this.options.repeatableBinds.includes( name ))
+        {
+          return;
+        }
 
-      const event = {
-        device: this,
-        keyCode,
-        keyLabel: this.getKeyLabel( keyCode ),
-        event: e,
-        name: name,
-        repeat: e.repeat,
-      };
+        const event = {
+          device: this,
+          keyCode,
+          keyLabel: this.getKeyLabel( keyCode ),
+          event: e,
+          name: name,
+          repeat: e.repeat,
+        };
 
-      this._bindEmitter.emit( name, event );
-      this._emitter.emit( "bind", event );
-    });
+        this._bindEmitter.emit( name, event );
+        this._emitter.emit( "bind", event );
+      });
+    }
   }
 }

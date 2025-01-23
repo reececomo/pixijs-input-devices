@@ -17,12 +17,18 @@
     "baseUrl": "./",
     "skipLibCheck": true,
     "stripInternal": true,
-    "types": ["./src/globals.d.ts", "jest"],
+    "types": [
+      "jest",
+      "./src/globals.d.ts"
+    ],
     "paths": {
       "pixi.js": ["node_modules/pixi.js"]
     }
   },
-  "include": ["./src", "src/globals.d.ts"],
+  "include": [
+    "./src/globals.d.ts",
+    "./src"
+  ],
   "exclude": [
     "./node_modules",
     "./src/__tests__"

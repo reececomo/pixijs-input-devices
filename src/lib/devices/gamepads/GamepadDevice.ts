@@ -2,7 +2,6 @@
 
 import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
 import { detectLayout, GamepadLayout } from "./layouts";
-import { throttle } from "../../utils/throttle";
 import { EventEmitter, EventOptions } from "../../utils/events";
 
 
@@ -10,7 +9,19 @@ export { Button, GamepadLayout };
 
 type NintendoRemapMode = "none" | "accurate" | "physical";
 
-export type GamepadVibration = GamepadEffectParameters & { vibrationType?: GamepadHapticEffectType };
+export type GamepadVibration = {
+  // GamepadEffectParameters
+  duration?: number;
+  leftTrigger?: number;
+  rightTrigger?: number;
+  startDelay?: number;
+  strongMagnitude?: number;
+  weakMagnitude?: number;
+} & {
+  // GamepadHapticEffectType
+  vibrationType?: "dual-rumble" | "trigger-rumble"
+};
+
 export type GamepadButtonDownEvent = ( gamepad: GamepadDevice, button: Button ) => void;
 
 export interface GamepadButtonPressEvent {
@@ -64,9 +75,11 @@ export type GamepadCode = ButtonCode | AxisCode;
  */
 export class GamepadDevice
 {
-  /** Set named binds for newly connected gamepads */
-  public static configureDefaultBinds(
-    binds: Partial<Record<string, GamepadCode[]>>
+  /**
+   * Setup named binds for all newly connecting gamepads.
+   */
+  public static configureDefaultBinds<BindName extends string>(
+    binds: Partial<Record<BindName, GamepadCode[]>>
   ): void
   {
     this.defaultOptions.binds = {
@@ -77,6 +90,12 @@ export class GamepadDevice
 
   public static defaultOptions = {
     /**
+     * When set to false, events are not emitted.
+     * @default true,
+     */
+    emitEvents: true,
+
+    /**
      * When set to `"physical"` _(default)_, ABXY refer to the equivalent
      * positions on a standard layout controller.
      *
@@ -85,37 +104,19 @@ export class GamepadDevice
      *
      * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
      * 2, and 3 positions respectively.
+     * @default "physical"
      */
     nintendoRemapMode: "physical" as NintendoRemapMode,
 
     /**
-     * Create named binds of buttons.
-     *
-     * This can be used with `pressedBind( name )`.
-     *
-     * @example
-     * // set by names
-     * Gamepad.defaultOptions.binds = {
-     *   ...Gamepad.defaultOptions.binds,
-     *   jump: [ "A" ],
-     *   crouch: [ "X" ],
-     * }
-     *
-     * // check by named presses
-     * if ( gamepad.pressedBind( "jump" ) )
-     * {
-     *   // ...
-     * }
+     * When enabled, all "navigate.*" binds will trigger a default haptic.
+     * @default true
      */
-    binds: {
-      "navigate.back": [ "B", "Back" ],
-      "navigate.down": [ "DPadDown", "LeftStickDown" ],
-      "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
-      "navigate.right": [ "DPadRight", "LeftStickRight" ],
-      "navigate.trigger": [ "A" ],
-      "navigate.up": [ "DPadUp", "LeftStickUp" ],
-    } as Partial<Record<string, GamepadCode[]>>,
+    hapticNavigation: true,
 
+    /**
+     * Joystick configuration.
+     */
     joystick: {
       /**
        * The range of movement in a joystick recognized as input, to
@@ -141,6 +142,9 @@ export class GamepadDevice
       autoRepeatDelayMs: [400, 80] satisfies [ delay: number, subsequent: number ],
     },
 
+    /**
+     * Trigger configuration.
+     */
     trigger: {
       /**
        * The range of movement in a trigger recognized as input, to
@@ -151,10 +155,37 @@ export class GamepadDevice
       deadzone: [0.0, 1.0] satisfies [ min: number, max: number ],
     },
 
+    /**
+     * Vibration configuration.
+     */
     vibration: {
+      /**
+       * Whether vibration is enabled (when available).
+       *
+       * @default true
+       */
       enabled: true,
+
+      /**
+       * Intensity of vibration, between 0.0 and 1.0.
+       *
+       * @default 1
+       */
       intensity: 1.0,
     },
+
+    /**
+     * Create named binds of buttons.
+     * This can be used with `pressedBind( name )`.
+     */
+    binds: {
+      "navigate.trigger": [ "A" ],
+      "navigate.back": [ "B" ],
+      "navigate.up": [ "DPadUp", "LeftStickUp" ],
+      "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
+      "navigate.down": [ "DPadDown", "LeftStickDown" ],
+      "navigate.right": [ "DPadRight", "LeftStickRight" ],
+    } as Partial<Record<string, GamepadCode[]>>,
   };
 
   /**
@@ -164,12 +195,17 @@ export class GamepadDevice
   public readonly id: string;
   public readonly type = "gamepad";
 
+  /** Whether this gamepad has vibration capabilties. */
+  public readonly isVibrationCapable = ( "vibrationActuator" in this.source );
+
   /**
    * Associate custom meta data with a device.
    */
   public readonly meta: Record<string, any> = {};
 
-  /** When the gamepad was last interacted with. */
+  /**
+   * When the gamepad was last interacted with.
+   */
   public lastInteraction = performance.now();
 
   /**
@@ -179,6 +215,9 @@ export class GamepadDevice
    */
   public layout: GamepadLayout;
 
+  /**
+   * Gamepad configuration options.
+   */
   public options: typeof GamepadDevice.defaultOptions =
     JSON.parse( JSON.stringify( GamepadDevice.defaultOptions ) ); // clone
 
@@ -197,21 +236,25 @@ export class GamepadDevice
       return obj;
     }, {} as any );
 
-  // ----- Internal: -----
-
-  private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
-  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
-
   // ----- Triggers: -----
 
   /** A scalar 0.0 to 1.0 representing the left trigger value */
   public leftTrigger = 0;
+
   /** A scalar 0.0 to 1.0 representing the right trigger value */
   public rightTrigger = 0;
+
   /** A scalar 0.0 to 1.0 representing the left shoulder value */
   public leftShoulder = 0;
+
   /** A scalar 0.0 to 1.0 representing the right shoulder value */
   public rightShoulder = 0;
+
+  // ----- Internal: -----
+
+  private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
+  private readonly _debounces = new Map<GamepadCode, number>();
 
   // ----- Button helpers: -----
 
@@ -245,7 +288,9 @@ export class GamepadDevice
   }
 
   /** Set named binds for this gamepad */
-  public configureBinds( binds: Partial<Record<string, GamepadCode[]>> ): void
+  public configureBinds<BindName extends string>(
+    binds: Partial<Record<BindName, GamepadCode[]>>
+  ): void
   {
     this.options.binds = {
       ...this.options.binds,
@@ -316,13 +361,13 @@ export class GamepadDevice
     startDelay = 0,
   }: GamepadVibration = {}): void
   {
+    if ( !this.isVibrationCapable ) return;
     if ( !this.options.vibration.enabled ) return;
-    if ( !this.source.vibrationActuator ) return;
 
     const intensity = this.options.vibration.intensity;
 
     try {
-      this.source.vibrationActuator.playEffect( vibrationType, {
+      ( this.source as any ).vibrationActuator.playEffect( vibrationType, {
         duration,
         startDelay,
         weakMagnitude: intensity * weakMagnitude,
@@ -331,9 +376,9 @@ export class GamepadDevice
         rightTrigger: intensity * rightTrigger,
       });
     }
-    catch
+    catch ( error )
     {
-      // fail silently
+      console.warn( "gamepad vibration failed with error:", error );
     }
   }
 
@@ -341,7 +386,7 @@ export class GamepadDevice
 
   public update( source: Gamepad, now: number ): void
   {
-    this.updatePresses( source, now );
+    this._updatePresses( source, now );
     this.source = source;
   }
 
@@ -360,7 +405,7 @@ export class GamepadDevice
     this.layout = detectLayout( source );
   }
 
-  private updatePresses( source: Gamepad, now: number ): void
+  private _updatePresses( source: Gamepad, now: number ): void
   {
     const axisCount = 4;
     const buttonCount = 16;
@@ -374,47 +419,49 @@ export class GamepadDevice
 
       if ( Math.abs( value ) < joy.threshold )
       {
-        this.button[ axisCode ] = false;
+        this.button[axisCode] = false;
       }
       else
       {
-        const delayMs = joy.autoRepeatDelayMs[+this.button[ axisCode ]];
+        const delayMs = joy.autoRepeatDelayMs[+this.button[axisCode]];
 
-        if ( this.button[axisCode] && throttle( axisCode, delayMs ) )
+        if ( this._debounce( axisCode, delayMs ) && this.button[axisCode] )
         {
-          // skip, in cooldown
           continue;
         }
 
-        this.button[ axisCode ] = true;
+        this.button[axisCode] = true;
         this.lastInteraction = now;
 
         // emit events
-        if ( this._emitter.hasListener( axisCode ) )
+        if ( this.options.emitEvents )
         {
-          this._emitter.emit( axisCode, {
-            device: this,
-            axis: a as Axis,
-            axisCode,
+          if ( this._emitter.hasListener( axisCode ) )
+          {
+            this._emitter.emit( axisCode, {
+              device: this,
+              axis: a as Axis,
+              axisCode,
+            });
+          }
+
+          // check named bind events
+          Object.entries( this.options.binds ).forEach(([ name, values ]) =>
+          {
+            if ( !values.includes(axisCode) ) return;
+
+            const event: GamepadNamedBindEvent = {
+              device: this,
+              type: "axis",
+              axis: a as Axis,
+              axisCode,
+              name: name,
+            };
+
+            this._bindEmitter.emit( name, event );
+            this._emitter.emit( "bind", event );
           });
         }
-
-        // check named bind events
-        Object.entries( this.options.binds ).forEach(([ name, values ]) =>
-        {
-          if ( !values.includes(axisCode) ) return;
-
-          const event: GamepadNamedBindEvent = {
-            device: this,
-            type: "axis",
-            axis: a as Axis,
-            axisCode,
-            name: name,
-          };
-
-          this._bindEmitter.emit( name, event );
-          this._emitter.emit( "bind", event );
-        });
       }
     }
 
@@ -460,7 +507,7 @@ export class GamepadDevice
       const isPressed = source.buttons[_b]?.pressed ?? false;
       this.button[buttonCode] = isPressed;
 
-      if ( isPressed )
+      if ( isPressed && this.options.emitEvents )
       {
         // emit events
         if ( this._emitter.hasListener( buttonCode ) )
@@ -504,6 +551,22 @@ export class GamepadDevice
     this.leftJoystick.y = _scale( source.axes[Axis.LeftStickY] ?? 0, jdz);
     this.rightJoystick.x = _scale( source.axes[Axis.RightStickX] ?? 0, jdz );
     this.rightJoystick.y = _scale( source.axes[Axis.RightStickY] ?? 0, jdz );
+  }
+
+  /**
+   * Inline relay debouncer.
+   * @returns true when already in progress and the operation should be skipped
+   */
+  private _debounce( key: GamepadCode, delayMs: number ): boolean
+  {
+    const now = Date.now();
+
+    if (
+      ( this._debounces.get( key ) ?? 0 ) > now
+    ) return true;
+
+    this._debounces.set( key, now + delayMs );
+    return false;
   }
 }
 

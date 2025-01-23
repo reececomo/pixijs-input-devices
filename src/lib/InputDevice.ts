@@ -1,13 +1,14 @@
 import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
 import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
-import { isMobile, isTouchCapable } from "./utils/detectors";
-import { EventEmitter, EventOptions } from "./utils/events";
+import { EventEmitter, EventOptions } from "./utils/events"
+import { isMobile } from "./utils/isMobile";
 
 
 export interface InputDeviceEvent {
   deviceadded: { device: Device },
   deviceremoved: { device: Device },
+  lastdevicechanged: { device: Device },
 }
 
 export type Device = GamepadDevice | KeyboardDevice | CustomDevice;
@@ -21,15 +22,27 @@ class InputDeviceManager
 {
   public static global = new InputDeviceManager();
 
-  /** Whether we are a mobile device (including tablets) */
+  // ----- Capabilities: -----
+
+  /** Whether the context has touchscreen capability. */
+  public readonly isTouchCapable: boolean =
+    "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+  /** Whether the context is a mobile device. */
   public readonly isMobile: boolean = isMobile();
 
-  /** Whether a touchscreen is available */
-  public readonly isTouchCapable: boolean = isTouchCapable();
+  /** Whether the context has a mouse/trackpad pointer. */
+  public readonly hasMouseLikePointer: boolean =
+    window.matchMedia("(pointer: fine) and (hover: hover)").matches;
 
-  /** Global keyboard input device */
-  public readonly keyboard: KeyboardDevice;
+  // ----- Global devices: -----
 
+  /** Global keyboard interface (for all virtual & physical keyboards). */
+  public readonly keyboard: KeyboardDevice = KeyboardDevice.global;
+
+  // ----- Global options: -----
+
+  /** Options that apply to input devices */
   public options = {
     /**
      * Require window/document to be in foreground.
@@ -43,6 +56,8 @@ class InputDeviceManager
     clearInputInBackground: true,
   };
 
+  // ----- Internal: -----
+
   private readonly _devices: Device[] = [];
   private readonly _gamepadDevices: GamepadDevice[] = [];
   private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
@@ -55,16 +70,31 @@ class InputDeviceManager
 
   private constructor()
   {
-    // setup global keyboard
-    // - on touchscreen/mobile devices, wait until a key is pressed
-    // - otherwise assume keyboard exists and register immediately
-    this.keyboard = KeyboardDevice.global;
-    if ( !this.isTouchCapable && !this.isMobile ) this.add( this.keyboard ); // immediately register
-    else window.addEventListener( "keydown", () => this.add( this.keyboard ), { once: true }); // defer until used
+    // gamepads
+    window.addEventListener(
+      "gamepadconnected",
+      () => this._pollGamepads( performance.now() ) // (handles register)
+    );
+    window.addEventListener(
+      "gamepaddisconnected",
+      ( event ) => this._removeGamepad( event.gamepad.index )
+    );
 
-    // configure gamepads:
-    window.addEventListener( "gamepadconnected", () => this._pollGamepads( performance.now() )); // register
-    window.addEventListener( "gamepaddisconnected", ( e ) => this._removeGamepad( e.gamepad.index ));
+    // keyboard - even the keyboard is available globally, we don't
+    // register it as an available input device until we are
+    // confident it is available
+    if ( this.hasMouseLikePointer && !this.isMobile )
+    {
+      // auto-register keyboard
+      this.add( this.keyboard );
+    }
+    else
+    {
+      // defer until first usage
+      window.addEventListener(
+        "keydown", () => this.add( this.keyboard ), { once: true }
+      );
+    }
   }
 
   /**
@@ -159,7 +189,9 @@ class InputDeviceManager
 
   // ----- Devices: -----
 
-  /** Add a custom device. */
+  /**
+   * Add a device.
+   */
   public add( device: Device ): void
   {
     if ( this._devices.indexOf( device ) !== -1 )
@@ -171,6 +203,7 @@ class InputDeviceManager
 
     if ( device instanceof KeyboardDevice )
     {
+      // keyboard is marked as detected
       device.detected = true;
 
       // forward named bind events
@@ -186,30 +219,34 @@ class InputDeviceManager
     }
     else
     {
+      // custom devices are respon
       this._customDevices.push( device );
     }
 
     this._emitter.emit( "deviceadded", { device });
   }
 
-  /** Remove a custom device. */
+  /**
+   * Remove a device from the available devices.
+   */
   public remove( device: Device ): void
   {
+    // remove custom device
     if ( !( device instanceof KeyboardDevice || device instanceof GamepadDevice ) )
     {
       const customIndex = this._customDevices.indexOf( device );
-      if ( customIndex !== -1 ) this._devices.splice( customIndex, 1 );
+      if ( customIndex !== -1 )
+      {
+        this._customDevices.splice( customIndex, 1 );
+      }
     }
 
+    // remove device
     const devicesIndex = this._devices.indexOf( device );
-
     if ( devicesIndex !== -1 )
     {
       this._devices.splice( devicesIndex, 1 );
-
-      this._emitter.emit( "deviceremoved", {
-        device,
-      });
+      this._emitter.emit( "deviceremoved", { device });
     }
   }
 
@@ -263,17 +300,28 @@ class InputDeviceManager
     if ( this._devices.length === 0 ) return;
 
     let last: Device;
-    if ( this._devices.length === 1 ) last = this._devices[0]!;
+    if ( this._devices.length === 1 )
+    {
+      last = this._devices[0]!;
+    }
     else
     {
       for ( const device of this._devices )
       {
-        if ( last === undefined ) last = device;
-        else if ( device.lastInteraction > last.lastInteraction )
+        if (
+          last === undefined
+          || device.lastInteraction > last.lastInteraction
+        )
         {
           last = device;
         }
       }
+    }
+
+    if ( last !== this._lastInteractedDevice )
+    {
+      // emit an event
+      this._emitter.emit( "lastdevicechanged", { device: last } );
     }
 
     this._lastInteractedDevice = last;
