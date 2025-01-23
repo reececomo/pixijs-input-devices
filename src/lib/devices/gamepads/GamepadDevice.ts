@@ -378,41 +378,43 @@ export class GamepadDevice
       }
       else
       {
-        const throttleMs = joy.autoRepeatDelayMs[+this.button[ axisCode ]];
+        const delayMs = joy.autoRepeatDelayMs[+this.button[ axisCode ]];
+
+        if ( this.button[axisCode] && throttle( axisCode, delayMs ) )
+        {
+          // skip, in cooldown
+          continue;
+        }
 
         this.button[ axisCode ] = true;
+        this.lastInteraction = now;
 
-        if ( !throttle( axisCode, throttleMs ) )
+        // emit events
+        if ( this._emitter.hasListener( axisCode ) )
         {
-          this.lastInteraction = now;
-
-          // emit events
-          if ( this._emitter.hasListener( axisCode ) )
-          {
-            this._emitter.emit( axisCode, {
-              device: this,
-              axis: a as Axis,
-              axisCode,
-            });
-          }
-
-          // check named bind events
-          Object.entries( this.options.binds ).forEach(([ name, values ]) =>
-          {
-            if ( !values.includes(axisCode) ) return;
-
-            const event: GamepadNamedBindEvent = {
-              device: this,
-              type: "axis",
-              axis: a as Axis,
-              axisCode,
-              name: name,
-            };
-
-            this._bindEmitter.emit( name, event );
-            this._emitter.emit( "bind", event );
+          this._emitter.emit( axisCode, {
+            device: this,
+            axis: a as Axis,
+            axisCode,
           });
         }
+
+        // check named bind events
+        Object.entries( this.options.binds ).forEach(([ name, values ]) =>
+        {
+          if ( !values.includes(axisCode) ) return;
+
+          const event: GamepadNamedBindEvent = {
+            device: this,
+            type: "axis",
+            axis: a as Axis,
+            axisCode,
+            name: name,
+          };
+
+          this._bindEmitter.emit( name, event );
+          this._emitter.emit( "bind", event );
+        });
       }
     }
 
