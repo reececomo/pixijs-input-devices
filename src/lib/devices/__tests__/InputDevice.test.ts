@@ -40,16 +40,14 @@ describe( "lastInteractedDevice", () =>
 
 class MockDevice implements CustomDevice
 {
-  public type: "custom";
+  public type = "custom" as const;
   public meta: Record<string, any> = {};
   public lastInteraction: number = 0;
 
   public input = 0;
   private _lastInput = 0;
 
-  public constructor(
-    public id: string,
-  )
+  public constructor( public id: string )
   {}
 
   public update( now: number ): void
@@ -59,5 +57,10 @@ class MockDevice implements CustomDevice
       this.lastInteraction = now;
       this._lastInput = this.input;
     }
+  }
+
+  public pressedBind( name: string ): boolean
+  {
+    return false; // no bind support
   }
 }

@@ -18,35 +18,42 @@
 ```ts
 import { InputDevice, GamepadDevice } from "pixijs-input-devices";
 
+
 // Set named binds
-InputDevice.keyboard.configureBinds({ jump: [ "Space" ] })
-GamepadDevice.configureDefaultBinds({ jump: [ "A", "LeftStickUp" ] })
+KeyboardDevice.global.configureBinds({
+    jump: [ "Space" ]
+})
+
+GamepadDevice.configureDefaultBinds({
+    jump: [ "A", "LeftStickUp" ]
+})
 
 // Use binds
 for ( const device of InputDevice.devices ) {
-    if ( device.pressedBind("jump") ) doJump()
+    if ( device.pressedBind("jump") ) // ...
 }
 
 // Event-driven
-InputDevice.onBind( "jump", ({ device }) =>
+InputDevice.onBind( "jump", ({ device }) => {
     if ( device.type === "gamepad" ) {
-        e.device.playVibration({ duration: 100 })
+        device.playVibration({ duration: 50 })
     }
-);
+});
 ```
 
 ## Getting Started with PixiJS Input Devices
 
-*Everything you need to quickly integrate powerful device management.*
+*Everything you need to quickly integrate device management.*
 
-**PixiJS Input Devices** adds first-class support for input device management and input handling. It also provides an optional navigation manager
-that can enable input devices to traverse pointer-based UIs.
+**PixiJS Input Devices** adds first-class support for input devices, and
+provides a simple, but powerful navigation manager that can enable devices to
+navigate existing pointer-based UIs.
 
-The core concepts are:
+The key concepts are:
 
 1. **Devices:** _Any human interface device_
 2. **Binds:** _Custom, named input actions that can be triggered by assigned keys or buttons_
-3. **UINavigation:** _A global controller that allows non-pointer devices to navigate UIs_
+3. **UINavigation:** _Navigation manager for non-pointer devices to navigate UIs_
 
 > [!NOTE]
 > _See [UINavigation API](#uinavigation-api) for more information._
@@ -414,19 +421,34 @@ for ( const gamepad of InputDevice.gamepads ) {
 
 _Traverse a UI using input devices._
 
-```ts
-UINavigation.configureWithRoot( app.stage )  // (or any Container)
-```
+### Quick setup
 
-You can manually take control of navigation using:
+Set up navigation once using:
 
 ```ts
-// take control
-UINavigation.pushResponder( myModalView )
-
-// relinquish control
-UINavigation.popResponder()
+UINavigation.configureWithRoot( app.stage )  // any root container
+registerPixiJSNavigationMixin( PIXI.Container )
 ```
+
+Navigation should now work automatically if your buttons handle these events:
+
+- `"pointerdown"` &ndash; i.e. Trigger / show press effect
+
+But in order to really make use, you should also set:
+
+- `"pointerover"` &ndash; i.e. Select / show hover effect
+- `"pointerout"` &ndash; i.e. Deselect / reset
+
+> [!TIP]
+> 🖱️ **Seamless navigation:** Manually set `UINavigation.focusTarget = <target>`
+> inside any `"pointerover"` handlers to allow mouse/pointers to update the
+> navigation context for all devices.
+
+> [!TIP]
+> **Auto-focus:** Set a container's `navigationPriority` to a value above `0`
+> to become the default selection in a context.
+
+### How it works
 
 The Navigation API is centered around the **UINavigation** manager, which
 receives navigation intents from devices and forwards it to the UI context.
@@ -450,21 +472,21 @@ When a navigation intent is **not** handled manually by a responder, it is handl
 |`"navigate.left"`, `"navigate.right"`, `"navigate.up"`, `"navigate.down"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, receives a `"deviceover"` event.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"` or `"mouseover"` (in that order), it will fire that too.</li><li>If we were previously focused on a container, that previous container receives a `"deviceout"` event.</li><li>If the blurred container has register an event handler for either `"pointerout"` or `"mouseout"` (in that order), that event handler will be fired too.</li></ul>|
 |`"navigate.trigger"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"devicedown"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"` or `"mousedown"` (in that order), that event handler will be fired too.</li></ul>|
 
-Container event  | Description | Compatibility
------------------|--------------------------------------------------------
-`"devicedown"`   | Target was triggered. | `"pointerdown"`, `"mousedown"`
-`"deviceover"`   | Target became focused. | `"pointerover"`, `"mouseover"`
-`"deviceout"`    | Target lost focus. | `"pointerout"`, `"mouseout"`
+| Container event  | Description | Compatibility
+|-----------------|-------------|------------------------------------------
+| `"devicedown"`   | Target was triggered. | `"pointerdown"`, `"mousedown"`
+| `"deviceover"`   | Target became focused. | `"pointerover"`, `"mouseover"`
+| `"deviceout"`    | Target lost focus. | `"pointerout"`, `"mouseout"`
 
 ### Container Navigatability
 
 Containers are extended with a few properties/accessors:
 
-Container properties | type | default | description
----------------------|------|---------|--------------
-`isNavigatable`      | `get(): boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
-`navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
-`navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
+| Container properties | type | default | description
+|---------------------|------|---------|--------------
+| `isNavigatable`      | `get(): boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, |or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
+| `navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
+| `navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
 
 > [!NOTE]
 > **isNavigatable:** By default, any element with `"pointerdown"` or `"mousedown"` handlers is navigatable.
@@ -473,7 +495,6 @@ Container properties | type | default | description
 > **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `UINavigation`
 >  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
 > can be disabled by setting `UINavigation.options.useFallbackHoverEffect` to `false`.
-
 
 ### Default Binds
 
@@ -487,6 +508,18 @@ Navigation Intent Bind | Keyboard | Gamepad
 `"navigate.down"` | "ArrowDown", "KeyS" | "DPadDown", "LeftStickDown"
 `"navigate.trigger"` | "Enter", "Space" | "A"
 `"navigate.back"` | "Escape", "Backspace" | "B", "Back"
+
+### Manual control for submenus & modal views
+
+You can manually take control of navigation using:
+
+```ts
+// take control
+UINavigation.pushResponder( myModalView )
+
+// relinquish control
+UINavigation.popResponder()
+```
 
 ## Advanced usage
 

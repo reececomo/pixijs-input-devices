@@ -3,7 +3,7 @@ import { Container } from "pixi.js";
 import { InputDevice, NamedBindEvent } from "../InputDevice";
 import { navigationIntents, type NavigationIntent } from "./NavigationIntent";
 import { NavigationResponder } from "./NavigationResponder";
-import { getFirstNavigatable, isChildOf, isVisible } from "./Navigatable";
+import { getFirstNavigatable, isChildOf } from "./Navigatable";
 
 
 class NavigationManager

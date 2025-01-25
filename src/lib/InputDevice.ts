@@ -1,7 +1,7 @@
 import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
 import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
-import { EventEmitter, EventOptions } from "./utils/events"
+import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 
 
@@ -22,18 +22,18 @@ class InputDeviceManager
 {
   public static global = new InputDeviceManager();
 
-  // ----- Capabilities: -----
-
-  /** Whether the context has touchscreen capability. */
-  public readonly isTouchCapable: boolean =
-    "ontouchstart" in window || navigator.maxTouchPoints > 0;
-
-  /** Whether the context is a mobile device. */
-  public readonly isMobile: boolean = isMobile();
+  // ----- Context capabilities: -----
 
   /** Whether the context has a mouse/trackpad pointer. */
   public readonly hasMouseLikePointer: boolean =
     window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+
+  /** Whether the context is a mobile device. */
+  public readonly isMobile: boolean = isMobile();
+
+  /** Whether the context has touchscreen capability. */
+  public readonly isTouchCapable: boolean =
+    "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
   // ----- Global devices: -----
 
