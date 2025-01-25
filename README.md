@@ -265,10 +265,10 @@ The gamepad buttons reference **Standard Controller Layout**:
 
 | Button Index | GamepadCode | Description | Xbox | Playstation | Nintendo<sup>[[?]](#gamepad---nintendo-layout-remapping)</sup> |
 |:---:|:---|:---|:---:|:---:|:---:|
-| `0` | `"A"` | **Face Button 0** | A | Cross | A |
-| `1` | `"B"` | **Face Button 1** | B | Circle | X* |
-| `2` | `"X"` | **Face Button 2** | X | Square | B* |
-| `3` | `"Y"` | **Face Button 3** | Y | Triangle | Y |
+| `0` | `"A"` | **Face Button 0** | A | Cross | B* |
+| `1` | `"B"` | **Face Button 1** | B | Circle | A* |
+| `2` | `"X"` | **Face Button 2** | X | Square | Y* |
+| `3` | `"Y"` | **Face Button 3** | Y | Triangle | X* |
 | `4` | `"LeftShoulder"` | **Left Shoulder** | LB | L1 | L |
 | `5` | `"RightShoulder"` | **Right Shoulder** | RB | R1 | R |
 | `6` | `"LeftTrigger"` | **Left Trigger** | LT | L2 | ZL |
