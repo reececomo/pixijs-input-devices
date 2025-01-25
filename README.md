@@ -16,16 +16,15 @@
 *Handle device inputs with ease.*
 
 ```ts
-import { InputDevice, GamepadDevice } from "pixijs-input-devices";
+import { InputDevice, GamepadDevice } from "pixijs-input-devices"
 
 
 // Set named binds
-KeyboardDevice.global.configureBinds({
-    jump: [ "Space" ]
-})
-
 GamepadDevice.configureDefaultBinds({
-    jump: [ "A", "LeftStickUp" ]
+    jump: [ "A" ]
+})
+InputDevice.keyboard.configureBinds({
+    jump: [ "ArrowUp", "Space" ]
 })
 
 // Use binds
@@ -38,7 +37,7 @@ InputDevice.onBind( "jump", ({ device }) => {
     if ( device.type === "gamepad" ) {
         device.playVibration({ duration: 50 })
     }
-});
+})
 ```
 
 ## Getting Started with PixiJS Input Devices
@@ -76,10 +75,11 @@ yarn add pixijs-input-devices --dev
 **2.** Register the update loop:
 
 ```ts
-import { Ticker } from 'pixi.js';
-import { InputDevice } from 'pixijs-input-devices';
+import { Ticker } from 'pixi.js'
+import { InputDevice } from 'pixijs-input-devices'
 
-Ticker.shared.add(ticker => InputDevice.update());
+
+Ticker.shared.add( () => InputDevice.update() )
 ```
 
 > [!TIP]
@@ -88,8 +88,9 @@ Ticker.shared.add(ticker => InputDevice.update());
 **3.** (Optional) enable the UINavigation API
 
 ```ts
-import * as PIXI from 'pixi.js';
-import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-devices';
+import * as PIXI from 'pixi.js'
+import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-devices'
+
 
 const app = new PIXI.Application(/*…*/)
 
@@ -108,8 +109,8 @@ The `InputDevice` singleton controls all device discovery.
 
 ```ts
 InputDevice.keyboard  // KeyboardDevice
-InputDevice.gamepads  // Array<GamepadDevice>
-InputDevice.custom    // Array<CustomDevice>
+InputDevice.gamepads  // GamepadDevice[]
+InputDevice.custom    // Device[]
 ```
 
 You can access all **active/connected** devices using `.devices`:
@@ -120,15 +121,23 @@ for ( const device of InputDevice.devices ) {  // …
 
 #### InputDevice - properties
 
+The `InputDevice` manager provides the following **context capability** properties:
+
 | Property | Type | Description |
 |---|---|---|
-| `InputDevice.isMobile` | `boolean` | Whether the context is mobile (including tablets). |
-| `InputDevice.isTouchCapable` | `boolean` | Whether the context has touchscreen capability. |
+| `InputDevice.hasMouseLikePointer` | `boolean` | Whether the context has a mouse/trackpad. |
+| `InputDevice.isMobile` | `boolean` | Whether the context is mobile capable. |
+| `InputDevice.isTouchCapable` | `boolean` | Whether the context is touchscreen capable. |
+
+As well as shortcuts to **connected devices**:
+
+| Accessor | Type | Description |
+|---|---|---|
 | `InputDevice.lastInteractedDevice` | `Device?` | The most recently interacted device (or first if multiple). |
 | `InputDevice.devices` | `Device[]` | All active, connected devices. |
 | `InputDevice.keyboard` | `KeyboardDevice` | The global keyboard. |
 | `InputDevice.gamepads` | `GamepadDevice[]` | Connected gamepads. |
-| `InputDevice.custom` | `CustomDevice[]` | Custom devices. |
+| `InputDevice.custom` | `CustomDevice[]` | Any custom devices. |
 
 #### InputDevice - on() Events
 
@@ -136,7 +145,7 @@ Access global events directly through the manager:
 
 ```ts
 InputDevice.on( "deviceadded", ({ device }) => {
-    // a device was connected
+    // new device was connected or became available
     // do additional setup here, show a dialog, etc.
 })
 
@@ -147,7 +156,18 @@ InputDevice.off( "deviceadded" ) // stop listening
 |---|---|---|
 | `"deviceadded"` | `{device}` | A device has been added. |
 | `"deviceremoved"` | `{device}` | A device has been removed. |
+| `"lastdevicechanged"` | `{device}` | The _last interacted device_ has changed. |
 
+
+#### InputDevice - onBind() Events
+
+You may also subscribe globally to **named bind** events:
+
+```ts
+InputDevice.onBind( "my_custom_bind", (event) => {
+    // a bound input waas triggered
+})
+```
 
 ### KeyboardDevice
 
@@ -550,9 +570,9 @@ You can easily map an on-screen input device using the `CustomDevice` interface.
 
 ```ts
 export class OnScreenInputContainer extends Container implements CustomDevice {
-    id = "onscreen";
-    type = "custom" as const;
-    meta: Record<string, any> = {};
+    id = "onscreen"
+    type = "custom" as const
+    meta: Record<string, any> = {}
 
     inputs = {
         moveX: 0.0
@@ -561,12 +581,15 @@ export class OnScreenInputContainer extends Container implements CustomDevice {
 
     update( now )
     {
-        this.moveX = this._virtualJoystick.x
-        this.jump = this._jumpButton.isTouching()
+        this.inputs.moveX = this._virtualJoystick.x
+        this.inputs.jump = this._jumpButton.isTouching()
     }
+
+    // e.g. disable named binds for onscreen joysticks:
+    pressedBind(name){ return false } 
 }
 
-const onscreen = new OnScreenInputContainer();
+const onscreen = new OnScreenInputContainer()
 
 InputDevice.add( onscreen )
 InputDevice.remove( onscreen )
@@ -591,7 +614,7 @@ InputDevice.keyboard.configureBinds({
     p2_jump: [ "ArrowUp" ],
     p2_defend: [ "ArrowDown" ],
     p2_left: [ "ArrowLeft" ],
-    p2_right: [ "ArrowRight" ],
+    p2_right: [ "ArrowRight" ]
 })
 ```
 
