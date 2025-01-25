@@ -41,32 +41,29 @@ class NavigationManager
    */
   public get focusTarget(): Container | undefined
   {
-    return this.responders.find(res =>
-      res.focusTarget != null && isVisible( res.focusTarget )
-    )?.focusTarget ?? this._rootFocused;
+    return this.responders.find(res => res.focusTarget != null)?.focusTarget
+      ?? this._rootFocused;
   }
 
   public set focusTarget( target: Container | undefined )
   {
     const previous = this.focusTarget;
-
     if ( previous === target) return;
 
     const responderStage = this.getResponderStage();
     if ( !responderStage ) return;
 
-    if (
-      target && (
-        !target.isNavigatable
-        || !isChildOf( target, responderStage )
-      )
-    ) return;
+    if ( target )
+    {
+      if ( !target.isNavigatable ) return;
+      if ( !isChildOf( target, responderStage ) ) return;
+    }
+
+    if ( this.firstResponder != null ) this.firstResponder.focusTarget = target;
+    else this._rootFocused = target;
 
     if ( previous ) this._emitBlur( previous );
     if ( target ) this._emitFocus( target );
-
-    if ( this.firstResponder ) this.firstResponder.focusTarget = target;
-    else this._rootFocused = target;
   }
 
   /**

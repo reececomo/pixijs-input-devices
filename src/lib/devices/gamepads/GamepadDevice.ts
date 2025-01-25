@@ -366,20 +366,14 @@ export class GamepadDevice
 
     const intensity = this.options.vibration.intensity;
 
-    try {
-      ( this.source as any ).vibrationActuator.playEffect( vibrationType, {
-        duration,
-        startDelay,
-        weakMagnitude: intensity * weakMagnitude,
-        strongMagnitude: intensity * strongMagnitude,
-        leftTrigger: intensity * leftTrigger,
-        rightTrigger: intensity * rightTrigger,
-      });
-    }
-    catch ( error )
-    {
-      console.warn( "gamepad vibration failed with error:", error );
-    }
+    ( this.source as any ).vibrationActuator.playEffect( vibrationType, {
+      duration,
+      startDelay,
+      weakMagnitude: intensity * weakMagnitude,
+      strongMagnitude: intensity * strongMagnitude,
+      leftTrigger: intensity * leftTrigger,
+      rightTrigger: intensity * rightTrigger,
+    });
   }
 
   // ----- Lifecycle: -----

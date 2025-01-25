@@ -83,7 +83,7 @@ function chooseFirstNavigatableInDirection(
   const focusedElement = elements.find( ( el ) => el === currentFocus );
 
   // no focused element? select the one with the largest priority
-  if  ( focusedElement === undefined )
+  if ( focusedElement === undefined )
   {
     elements.sort( ( a, b ) => b.navigationPriority - a.navigationPriority );
 

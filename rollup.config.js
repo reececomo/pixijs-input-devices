@@ -24,7 +24,10 @@ export default [
       typescript(),
       terser({
         keep_classnames: true,
-        keep_fnames: true
+        keep_fnames: true,
+        compress: {
+          drop_console: false,
+        },
       }),
     ],
   }
