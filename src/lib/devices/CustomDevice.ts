@@ -1,3 +1,5 @@
+import { HapticEffect } from "./HapticVibration";
+
 export interface CustomDevice
 {
   /**
@@ -18,18 +20,23 @@ export interface CustomDevice
   readonly meta: Record<string, any>;
 
   /**
-   * Timestamp when input was last modified.
-   *
-   * Set this to `now` during update() if the device is interacted with,
-   * and this will automatically become `InputDevice.lastInteractedDevice`.
-   */
+    * Timestamp when input was last modified.
+    *
+    * Set this to `now` during update() if the device is interacted with,
+    * and this will automatically become `InputDevice.lastInteractedDevice`.
+    */
   readonly lastInteraction: number;
 
   /** Triggered during the polling function. */
   update( now: number ): void;
 
   /** @returns true when a bind was activated in the previous update(). */
-  pressedBind( name: string ): boolean
+  bindDown( name: string ): boolean
+
+  /**
+   * Play a vibration effect (if device supports it).
+   */
+  playHaptic( hapticEffect: HapticEffect ): void;
 
   /**
    * (Optional) Clear input.

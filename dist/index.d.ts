@@ -52,21 +52,21 @@ declare class InputDeviceManager {
 	/** Options that apply to input devices */
 	options: {
 		/**
-		 * Require window/document to be in foreground.
-		 */
-		requireFocus: boolean;
-		/**
 		 * When the window loses focus, this triggers the clear
 		 * input function.
 		 */
-		clearInputInBackground: boolean;
+		clearInputOnBackground: boolean;
+		/**
+		 * Require window/document to be in foreground.
+		 */
+		requireDocumentFocus: boolean;
 	};
 	private readonly _devices;
 	private readonly _gamepadDevices;
 	private readonly _gamepadDeviceMap;
 	private readonly _customDevices;
 	private readonly _emitter;
-	private readonly _bindEmitter;
+	private readonly _bindDownEmitter;
 	private _hasFocus;
 	private _lastInteractedDevice?;
 	private constructor();
@@ -97,11 +97,11 @@ declare class InputDeviceManager {
 	/** Remove an event listener (or all if none provided) */
 	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/** Adds a named bind event listener. */
-	onBind<N extends string>(name: N | readonly N[], listener: (event: NamedBindEvent<N>) => void, options?: EventOptions): this;
+	onBindDown<N extends string>(name: N | readonly N[], listener: (event: NamedBindEvent<N>) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: string | string[], listener?: (event: NamedBindEvent) => void): this;
+	offBindDown(name: string | string[], listener?: (event: NamedBindEvent) => void): this;
 	/** Report a named bind event (from a CustomDevice). */
-	emitBind(e: NamedBindEvent): void;
+	emitBindDown(e: NamedBindEvent): void;
 	/**
 	 * Add a device.
 	 */
@@ -128,7 +128,7 @@ declare class NavigationManager {
 		 * When enabled, if no "pointover"/"mouseover" listeners
 		 * exist, a default alpha effect will be used instead.
 		 */
-		useFallbackHoverEffect: boolean;
+		enableFallbackOverEffect: boolean;
 		/**
 		 * Minimum distance in a direction that a container has to be to
 		 * appear as selectable in that direction.
@@ -203,10 +203,10 @@ declare const AxisCode: readonly [
 	"RightStickDown"
 ];
 declare const ButtonCode: readonly [
-	"A",
-	"B",
-	"X",
-	"Y",
+	"Face1",
+	"Face2",
+	"Face3",
+	"Face4",
 	"LeftShoulder",
 	"RightShoulder",
 	"LeftTrigger",
@@ -215,10 +215,10 @@ declare const ButtonCode: readonly [
 	"Start",
 	"LeftStickClick",
 	"RightStickClick",
-	"DPadUp",
-	"DPadDown",
-	"DPadLeft",
-	"DPadRight"
+	"DpadUp",
+	"DpadDown",
+	"DpadLeft",
+	"DpadRight"
 ];
 /**
  * A gamepad (game controller).
@@ -234,7 +234,7 @@ export declare class GamepadDevice {
 	/**
 	 * Setup named binds for all newly connecting gamepads.
 	 */
-	static configureDefaultBinds<BindName extends string>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
+	static configureDefaultBinds<BindName extends string = string | NavigationIntent>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	static defaultOptions: {
 		/**
 		 * When set to false, events are not emitted.
@@ -242,47 +242,34 @@ export declare class GamepadDevice {
 		 */
 		emitEvents: boolean;
 		/**
-		 * When set to `"physical"` _(default)_, ABXY refer to the equivalent
-		 * positions on a standard layout controller.
-		 *
-		 * When set to `"accurate"`, ABXY refer to the ABXY buttons on a Nintendo
-		 * controller.
-		 *
-		 * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
-		 * 2, and 3 positions respectively.
-		 * @default "physical"
-		 */
-		nintendoRemapMode: NintendoRemapMode;
-		/**
-		 * When enabled, all "navigate.*" binds will trigger a default haptic.
-		 * @default true
-		 */
-		hapticNavigation: boolean;
-		/**
 		 * Joystick configuration.
 		 */
 		joystick: {
 			/**
+			 * Sensitivity deadzone
+			 *
 			 * The range of movement in a joystick recognized as input, to
 			 * prevent unintended movements caused by imprecision or wear.
 			 *
-			 * @default [ 0, 1 ]
+			 * @default [ 0.0, 1.0 ]
 			 */
 			deadzone: [
 				number,
 				number
 			];
 			/**
-			 * The threshold joysticks must reach to emit navigation and bind events.
+			 * Press threshold
 			 *
-			 * @default 0.25
+			 * The point within the deadzone when a joystick axis is considered pressed.
+			 *
+			 * @default 0.5
 			 */
-			threshold: number;
+			pressThreshold: number;
 			/**
 			 * The amount of time (in milliseconds) between emitting axis events in a
 			 * given direction, given as [first, subsequent].
 			 *
-			 * @default [ delay: 400, repeat: 80 ]
+			 * @default [ delay: 400, repeat: 100 ]
 			 */
 			autoRepeatDelayMs: [
 				number,
@@ -294,10 +281,12 @@ export declare class GamepadDevice {
 		 */
 		trigger: {
 			/**
+			 * Sensitivity deadzone
+			 *
 			 * The range of movement in a trigger recognized as input, to
 			 * revent unintended movements caused by imprecision or wear.
 			 *
-			 * @default [ 0, 1 ]
+			 * @default [ 0.0, 1.0 ]
 			 */
 			deadzone: [
 				number,
@@ -315,15 +304,17 @@ export declare class GamepadDevice {
 			 */
 			enabled: boolean;
 			/**
-			 * Intensity of vibration, between 0.0 and 1.0.
+			 * Global intensity of vibrations, between 0.0 and 1.0.
 			 *
-			 * @default 1
+			 * @default 1.0
 			 */
 			intensity: number;
 		};
 		/**
-		 * Create named binds of buttons.
-		 * This can be used with `pressedBind( name )`.
+		 * Set binds using `device.configureBinds()` or
+		 * `GamepadDevice.configureDefaultBinds()`
+		 *
+		 * @readonly
 		 */
 		binds: Partial<Record<string, GamepadCode[]>>;
 	};
@@ -372,31 +363,31 @@ export declare class GamepadDevice {
 	/** A scalar 0.0 to 1.0 representing the right shoulder value */
 	rightShoulder: number;
 	private readonly _emitter;
-	private readonly _bindEmitter;
+	private readonly _bindDownEmitter;
 	private readonly _debounces;
 	/** @returns true if any button from the named bind is pressed. */
-	pressedBind(name: string): boolean;
+	bindDown(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
 	pressedAny(btns: GamepadCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
 	pressedAll(btns: GamepadCode[]): boolean;
 	/** Set named binds for this gamepad */
-	configureBinds<BindName extends string>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
+	configureBinds<BindName extends string = string | NavigationIntent>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
+	onBindDown(name: string, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: string, listener?: (event: GamepadNamedBindEvent) => void): this;
+	offBindDown(name: string, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/**
 	 * Play a vibration effect (if supported).
 	 *
 	 * This API only works in browsers that support it.
 	 * @see https://caniuse.com/mdn-api_gamepad_vibrationactuator
 	 */
-	playVibration({ duration, weakMagnitude, strongMagnitude, vibrationType, rightTrigger, leftTrigger, startDelay, }?: GamepadVibration): void;
+	playHaptic({ duration, weakMagnitude, strongMagnitude, vibrationType, rightTrigger, leftTrigger, startDelay, }: HapticEffect): void;
 	update(source: Gamepad, now: number): void;
 	clear(): void;
 	constructor(source: Gamepad);
@@ -443,23 +434,23 @@ export declare class KeyboardDevice {
 		 */
 		detectLayoutOnKeypress: boolean;
 		/**
-		 * Named binds of keys.
+		 * Set binds using `device.configureBinds()`
 		 *
-		 * This can be used with `pressedBind( name )`.
+		 * @readonly
 		 */
 		binds: Partial<Record<string, KeyCode[]>>;
 		/**
-		 * These are the binds that are allowed to repeat when a key
-		 * is held down.
-		 *
-		 * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
-		 */
+	 * These are the binds that are allowed to repeat when a key
+	 * is held down.
+	 *
+	 * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
+	 */
 		repeatableBinds: string[];
 	};
 	/** Accessors for keys */
 	key: Record<KeyCode, boolean>;
 	private readonly _emitter;
-	private readonly _bindEmitter;
+	private readonly _bindDownEmitter;
 	private _layout;
 	private _layoutSource;
 	private _deferredKeydown;
@@ -487,21 +478,27 @@ export declare class KeyboardDevice {
 	/** How the keyboard layout was determined. */
 	get layoutSource(): KeyboardLayoutSource;
 	/** @returns true if any key from the named bind is pressed. */
-	pressedBind(name: string): boolean;
+	bindDown(name: string): boolean;
 	/** @returns true if any of the given keys are pressed. */
 	pressedAny(keys: KeyCode[]): boolean;
 	/** @returns true if all of the given keys are pressed. */
 	pressedAll(keys: KeyCode[]): boolean;
 	/** Set custom binds */
-	configureBinds<BindName extends string>(binds: Partial<Record<BindName, KeyCode[]>>): void;
+	configureBinds<BindName extends string = string | NavigationIntent>(binds: Partial<Record<BindName, KeyCode[]>>): void;
+	/**
+	 * Plays a vibration effect on supported devices.
+	 *
+	 * Not supported on keyboard.
+	 */
+	playHaptic(hapticEffect: HapticEffect): void;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof KeyboardDeviceEvent>(event: K, listener?: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void, options?: EventOptions): this;
+	onBindDown(name: string, listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: string, listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
+	offBindDown(name: string, listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void): this;
 	/**
 	 * Get the label for the given key code in the current keyboard
 	 * layout. Attempts to use the Navigator KeyboardLayoutMap API
@@ -528,10 +525,10 @@ export declare class KeyboardDevice {
 	private _processDeferredKeydownEvent;
 }
 export declare const Button: {
-	readonly A: 0;
-	readonly B: 1;
-	readonly X: 2;
-	readonly Y: 3;
+	readonly Face1: 0;
+	readonly Face2: 1;
+	readonly Face3: 2;
+	readonly Face4: 3;
 	readonly LeftShoulder: 4;
 	readonly RightShoulder: 5;
 	readonly LeftTrigger: 6;
@@ -540,10 +537,10 @@ export declare const Button: {
 	readonly Start: 9;
 	readonly LeftStickClick: 10;
 	readonly RightStickClick: 11;
-	readonly DPadUp: 12;
-	readonly DPadDown: 13;
-	readonly DPadLeft: 14;
-	readonly DPadRight: 15;
+	readonly DpadUp: 12;
+	readonly DpadDown: 13;
+	readonly DpadLeft: 14;
+	readonly DpadRight: 15;
 };
 export declare const InputDevice: InputDeviceManager;
 export declare const KeyCode: {
@@ -728,16 +725,20 @@ export interface CustomDevice {
 	 */
 	readonly meta: Record<string, any>;
 	/**
-	 * Timestamp when input was last modified.
-	 *
-	 * Set this to `now` during update() if the device is interacted with,
-	 * and this will automatically become `InputDevice.lastInteractedDevice`.
-	 */
+	  * Timestamp when input was last modified.
+	  *
+	  * Set this to `now` during update() if the device is interacted with,
+	  * and this will automatically become `InputDevice.lastInteractedDevice`.
+	  */
 	readonly lastInteraction: number;
 	/** Triggered during the polling function. */
 	update(now: number): void;
 	/** @returns true when a bind was activated in the previous update(). */
-	pressedBind(name: string): boolean;
+	bindDown(name: string): boolean;
+	/**
+	 * Play a vibration effect (if device supports it).
+	 */
+	playHaptic(hapticEffect: HapticEffect): void;
 	/**
 	 * (Optional) Clear input.
 	 *
@@ -833,7 +834,7 @@ export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) =>
  */
 export type GamepadCode = ButtonCode | AxisCode;
 export type GamepadDeviceEvent = {
-	bind: GamepadNamedBindEvent;
+	binddown: GamepadNamedBindEvent;
 } & {
 	[axis in AxisCode]: GamepadAxisEvent;
 } & {
@@ -844,7 +845,7 @@ export type GamepadDeviceEvent = {
  *
  * Note: Non-comprehensive list, covers the most brands only.
  */
-export type GamepadLayout = "logitech" | "nintendo" | "playstation" | "steam" | "xbox" | "standard";
+export type GamepadLayout = "amazon_luna" | "logitech_g" | "nintendo_joycon_l" | "nintendo_joycon_r" | "nintendo_switch_pro" | "nintendo_wiiu" | "nvidia_shield" | "playstation_4" | "playstation_5" | "steam_controller" | "xbox_360" | "xbox_one" | "xbox_series" | "unknown";
 export type GamepadNamedBindEvent = {
 	device: GamepadDevice;
 	name: string;
@@ -858,20 +859,26 @@ export type GamepadNamedBindEvent = {
 	axis: Axis;
 	axisCode: AxisCode;
 };
-export type GamepadVibration = {
-	duration?: number;
-	leftTrigger?: number;
-	rightTrigger?: number;
-	startDelay?: number;
+export type HapticEffect = {
+	/** How long the vibration lasts (in milliseconds) */
+	duration: number;
+	/** Strength of the high-frequency motor (feels more like a "buzz") */
 	strongMagnitude?: number;
+	/** Strength of the low-frequency motor (feels more like a "rumble") */
 	weakMagnitude?: number;
+	/** Strength of the left trigger motor (if supported) */
+	leftTrigger?: number;
+	/** Strength of the right trigger motor (if supported) */
+	rightTrigger?: number;
+	/** Delay the start of the vibration effect (in milliseconds) */
+	startDelay?: number;
 } & {
 	vibrationType?: "dual-rumble" | "trigger-rumble";
 };
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
-	bind: KeyboardDeviceNamedBindKeydownEvent;
+	binddown: KeyboardDeviceNamedBindKeydownEvent;
 } & {
 	[key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
@@ -885,6 +892,5 @@ export type NavigatableContainer = Container;
 export type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
 export type NavigationIntent = typeof navigationIntents[number];
 export type NavigationTargetEvent = "deviceover" | "devicedown" | "deviceout";
-export type NintendoRemapMode = "none" | "accurate" | "physical";
 
 export {};

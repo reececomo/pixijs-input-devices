@@ -1,6 +1,6 @@
 {
   "name": "pixijs-input-devices",
-  "version": "0.5.8",
+  "version": "0.6.0",
   "author": "Reece Como <reece.como@gmail.com>",
   "authors": [
     "Reece Como <reece.como@gmail.com>"
@@ -50,18 +50,15 @@
     "typescript": "4.9.5"
   },
   "keywords": [
-    "actions",
-    "animate",
-    "animation",
-    "interpolation",
-    "lerp",
-    "phaser",
-    "pixi-action",
+    "gamepad",
+    "keyboard",
+    "controller",
+    "game",
+    "input",
+    "device",
     "pixi",
     "pixijs",
-    "skaction",
-    "transition",
-    "tween",
-    "tweening"
+    "pixi.js",
+    "hid"
   ]
 }
