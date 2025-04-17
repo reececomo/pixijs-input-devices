@@ -34,9 +34,11 @@ for (const device of InputDevice.devices) {
 
 // Event-driven
 InputDevice.onBindDown("jump", ({ device }) => {
-    if (device.type === "gamepad") {
-        device.playVibration({ duration: 50 })
-    }
+    // play a haptic on supported devices
+    device.playHaptic({
+        duration: 50,
+        strongMagnitude: 0.5,
+    })
 })
 ```
 
