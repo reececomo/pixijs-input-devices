@@ -1,13 +1,13 @@
 import { KeyCode } from "./keys";
 import { EventEmitter, EventOptions } from "../../utils/events";
 import {
-    requestKeyboardLayout,
-    getLayoutKeyLabel,
-    inferKeyboardLayoutFromLang,
-    KeyboardLayout,
-    KeyboardLayoutSource,
-    detectKeyboardLayoutFromKeydown,
-    getNavigatorKeyLabel
+  requestKeyboardLayout,
+  getLayoutKeyLabel,
+  inferKeyboardLayoutFromLang,
+  KeyboardLayout,
+  KeyboardLayoutSource,
+  detectKeyboardLayoutFromKeydown,
+  getNavigatorKeyLabel
 } from "./layouts";
 
 
@@ -42,34 +42,34 @@ export type KeyboardDeviceEvent = {
 
 export class KeyboardDevice
 {
-    public static global = new KeyboardDevice();
+  public static global = new KeyboardDevice();
 
-    public readonly type = "keyboard";
-    public readonly id = "keyboard";
+  public readonly type = "keyboard";
+  public readonly id = "keyboard";
 
-    /**
+  /**
    * Associate custom meta data with a device.
    */
-    public readonly meta: Record<string, any> = {};
+  public readonly meta: Record<string, any> = {};
 
-    /** Timestamp of when the keyboard was last interacted with. */
-    public lastInteraction = performance.now();
+  /** Timestamp of when the keyboard was last interacted with. */
+  public lastInteraction = performance.now();
 
-    /**
+  /**
    * Detect layout from keypresses.
    *
    * This will continuously check "keydown" events until the
    * layout can be determined.
    */
-    public detectLayoutOnKeypress = true;
+  public detectLayoutOnKeypress = true;
 
-    /**
+  /**
    * Keyboard has been detected.
    */
-    public detected = false;
+  public detected = false;
 
-    public options = {
-        /**
+  public options = {
+    /**
          * Set named binds of keys.
          *
          * This can be used with `bindDown(name)`.
@@ -89,75 +89,75 @@ export class KeyboardDevice
          *   // ...
          * }
          */
-        binds: {
-            "navigate.back":  [ "Escape", "Backspace" ],
-            "navigate.down":  [ "ArrowDown", "KeyS" ],
-            "navigate.left":  [ "ArrowLeft", "KeyA" ],
-            "navigate.right":  [ "ArrowRight", "KeyD" ],
-            "navigate.trigger":  [ "Enter", "Space" ],
-            "navigate.up":  [ "ArrowUp", "KeyW" ],
-        } as Partial<Record<string, KeyCode[]>>,
+    binds: {
+      "navigate.back":  [ "Escape", "Backspace" ],
+      "navigate.down":  [ "ArrowDown", "KeyS" ],
+      "navigate.left":  [ "ArrowLeft", "KeyA" ],
+      "navigate.right":  [ "ArrowRight", "KeyD" ],
+      "navigate.trigger":  [ "Enter", "Space" ],
+      "navigate.up":  [ "ArrowUp", "KeyW" ],
+    } as Partial<Record<string, KeyCode[]>>,
 
-        /**
+    /**
          * These are the binds that are allowed to repeat when a key
          * is held down.
          *
          * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
          */
-        repeatableBinds: [
-            "navigate.down",
-            "navigate.left",
-            "navigate.right",
-            "navigate.up",
-        ]
-    };
+    repeatableBinds: [
+      "navigate.down",
+      "navigate.left",
+      "navigate.right",
+      "navigate.up",
+    ]
+  };
 
-    /** Accessors for keys */
-    public key: Record<KeyCode, boolean> =
-        Object.keys(KeyCode).reduce((obj, key) =>
-        {
-            obj[key] = false;
-
-            return obj;
-        }, {} as any);
-
-    private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
-    private readonly _bindEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
-
-    private _layout: KeyboardLayout;
-    private _layoutSource: KeyboardLayoutSource;
-    private _deferredKeydown: KeyboardEvent[] = [];
-    private _deferredKeyup: KeyboardEvent[] = [];
-
-    private constructor()
+  /** Accessors for keys */
+  public key: Record<KeyCode, boolean> =
+    Object.keys(KeyCode).reduce((obj, key) =>
     {
-        this._layout = inferKeyboardLayoutFromLang();
-        this._layoutSource = "lang";
+      obj[key] = false;
 
-        // auto-detect layout
-        requestKeyboardLayout().then(layout =>
-        {
-            if (layout === undefined)
-            {
-                // not detected
-                return;
-            }
+      return obj;
+    }, {} as any);
 
-            this._layoutSource = "browser";
-            this._layout = layout;
-            this.detectLayoutOnKeypress = false;
+  private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
+  private readonly _bindEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
 
-            this._emitter.emit("layoutdetected", {
-                layoutSource: "browser",
-                layout: layout,
-                device: this,
-            });
-        });
+  private _layout: KeyboardLayout;
+  private _layoutSource: KeyboardLayoutSource;
+  private _deferredKeydown: KeyboardEvent[] = [];
+  private _deferredKeyup: KeyboardEvent[] = [];
 
-        this._configureEventListeners();
-    }
+  private constructor()
+  {
+    this._layout = inferKeyboardLayoutFromLang();
+    this._layoutSource = "lang";
 
-    /**
+    // auto-detect layout
+    requestKeyboardLayout().then(layout =>
+    {
+      if (layout === undefined)
+      {
+        // not detected
+        return;
+      }
+
+      this._layoutSource = "browser";
+      this._layout = layout;
+      this.detectLayoutOnKeypress = false;
+
+      this._emitter.emit("layoutdetected", {
+        layoutSource: "browser",
+        layout: layout,
+        device: this,
+      });
+    });
+
+    this._configureEventListeners();
+  }
+
+  /**
      * Keyboard Layout
      *
      * If not set manually, this is determined by the browser (in
@@ -175,117 +175,117 @@ export class KeyboardDevice
      *
      * @example "JCUKEN"
      */
-    public get layout(): KeyboardLayout
+  public get layout(): KeyboardLayout
+  {
+    return this._layout;
+  }
+  public set layout(value: KeyboardLayout)
+  {
+    this._layoutSource = "manual";
+    this._layout = value;
+    this.detectLayoutOnKeypress = false;
+  }
+
+  /** How the keyboard layout was determined. */
+  public get layoutSource(): KeyboardLayoutSource
+  {
+    return this._layoutSource;
+  }
+
+  // ----- Methods: -----
+
+  /** @returns true if any key from the named bind is pressed. */
+  public bindDown(name: string): boolean
+  {
+    if (this.options.binds[name] === undefined) return false;
+
+    return this.pressedAny(this.options.binds[name]);
+  }
+
+  /** @returns true if any of the given keys are pressed. */
+  public pressedAny(keys: KeyCode[]): boolean
+  {
+    for (let i = 0; i < keys.length; i++)
     {
-        return this._layout;
-    }
-    public set layout(value: KeyboardLayout)
-    {
-        this._layoutSource = "manual";
-        this._layout = value;
-        this.detectLayoutOnKeypress = false;
-    }
-
-    /** How the keyboard layout was determined. */
-    public get layoutSource(): KeyboardLayoutSource
-    {
-        return this._layoutSource;
-    }
-
-    // ----- Methods: -----
-
-    /** @returns true if any key from the named bind is pressed. */
-    public bindDown(name: string): boolean
-    {
-        if (this.options.binds[name] === undefined) return false;
-
-        return this.pressedAny(this.options.binds[name]);
-    }
-
-    /** @returns true if any of the given keys are pressed. */
-    public pressedAny(keys: KeyCode[]): boolean
-    {
-        for (let i = 0; i < keys.length; i++)
-        {
-            if (this.key[keys[i]!]) return true;
-        }
-
-        return false;
+      if (this.key[keys[i]!]) return true;
     }
 
-    /** @returns true if all of the given keys are pressed. */
-    public pressedAll(keys: KeyCode[]): boolean
-    {
-        for (let i = 0; i < keys.length; i++)
-        {
-            if (!this.key[keys[i]!]) return false;
-        }
+    return false;
+  }
 
-        return true;
+  /** @returns true if all of the given keys are pressed. */
+  public pressedAll(keys: KeyCode[]): boolean
+  {
+    for (let i = 0; i < keys.length; i++)
+    {
+      if (!this.key[keys[i]!]) return false;
     }
 
-    /** Set custom binds */
-    public configureBinds<BindName extends string = string>(
-        binds: Partial<Record<BindName, KeyCode[]>>
-    ): void
-    {
-        this.options.binds = {
-            ...this.options.binds,
-            ...binds,
-        };
-    }
+    return true;
+  }
 
-    // ----- Events: -----
+  /** Set custom binds */
+  public configureBinds<BindName extends string = string>(
+    binds: Partial<Record<BindName, KeyCode[]>>
+  ): void
+  {
+    this.options.binds = {
+      ...this.options.binds,
+      ...binds,
+    };
+  }
 
-    /** Add an event listener. */
-    public on<K extends keyof KeyboardDeviceEvent>(
-        event: K,
-        listener: (event: KeyboardDeviceEvent[K]) => void,
-        options?: EventOptions,
-    ): this
-    {
-        this._emitter.on(event, listener, options);
+  // ----- Events: -----
 
-        return this;
-    }
+  /** Add an event listener. */
+  public on<K extends keyof KeyboardDeviceEvent>(
+    event: K,
+    listener: (event: KeyboardDeviceEvent[K]) => void,
+    options?: EventOptions,
+  ): this
+  {
+    this._emitter.on(event, listener, options);
 
-    /** Remove an event listener (or all if none provided). */
-    public off<K extends keyof KeyboardDeviceEvent>(
-        event: K,
-        listener?: (event: KeyboardDeviceEvent[K]) => void
-    ): this
-    {
-        this._emitter.off(event, listener);
+    return this;
+  }
 
-        return this;
-    }
+  /** Remove an event listener (or all if none provided). */
+  public off<K extends keyof KeyboardDeviceEvent>(
+    event: K,
+    listener?: (event: KeyboardDeviceEvent[K]) => void
+  ): this
+  {
+    this._emitter.off(event, listener);
 
-    /** Add a named bind event listener (or all if none provided). */
-    public onBindDown(
-        name: string,
-        listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void,
-        options?: EventOptions,
-    ): this
-    {
-        this._bindEmitter.on(name, listener, options);
+    return this;
+  }
 
-        return this;
-    }
+  /** Add a named bind event listener (or all if none provided). */
+  public onBindDown(
+    name: string,
+    listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void,
+    options?: EventOptions,
+  ): this
+  {
+    this._bindEmitter.on(name, listener, options);
 
-    /** Remove a named bind event listener (or all if none provided). */
-    public offBindDown(
-        name: string,
-        listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void
-    ): this
-    {
-        this._bindEmitter.off(name, listener);
+    return this;
+  }
 
-        return this;
-    }
+  /** Remove a named bind event listener (or all if none provided). */
+  public offBindDown(
+    name: string,
+    listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void
+  ): this
+  {
+    this._bindEmitter.off(name, listener);
 
-    // ----- Helpers: -----
+    return this;
+  }
 
-    /**
+  // ----- Helpers: -----
+
+  /**
      * Get the label for the given key code in the current keyboard
      * layout. Attempts to use the Navigator KeyboardLayoutMap API
      * before falling back to defaults.
@@ -298,151 +298,151 @@ export class KeyboardDevice
      * keyboard.getLabel("KeyZ") === "Z" // QWERTY
      * keyboard.getLabel("KeyZ") === "Face4" // QWERTZ
      */
-    public getLabel(key: KeyCode, layout?: KeyboardLayout): string
-    {
-        if (layout) return getLayoutKeyLabel(key, layout);
+  public getLabel(key: KeyCode, layout?: KeyboardLayout): string
+  {
+    if (layout) return getLayoutKeyLabel(key, layout);
 
-        return getNavigatorKeyLabel(key)
+    return getNavigatorKeyLabel(key)
       ?? getLayoutKeyLabel(key, layout ?? this._layout);
-    }
+  }
 
-    /**
+  /**
      * Process deferred keyboard events.
      */
-    public update(now: number): void
+  public update(now: number): void
+  {
+    if(this._deferredKeydown.length > 0)
     {
-        if(this._deferredKeydown.length > 0)
-        {
-            this._deferredKeydown.forEach((event) => this._processDeferredKeydownEvent(event));
-            this._deferredKeydown.length = 0;
-        }
-        if(this._deferredKeyup.length > 0)
-        {
-            this._deferredKeyup.forEach((event) => this._processDeferredKeyupEvent(event));
-            this._deferredKeyup.length = 0;
-        }
+      this._deferredKeydown.forEach((event) => this._processDeferredKeydownEvent(event));
+      this._deferredKeydown.length = 0;
     }
+    if(this._deferredKeyup.length > 0)
+    {
+      this._deferredKeyup.forEach((event) => this._processDeferredKeyupEvent(event));
+      this._deferredKeyup.length = 0;
+    }
+  }
 
-    /**
+  /**
      * Clear all keyboard keys.
      */
-    public clear(): void
+  public clear(): void
+  {
+    for (const key of Object.keys(KeyCode))
     {
-        for (const key of Object.keys(KeyCode))
+      this.key[key as KeyCode] = false;
+    }
+  }
+
+  // ----- Implementation: -----
+
+  private _configureEventListeners(): void
+  {
+    window.addEventListener(
+      "keydown",
+      event =>
+      {
+        this.key[event.code as KeyCode] = true;
+        this._deferredKeydown.push(event);
+        this.lastInteraction = performance.now();
+      },
+      {
+        passive: true,
+        capture: true,
+      },
+    );
+
+    window.addEventListener(
+      "keyup",
+      event =>
+      {
+        this.key[event.code as KeyCode] = false;
+        this._deferredKeyup.push(event);
+        this.lastInteraction = performance.now();
+      },
+      {
+        passive: true,
+        capture: true,
+      },
+    );
+  }
+
+  private _processDeferredKeydownEvent(e: KeyboardEvent): void
+  {
+    const keyCode = e.code as KeyCode;
+
+    if (!e.repeat)
+    {
+      // detect keyboard layout
+      if (this.detectLayoutOnKeypress && this._layoutSource === "lang")
+      {
+        const layout = detectKeyboardLayoutFromKeydown(e);
+        if (layout !== undefined)
         {
-            this.key[key as KeyCode] = false;
+          this._layout = layout;
+          this._layoutSource = "keypress";
+          this.detectLayoutOnKeypress = false;
+
+          this._emitter.emit("layoutdetected", {
+            layout: layout,
+            layoutSource: "keypress",
+            device: this,
+          });
         }
-    }
+      }
 
-    // ----- Implementation: -----
-
-    private _configureEventListeners(): void
-    {
-        window.addEventListener(
-            "keydown",
-            event =>
-            {
-                this.key[event.code as KeyCode] = true;
-                this._deferredKeydown.push(event);
-                this.lastInteraction = performance.now();
-            },
-            {
-                passive: true,
-                capture: true,
-            },
-        );
-
-        window.addEventListener(
-            "keyup",
-            event =>
-            {
-                this.key[event.code as KeyCode] = false;
-                this._deferredKeyup.push(event);
-                this.lastInteraction = performance.now();
-            },
-            {
-                passive: true,
-                capture: true,
-            },
-        );
-    }
-
-    private _processDeferredKeydownEvent(e: KeyboardEvent): void
-    {
-        const keyCode = e.code as KeyCode;
-
-        if (!e.repeat)
-        {
-            // detect keyboard layout
-            if (this.detectLayoutOnKeypress && this._layoutSource === "lang")
-            {
-                const layout = detectKeyboardLayoutFromKeydown(e);
-                if (layout !== undefined)
-                {
-                    this._layout = layout;
-                    this._layoutSource = "keypress";
-                    this.detectLayoutOnKeypress = false;
-
-                    this._emitter.emit("layoutdetected", {
-                        layout: layout,
-                        layoutSource: "keypress",
-                        device: this,
-                    });
-                }
-            }
-
-            // dispatch events
-            if (this._emitter.hasListener(keyCode))
-            {
-                this._emitter.emit(keyCode, {
-                    device: this,
-                    keyCode,
-                    keyLabel: this.getLabel(keyCode),
-                    event: e,
-                });
-            }
-        }
-
-        // check named binds
-        Object.entries(this.options.binds).forEach(([ name, keys ]) =>
-        {
-            if (!keys.includes(keyCode)) return;
-            if (e.repeat && !this.options.repeatableBinds.includes(name))
-            {
-                return;
-            }
-
-            const event = {
-                device: this,
-                keyCode,
-                keyLabel: this.getLabel(keyCode),
-                event: e,
-                name: name,
-                repeat: e.repeat,
-            };
-
-            this._bindEmitter.emit(name, event);
-            this._emitter.emit("binddown", event);
+      // dispatch events
+      if (this._emitter.hasListener(keyCode))
+      {
+        this._emitter.emit(keyCode, {
+          device: this,
+          keyCode,
+          keyLabel: this.getLabel(keyCode),
+          event: e,
         });
+      }
     }
 
-    private _processDeferredKeyupEvent(e: KeyboardEvent): void
+    // check named binds
+    Object.entries(this.options.binds).forEach(([ name, keys ]) =>
     {
-        const keyCode = e.code as KeyCode;
+      if (!keys.includes(keyCode)) return;
+      if (e.repeat && !this.options.repeatableBinds.includes(name))
+      {
+        return;
+      }
 
-        // check named binds
-        Object.entries(this.options.binds).forEach(([ name, keys ]) =>
-        {
-            if (!keys.includes(keyCode)) return;
+      const event = {
+        device: this,
+        keyCode,
+        keyLabel: this.getLabel(keyCode),
+        event: e,
+        name: name,
+        repeat: e.repeat,
+      };
 
-            this._emitter.emit("bindup", {
-                device: this,
-                keyCode,
-                keyLabel: this.getLabel(keyCode),
-                event: e,
-                name: name,
-                repeat: e.repeat,
-            });
-        });
-    }
+      this._bindEmitter.emit(name, event);
+      this._emitter.emit("binddown", event);
+    });
+  }
+
+  private _processDeferredKeyupEvent(e: KeyboardEvent): void
+  {
+    const keyCode = e.code as KeyCode;
+
+    // check named binds
+    Object.entries(this.options.binds).forEach(([ name, keys ]) =>
+    {
+      if (!keys.includes(keyCode)) return;
+
+      this._emitter.emit("bindup", {
+        device: this,
+        keyCode,
+        keyLabel: this.getLabel(keyCode),
+        event: e,
+        name: name,
+        repeat: e.repeat,
+      });
+    });
+  }
 }
