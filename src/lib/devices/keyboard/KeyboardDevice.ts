@@ -10,6 +10,7 @@ import {
     getNavigatorKeyLabel
 } from "./layouts";
 import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
+import { HapticEffect } from "../HapticVibration";
 
 
 export { KeyCode, KeyboardLayout };
@@ -86,7 +87,7 @@ export class KeyboardDevice
         /**
          * Set binds using `device.configureBinds()`
          *
-         * @private
+         * @readonly
          */
         binds: {
             "navigate.back":  [ "Escape", "Backspace" ],
@@ -228,6 +229,16 @@ export class KeyboardDevice
             ...this.options.binds,
             ...binds,
         };
+    }
+
+    /**
+     * Plays a vibration effect on supported devices.
+     *
+     * Not supported on keyboard.
+     */
+    public playHaptic( hapticEffect: HapticEffect ): void
+    {
+        // unsupported
     }
 
     // ----- Events: -----

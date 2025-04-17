@@ -63,4 +63,9 @@ class MockDevice implements CustomDevice
     {
         return false; // no bind support
     }
+
+    public playHaptic(): void
+    {
+        // no haptic support
+    }
 }

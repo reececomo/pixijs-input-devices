@@ -1,3 +1,5 @@
+import { HapticEffect } from "./HapticVibration";
+
 export interface CustomDevice
 {
   /**
@@ -30,6 +32,11 @@ export interface CustomDevice
 
   /** @returns true when a bind was activated in the previous update(). */
   bindDown( name: string ): boolean
+
+  /**
+   * Play a vibration effect (if device supports it).
+   */
+  playHaptic( hapticEffect: HapticEffect ): void;
 
   /**
    * (Optional) Clear input.

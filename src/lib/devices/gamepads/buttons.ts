@@ -31,10 +31,10 @@ export const Button = {
     Start: 9,
     LeftStickClick: 10,
     RightStickClick: 11,
-    DPadUp: 12,
-    DPadDown: 13,
-    DPadLeft: 14,
-    DPadRight: 15,
+    DpadUp: 12,
+    DpadDown: 13,
+    DpadLeft: 14,
+    DpadRight: 15,
 } as const;
 
 export type Button = (typeof Button)[keyof typeof Button];
@@ -52,10 +52,10 @@ export const ButtonCode = [
     "Start",
     "LeftStickClick",
     "RightStickClick",
-    "DPadUp",
-    "DPadDown",
-    "DPadLeft",
-    "DPadRight",
+    "DpadUp",
+    "DpadDown",
+    "DpadLeft",
+    "DpadRight",
 ] as const satisfies Record<Button, string>;
 export type ButtonCode = typeof ButtonCode[number];
 
@@ -73,8 +73,8 @@ export type GamepadButtons = {
   [Button.Start]: GamepadButton,
   [Button.LeftStickClick]: GamepadButton,
   [Button.RightStickClick]: GamepadButton,
-  [Button.DPadUp]: GamepadButton,
-  [Button.DPadDown]: GamepadButton,
-  [Button.DPadLeft]: GamepadButton,
-  [Button.DPadRight]: GamepadButton,
+  [Button.DpadUp]: GamepadButton,
+  [Button.DpadDown]: GamepadButton,
+  [Button.DpadLeft]: GamepadButton,
+  [Button.DpadRight]: GamepadButton,
 };

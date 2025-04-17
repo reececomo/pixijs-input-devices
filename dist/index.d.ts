@@ -215,10 +215,10 @@ declare const ButtonCode: readonly [
 	"Start",
 	"LeftStickClick",
 	"RightStickClick",
-	"DPadUp",
-	"DPadDown",
-	"DPadLeft",
-	"DPadRight"
+	"DpadUp",
+	"DpadDown",
+	"DpadLeft",
+	"DpadRight"
 ];
 /**
  * A gamepad (game controller).
@@ -311,10 +311,10 @@ export declare class GamepadDevice {
 			intensity: number;
 		};
 		/**
-		 * Use `gamepad.configureBinds({})` or `GamepadDevice.configureDefaultBinds({})`
-		 * to set or update new binds.
+		 * Set binds using `device.configureBinds()` or
+		 * `GamepadDevice.configureDefaultBinds()`
 		 *
-		 * @private
+		 * @readonly
 		 */
 		binds: Partial<Record<string, GamepadCode[]>>;
 	};
@@ -387,7 +387,7 @@ export declare class GamepadDevice {
 	 * This API only works in browsers that support it.
 	 * @see https://caniuse.com/mdn-api_gamepad_vibrationactuator
 	 */
-	playVibration({ duration, weakMagnitude, strongMagnitude, vibrationType, rightTrigger, leftTrigger, startDelay, }?: GamepadVibration): void;
+	playHaptic({ duration, weakMagnitude, strongMagnitude, vibrationType, rightTrigger, leftTrigger, startDelay, }: HapticEffect): void;
 	update(source: Gamepad, now: number): void;
 	clear(): void;
 	constructor(source: Gamepad);
@@ -436,7 +436,7 @@ export declare class KeyboardDevice {
 		/**
 		 * Set binds using `device.configureBinds()`
 		 *
-		 * @private
+		 * @readonly
 		 */
 		binds: Partial<Record<string, KeyCode[]>>;
 		/**
@@ -485,6 +485,12 @@ export declare class KeyboardDevice {
 	pressedAll(keys: KeyCode[]): boolean;
 	/** Set custom binds */
 	configureBinds<BindName extends string = string | NavigationIntent>(binds: Partial<Record<BindName, KeyCode[]>>): void;
+	/**
+	 * Plays a vibration effect on supported devices.
+	 *
+	 * Not supported on keyboard.
+	 */
+	playHaptic(hapticEffect: HapticEffect): void;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
@@ -531,10 +537,10 @@ export declare const Button: {
 	readonly Start: 9;
 	readonly LeftStickClick: 10;
 	readonly RightStickClick: 11;
-	readonly DPadUp: 12;
-	readonly DPadDown: 13;
-	readonly DPadLeft: 14;
-	readonly DPadRight: 15;
+	readonly DpadUp: 12;
+	readonly DpadDown: 13;
+	readonly DpadLeft: 14;
+	readonly DpadRight: 15;
 };
 export declare const InputDevice: InputDeviceManager;
 export declare const KeyCode: {
@@ -730,6 +736,10 @@ export interface CustomDevice {
 	/** @returns true when a bind was activated in the previous update(). */
 	bindDown(name: string): boolean;
 	/**
+	 * Play a vibration effect (if device supports it).
+	 */
+	playHaptic(hapticEffect: HapticEffect): void;
+	/**
 	 * (Optional) Clear input.
 	 *
 	 * This method is triggered when the window is moved to background.
@@ -849,13 +859,19 @@ export type GamepadNamedBindEvent = {
 	axis: Axis;
 	axisCode: AxisCode;
 };
-export type GamepadVibration = {
-	duration?: number;
-	leftTrigger?: number;
-	rightTrigger?: number;
-	startDelay?: number;
+export type HapticEffect = {
+	/** How long the vibration lasts. */
+	duration: number;
+	/** Buzz - Strength of the high-frequency motor (feels more like a "buzz") */
 	strongMagnitude?: number;
+	/** Rumble - Strength of the low-frequency motor (feels more like a "rumble") */
 	weakMagnitude?: number;
+	/** Strength of the left trigger motor (if supported) */
+	leftTrigger?: number;
+	/** Strength of the right trigger motor (if supported) */
+	rightTrigger?: number;
+	/** Delays the start of the vibration effect. */
+	startDelay?: number;
 } & {
 	vibrationType?: "dual-rumble" | "trigger-rumble";
 };

@@ -4,22 +4,10 @@ import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
 import { detectLayout, GamepadLayout } from "./layouts";
 import { EventEmitter, EventOptions } from "../../utils/events";
 import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
+import { HapticEffect } from "../HapticVibration";
 
 
 export { Button, GamepadLayout };
-
-export type GamepadVibration = {
-  // GamepadEffectParameters
-  duration?: number;
-  leftTrigger?: number;
-  rightTrigger?: number;
-  startDelay?: number;
-  strongMagnitude?: number;
-  weakMagnitude?: number;
-} & {
-  // GamepadHapticEffectType
-  vibrationType?: "dual-rumble" | "trigger-rumble"
-};
 
 export type GamepadButtonDownEvent = ( gamepad: GamepadDevice, button: Button ) => void;
 
@@ -161,18 +149,18 @@ export class GamepadDevice
         },
 
         /**
-         * Use `gamepad.configureBinds({})` or `GamepadDevice.configureDefaultBinds({})`
-         * to set or update new binds.
+         * Set binds using `device.configureBinds()` or
+         * `GamepadDevice.configureDefaultBinds()`
          *
-         * @private
+         * @readonly
          */
         binds: {
             "navigate.trigger": ["Face1" ],
             "navigate.back": [ "Face2" ],
-            "navigate.up": [ "DPadUp", "LeftStickUp" ],
-            "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
-            "navigate.down": [ "DPadDown", "LeftStickDown" ],
-            "navigate.right": [ "DPadRight", "LeftStickRight" ],
+            "navigate.up": [ "DpadUp", "LeftStickUp" ],
+            "navigate.left": [ "DpadLeft", "LeftStickLeft" ],
+            "navigate.down": [ "DpadDown", "LeftStickDown" ],
+            "navigate.right": [ "DpadRight", "LeftStickRight" ],
         } as Partial<Record<string, GamepadCode[]>>,
     };
 
@@ -344,29 +332,28 @@ export class GamepadDevice
      * This API only works in browsers that support it.
      * @see https://caniuse.com/mdn-api_gamepad_vibrationactuator
      */
-    public playVibration({
-        duration = 200,
-        weakMagnitude = 0.5,
-        strongMagnitude = 0.5,
-        // additional options:
-        vibrationType = "dual-rumble",
-        rightTrigger = 0,
-        leftTrigger = 0,
-        startDelay = 0,
-    }: GamepadVibration = {}): void
+    public playHaptic({
+        duration,
+        weakMagnitude,
+        strongMagnitude,
+        vibrationType,
+        rightTrigger,
+        leftTrigger,
+        startDelay,
+    }: HapticEffect): void
     {
         if ( !this.isVibrationCapable ) return;
         if ( !this.options.vibration.enabled ) return;
 
         const intensity = this.options.vibration.intensity;
 
-        ( this.source as any ).vibrationActuator.playEffect( vibrationType, {
+        ( this.source as any ).vibrationActuator.playEffect( vibrationType ?? "dual-rumble", {
             duration,
-            startDelay,
-            weakMagnitude: intensity * weakMagnitude,
-            strongMagnitude: intensity * strongMagnitude,
-            leftTrigger: intensity * leftTrigger,
-            rightTrigger: intensity * rightTrigger,
+            startDelay: startDelay ?? 0,
+            weakMagnitude: intensity * ( weakMagnitude ?? 0 ),
+            strongMagnitude: intensity * ( strongMagnitude ?? 0 ),
+            leftTrigger: intensity * ( leftTrigger ?? 0 ),
+            rightTrigger: intensity * ( rightTrigger ?? 0 ),
         });
     }
 

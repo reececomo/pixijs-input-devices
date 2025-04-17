@@ -28,13 +28,13 @@ InputDevice.keyboard.configureBinds({
 })
 
 // Use binds
-for ( const device of InputDevice.devices ) {
-    if ( device.bindDown("jump") ) // ...
+for (const device of InputDevice.devices) {
+    if (device.bindDown("jump")) // ...
 }
 
 // Event-driven
-InputDevice.onBindDown( "jump", ({ device }) => {
-    if ( device.type === "gamepad" ) {
+InputDevice.onBindDown("jump", ({ device }) => {
+    if (device.type === "gamepad") {
         device.playVibration({ duration: 50 })
     }
 })
@@ -79,7 +79,7 @@ import { Ticker } from 'pixi.js'
 import { InputDevice } from 'pixijs-input-devices'
 
 
-Ticker.shared.add( () => InputDevice.update() )
+Ticker.shared.add(() => InputDevice.update())
 ```
 
 > [!TIP]
@@ -95,8 +95,8 @@ import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-device
 const app = new PIXI.Application(/*…*/)
 
 // enable the navigation API
-UINavigation.configureWithRoot( app.stage )
-registerPixiJSNavigationMixin( PIXI.Container )
+UINavigation.configureWithRoot(app.stage)
+registerPixiJSNavigationMixin(PIXI.Container)
 ```
 
 ✨ You are now ready to use inputs!
@@ -116,7 +116,7 @@ InputDevice.custom    // Device[]
 You can access all **active/connected** devices using `.devices`:
 
 ```ts
-for ( const device of InputDevice.devices ) {  // …
+for (const device of InputDevice.devices) {  // …
 ```
 
 #### InputDevice - properties
@@ -144,12 +144,12 @@ As well as shortcuts to **connected devices**:
 Access global events directly through the manager:
 
 ```ts
-InputDevice.on( "deviceadded", ({ device }) => {
+InputDevice.on("deviceadded", ({ device }) => {
     // new device was connected or became available
     // do additional setup here, show a dialog, etc.
 })
 
-InputDevice.off( "deviceadded" ) // stop listening
+InputDevice.off("deviceadded") // stop listening
 ```
 
 | Event | Description | Payload |
@@ -164,7 +164,7 @@ InputDevice.off( "deviceadded" ) // stop listening
 You may also subscribe globally to **named bind** events:
 
 ```ts
-InputDevice.onBindDown( "my_custom_bind", (event) => {
+InputDevice.onBindDown("my_custom_bind", (event) => {
     // a bound input waas triggered
 })
 ```
@@ -176,7 +176,7 @@ Unlike gamepads & custom devices, there is a single global keyboard device.
 ```ts
 let keyboard = InputDevice.keyboard
 
-if ( keyboard.key.ControlLeft ) {  // …
+if (keyboard.key.ControlLeft) {  // …
 ```
 
 > [!NOTE]
@@ -188,7 +188,7 @@ if ( keyboard.key.ControlLeft ) {  // …
 ```ts
 keyboard.layout  // "AZERTY" | "JCUKEN" | "QWERTY" | "QWERTZ"
 
-keyboard.getKeyLabel( "KeyZ" )  // Я
+keyboard.getKeyLabel("KeyZ")  // Я
 ```
 
 > [!NOTE]
@@ -196,7 +196,7 @@ keyboard.getKeyLabel( "KeyZ" )  // Я
 > Almost every keyboard is one of these four (or a regional derivative &ndash; e.g. Hangeul,
 > Kana). There is no built-in detection for specialist or esoteric layouts (e.g. Dvorak, Colemak, BÉPO).
 >
-> The `keyboard.getKeyLabel( key )` uses the [KeyboardLayoutMap API](https://caniuse.com/mdn-api_keyboardlayoutmap)
+> The `keyboard.getKeyLabel(key)` uses the [KeyboardLayoutMap API](https://caniuse.com/mdn-api_keyboardlayoutmap)
 > when available, before falling back to default AZERTY, JCUKEN, QWERTY or QWERTZ key values.
 
 The keyboard layout is automatically detected from (in order):
@@ -211,7 +211,7 @@ You can also manually force the layout:
 // force layout
 InputDevice.keyboard.layout = "JCUKEN"
 
-InputDevice.keyboard.getKeyLabel( "KeyW" )  // "Ц"
+InputDevice.keyboard.getKeyLabel("KeyW")  // "Ц"
 InputDevice.keyboard.layoutSource  // "manual"
 ```
 
@@ -235,11 +235,22 @@ Gamepads are automatically detected via the browser API when first interacted wi
 Gamepad accessors are modelled around the "Standard Controller Layout":
 
 ```ts
-let gamepad = InputDevice.gamepads[0]
+const gamepad = InputDevice.gamepads[0];
 
-if ( gamepad.button.Start ) {  // …
-if ( gamepad.leftTrigger > 0.25 ) {  // …
-if ( gamepad.leftJoystick.x > 0.5 ) {  // …
+if (gamepad.button.DpadDown)
+{
+    // button pressed
+}
+
+if (gamepad.leftTrigger > 0.25)
+{
+    // trigger pulled
+}
+
+if (gamepad.leftJoystick.x < -0.33)
+{
+    // joystick moved
+}
 ```
 
 > [!TIP]
@@ -263,7 +274,7 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button Index | GamepadCode | Description | Xbox | Playstation | Nintendo |
+| Button # | GamepadCode | Description | Xbox Series X | Playstation 5 DualSense® | Nintendo Switch™ Pro |
 |:---:|:---|:---|:---:|:---:|:---:|
 | `0` | `"Face1"` | **Face Button 1** | A | Cross | B |
 | `1` | `"Face2"` | **Face Button 2** | B | Circle | A |
@@ -273,14 +284,14 @@ The gamepad buttons reference **Standard Controller Layout**:
 | `5` | `"RightShoulder"` | **Right Shoulder** | RB | R1 | R |
 | `6` | `"LeftTrigger"` | **Left Trigger** | LT | L2 | ZL |
 | `7` | `"RightTrigger"` | **Right Trigger** | RT | R2 | ZR |
-| `8` | `"Back"` | **Back** | Share | Options | Minus |
+| `8` | `"Back"` | **Back** | View | Options | Minus |
 | `9` | `"Start"` | **Start** | Menu | Select | Plus |
 | `10` | `"LeftStickClick"` | **Left Stick (Click)** | LSB | L3 | L3 |
 | `11` | `"RightStickClick"` | **Right Stick (Click)** | RSB | R3 | R3 |
-| `12` | `"DPadUp"` | **D-Pad Up** | ⬆️ | ⬆️ | ⬆️ |
-| `13` | `"DPadDown"` | **D-Pad Down** | ⬇️ | ⬇️ | ⬇️ |
-| `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
-| `15` | `"DPadRight"` | **D-Pad Right** | ➡️ | ➡️ | ➡️ |
+| `12` | `"DpadUp"` | **D-Pad Up** | ⬆️ | ⬆️ | ⬆️ |
+| `13` | `"DpadDown"` | **D-Pad Down** | ⬇️ | ⬇️ | ⬇️ |
+| `14` | `"DpadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
+| `15` | `"DpadRight"` | **D-Pad Right** | ➡️ | ➡️ | ➡️ |
 
 #### Gamepad Axis Codes
 
@@ -328,17 +339,16 @@ You can add custom devices to the device manager so it will be polled togehter a
 ```ts
 import { type CustomDevice, InputDevice } from "pixijs-input-devices"
 
-export const myDevice: CustomDevice = {
-    id: "on-screen-buttons",
+export const onScreenButtonsDevice: CustomDevice = {
     type: "custom",
+    id: "OnScreen",
     meta: {},
-    
-    update: ( now: number ) => {
+    update: (now: number) => {
         // polling update
     }
-}
+};
 
-InputDevice.add( myDevice )
+InputDevice.add(onScreenButtonsDevice);
 ```
 
 ## Named Binds
@@ -369,11 +379,11 @@ These can then be used with either the real-time and event-based APIs.
 
 ```ts
 // listen to all devices:
-InputDevice.onBindDown( "toggleGraphics", ( e ) => toggleGraphics() )
+InputDevice.onBindDown("toggleGraphics", (e) => toggleGraphics())
 
 // listen to specific devices:
-InputDevice.keyboard.onBindDown( "jump", ( e ) => doJump() )
-InputDevice.gamepads[0].onBindDown( "jump", ( e ) => doJump() )
+InputDevice.keyboard.onBindDown("jump", (e) => doJump())
+InputDevice.gamepads[0].onBindDown("jump", (e) => doJump())
 ```
 
 #### Real-time:
@@ -382,19 +392,19 @@ InputDevice.gamepads[0].onBindDown( "jump", ( e ) => doJump() )
 let jump = false, crouch = false, moveX = 0
 
 const keyboard = InputDevice.keyboard
-if ( keyboard.bindDown( "jump" ) ) jump = true
-if ( keyboard.bindDown( "crouch" ) ) crouch = true
-if ( keyboard.key.ArrowLeft ) moveX = -1
-else if ( keyboard.key.ArrowRight ) moveX = 1
+if (keyboard.bindDown("jump")) jump = true
+if (keyboard.bindDown("crouch")) crouch = true
+if (keyboard.key.ArrowLeft) moveX = -1
+else if (keyboard.key.ArrowRight) moveX = 1
 
-for ( const gamepad of InputDevice.gamepads ) {
-    if ( gamepad.bindDown( "jump" ) ) jump = true
-    if ( gamepad.bindDown( "crouch" ) ) crouch = true
+for (const gamepad of InputDevice.gamepads) {
+    if (gamepad.bindDown("jump")) jump = true
+    if (gamepad.bindDown("crouch")) crouch = true
 
     // gamepads have additional analog inputs
     // we're going to apply these only if touched
-    if ( gamepad.leftJoystick.x != 0 ) moveX = gamepad.leftJoystick.x
-    if ( gamepad.leftTrigger > 0 ) moveX *= ( 1 - gamepad.leftTrigger )
+    if (gamepad.leftJoystick.x != 0) moveX = gamepad.leftJoystick.x
+    if (gamepad.leftTrigger > 0) moveX *= (1 - gamepad.leftTrigger)
 }
 ```
 
@@ -407,8 +417,8 @@ _Traverse a UI using input devices._
 Set up navigation once using:
 
 ```ts
-UINavigation.configureWithRoot( app.stage )  // any root container
-registerPixiJSNavigationMixin( PIXI.Container )
+UINavigation.configureWithRoot(app.stage)  // any root container
+registerPixiJSNavigationMixin(PIXI.Container)
 ```
 
 Navigation should now work automatically if your buttons handle these events:
@@ -483,10 +493,10 @@ The keyboard and gamepad devices are preconfigured with the following binds, fee
 
 Navigation Intent Bind | Keyboard | Gamepad
 ---|---|---
-`"navigate.left"` | "ArrowLeft", "KeyA" | "DPadLeft", "LeftStickLeft"
-`"navigate.right"` | "ArrowRight", "KeyD" | "DPadRight", "LeftStickRight"
-`"navigate.up"` | "ArrowUp", "KeyW" | "DPadUp", "LeftStickUp"
-`"navigate.down"` | "ArrowDown", "KeyS" | "DPadDown", "LeftStickDown"
+`"navigate.left"` | "ArrowLeft", "KeyA" | "DpadLeft", "LeftStickLeft"
+`"navigate.right"` | "ArrowRight", "KeyD" | "DpadRight", "LeftStickRight"
+`"navigate.up"` | "ArrowUp", "KeyW" | "DpadUp", "LeftStickUp"
+`"navigate.down"` | "ArrowDown", "KeyS" | "DpadDown", "LeftStickDown"
 `"navigate.trigger"` | "Enter", "Space" | "Face1"
 `"navigate.back"` | "Escape", "Backspace" | "Face2", "Back"
 
@@ -496,7 +506,7 @@ You can manually take control of navigation using:
 
 ```ts
 // take control
-UINavigation.pushResponder( myModalView )
+UINavigation.pushResponder(myModalView)
 
 // relinquish control
 UINavigation.popResponder()
@@ -516,9 +526,9 @@ InputDevice.on("deviceconnected", ({ device }) =>
     device.meta.localPlayerId = 123
 )
 
-for ( const device of InputDevice.devices )
+for (const device of InputDevice.devices)
 {
-    if ( device.meta.localPlayerId === 123 )
+    if (device.meta.localPlayerId === 123)
     {
         // use assigned input device!
     }
@@ -540,7 +550,7 @@ export class OnScreenInputContainer extends Container implements CustomDevice {
         jump: false,
     }
 
-    update( now )
+    update(now)
     {
         this.inputs.moveX = this._virtualJoystick.x
         this.inputs.jump = this._jumpButton.isTouching()
@@ -552,8 +562,8 @@ export class OnScreenInputContainer extends Container implements CustomDevice {
 
 const onscreen = new OnScreenInputContainer()
 
-InputDevice.add( onscreen )
-InputDevice.remove( onscreen )
+InputDevice.add(onscreen)
+InputDevice.remove(onscreen)
 ```
 
 ### Two Users; One Keyboard
@@ -582,25 +592,25 @@ InputDevice.keyboard.configureBinds({
 and then switch groups depending on the mode:
 
 ```ts
-if ( gameMode === "multiplayer" )
+if (gameMode === "multiplayer")
 {
-    player1.jump   = device.bindDown( "p1_jump" )
-    player1.defend = device.bindDown( "p1_defend" )
-    player1.moveX += device.bindDown( "p1_left" ) ? -1 : 0
-    player1.moveX += device.bindDown( "p1_right" ) ? 1 : 0
+    player1.jump   = device.bindDown("p1_jump")
+    player1.defend = device.bindDown("p1_defend")
+    player1.moveX += device.bindDown("p1_left") ? -1 : 0
+    player1.moveX += device.bindDown("p1_right") ? 1 : 0
 
-    player2.jump   = device.bindDown( "p2_jump" )
-    player2.defend = device.bindDown( "p2_defend" )
-    player2.moveX += device.bindDown( "p2_left" ) ? -1 : 0
-    player2.moveX += device.bindDown( "p2_right" ) ? 1 : 0
+    player2.jump   = device.bindDown("p2_jump")
+    player2.defend = device.bindDown("p2_defend")
+    player2.moveX += device.bindDown("p2_left") ? -1 : 0
+    player2.moveX += device.bindDown("p2_right") ? 1 : 0
 }
 else
 {
-    player1.jump   = device.bindDown( "jump" )
-    player1.defend = device.bindDown( "defend" )
-    player1.moveX += device.bindDown( "left" ) ? -1 : 0
-    player1.moveX += device.bindDown( "right" ) ? 1 : 0
+    player1.jump   = device.bindDown("jump")
+    player1.defend = device.bindDown("defend")
+    player1.moveX += device.bindDown("left") ? -1 : 0
+    player1.moveX += device.bindDown("right") ? 1 : 0
 
-    updateComputerPlayerInput( player2 )
+    updateComputerPlayerInput(player2)
 }
 ```
