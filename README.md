@@ -294,7 +294,7 @@ Bindable helpers are available for the joysticks too:
 | `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Y-Axis)** | ⬆️⬇️ |
 
 > [!TIP]
-> Set the `joystick.threshold` option in `GamepadDevice.defaultOptions` to control when this is triggered.
+> Set the `joystick.pressThreshold` option in `GamepadDevice.defaultOptions` to adjust event sensitivity.
 
 #### Gamepad Layouts
 
@@ -475,7 +475,7 @@ Containers are extended with a few properties/accessors:
 > [!WARNING]
 > **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `UINavigation`
 >  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
-> can be disabled by setting `UINavigation.options.useFallbackHoverEffect` to `false`.
+> can be disabled by setting `UINavigation.options.enableFallbackOverEffect` to `false`.
 
 ### Default Binds
 

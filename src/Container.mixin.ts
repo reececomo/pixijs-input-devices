@@ -7,36 +7,36 @@ let _registered = false;
  */
 export function registerPixiJSNavigationMixin( container: any ): void
 {
-  if (_registered) return;
-  _registered = true;
+    if (_registered) return;
+    _registered = true;
 
-  const prototype = container.prototype;
+    const prototype = container.prototype;
 
-  // - Properties:
-  prototype.navigationPriority = 0;
-  prototype.navigationMode = "auto";
+    // - Properties:
+    prototype.navigationPriority = 0;
+    prototype.navigationMode = "auto";
 
-  // - Getters:
-  Object.defineProperty(prototype, "isNavigatable", {
-    get: function(): boolean
-    {
-      if ( this.navigationMode === "target" ) return true;
-      if ( this.navigationMode === "none" ) return false;
+    // - Getters:
+    Object.defineProperty(prototype, "isNavigatable", {
+        get: function(): boolean
+        {
+            if ( this.navigationMode === "target" ) return true;
+            if ( this.navigationMode === "none" ) return false;
 
-      // if (
-      //   this.interactive === false
-      //   || (this.isInteractive !== undefined)
-      //   && !this.isInteractive()
-      // ) return false;
+            // if (
+            //   this.interactive === false
+            //   || (this.isInteractive !== undefined)
+            //   && !this.isInteractive()
+            // ) return false;
 
-      const onEvents = this.eventNames();
+            const onEvents = this.eventNames();
 
-      return onEvents.length > 0 && (
-        onEvents.includes( "pointerdown" ) ||
+            return onEvents.length > 0 && (
+                onEvents.includes( "pointerdown" ) ||
         onEvents.includes( "mousedown" )
-      );
-    },
-    configurable: true,
-    enumerable: false,
-  });
+            );
+        },
+        configurable: true,
+        enumerable: false,
+    });
 }

@@ -39,7 +39,7 @@
     ],
     "indent": [
       "warn",
-      2,
+      4,
       {
         "SwitchCase": 1
       }

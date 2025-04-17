@@ -18,11 +18,11 @@ export interface CustomDevice
   readonly meta: Record<string, any>;
 
   /**
-   * Timestamp when input was last modified.
-   *
-   * Set this to `now` during update() if the device is interacted with,
-   * and this will automatically become `InputDevice.lastInteractedDevice`.
-   */
+    * Timestamp when input was last modified.
+    *
+    * Set this to `now` during update() if the device is interacted with,
+    * and this will automatically become `InputDevice.lastInteractedDevice`.
+    */
   readonly lastInteraction: number;
 
   /** Triggered during the polling function. */

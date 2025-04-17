@@ -4,58 +4,69 @@ import { KeyCode } from "./keys";
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
 
-// lazy init:
-let _navigatorLayoutMap: Map<KeyCode, string> | undefined;
-let _keyLabels: undefined | Record<KeyboardLayout, Partial<Record<KeyCode, string>>>;
+const JCUKEN_LAYOUT_PATTERN = /ф|и|с|в|у|а|п|р|ш|о|л|д|ь|т|щ|з|й|к|ы|е|г|м|ц|ч|н|я|ё|х|ъ|б|ю|э|ж|и/i;
+const ERT_LAYOUTS_PATTERN = /[a-z]/i;
 
 const MACRO_AZERTY = [
-  "fr", // French
-  "mg", // Malagasy
-  "lu", // Luxembourgish (AZERTY used in Luxembourg)
+    "fr", // French
+    "mg", // Malagasy
+    "lu", // Luxembourgish
 ];
 
 const MACRO_JCUKEN = [
-  "ab", // Abkhazian
-  "ba", // Bashkir
-  "be", // Belarusian
-  "bg", // Bulgarian
-  "ch", // Chechen
-  "kk", // Kazakh
-  "ky", // Kyrgyz
-  "mk", // Macedonian
-  "mn", // Mongolian (Cyrillic script)
-  "ru", // Russian
-  "sr", // Serbian (Cyrillic script)
-  "tg", // Tajik
-  "tt", // Tatar
-  "uk", // Ukrainian
-  "uz", // Uzbek (Cyrillic script)
+    "ab", // Abkhazian
+    "ba", // Bashkir
+    "be", // Belarusian
+    "bg", // Bulgarian
+    "ch", // Chechen
+    "kk", // Kazakh
+    "ky", // Kyrgyz
+    "mk", // Macedonian
+    "mn", // Mongolian (Cyrillic script)
+    "ru", // Russian
+    "sr", // Serbian (Cyrillic script)
+    "tg", // Tajik
+    "tt", // Tatar
+    "uk", // Ukrainian
+    "uz", // Uzbek (Cyrillic script)
 ];
 
 const MACRO_QWERTZ = [
-  "de", // German
-  "cs", // Czech
-  "sk", // Slovak
-  "sl", // Slovenian
-  "hu", // Hungarian
-  "hr", // Croatian
-  "bs", // Bosnian
-  "ro", // Romanian
-  "sq", // Albanian
-  "me", // Montenegrin
-  "lt", // Lithuanian
-  "lv", // Latvian
-  "et", // Estonian
+    "de", // German
+    "cs", // Czech
+    "sk", // Slovak
+    "sl", // Slovenian
+    "hu", // Hungarian
+    "hr", // Croatian
+    "bs", // Bosnian
+    "ro", // Romanian
+    "sq", // Albanian
+    "me", // Montenegrin
+    "lt", // Lithuanian
+    "lv", // Latvian
+    "et", // Estonian
 ];
 
-const JCUKEN_REGEX = /ф|и|с|в|у|а|п|р|ш|о|л|д|ь|т|щ|з|й|к|ы|е|г|м|ц|ч|н|я|ё|х|ъ|б|ю|э|ж|и/i;
-const xxERTx_REGEX = /[a-z]/i;
+/**
+ * Lazy-loaded key map from Navigator API (when available).
+ */
+let _navigatorLayoutMap: Map<KeyCode, string> | undefined;
+
+/**
+ * Lazy-loaded key labels (fallback).
+ */
+let _keyLabels: undefined | Record<KeyboardLayout, Partial<Record<KeyCode, string>>>;
 
 function getLang(): string | undefined
 {
-  const n = navigator as any;
-  if ( n.languages?.length != null ) return n.languages[0]!;
-  return n.userLanguage || n.language || n.browserLanguage;
+    const n = navigator as any;
+
+    if ( n.languages?.length )
+    {
+        return n.languages[0]!;
+    }
+
+    return n.userLanguage || n.language || n.browserLanguage;
 }
 
 /**
@@ -65,33 +76,33 @@ function getLang(): string | undefined
  */
 export async function requestKeyboardLayout(): Promise<undefined | KeyboardLayout>
 {
-  const n = navigator as any;
+    const n = navigator as any;
 
-  if ( !n.keyboard || !n.keyboard.getLayoutMap )
-  {
-    return undefined; // api unavailable
-  }
+    if ( !n.keyboard || !n.keyboard.getLayoutMap )
+    {
+        return undefined; // api unavailable
+    }
 
-  try
-  {
-    const layoutMap = await n.keyboard.getLayoutMap();
-    _navigatorLayoutMap = layoutMap;
+    try
+    {
+        const layoutMap = await n.keyboard.getLayoutMap();
+        _navigatorLayoutMap = layoutMap;
 
-    const q = layoutMap.get("KeyQ");
-    const a = layoutMap.get("KeyA");
-    const z = layoutMap.get("KeyZ");
+        const q = layoutMap.get("KeyQ");
+        const a = layoutMap.get("KeyA");
+        const z = layoutMap.get("KeyZ");
 
-    if (q === "a" && z === "w" && a === "q") return "AZERTY";
-    if (q === "q" && z === "y" && a === "a") return "QWERTZ";
-    if (q === "q" && z === "z" && a === "a") return "QWERTY";
-    if (q === "й" && z === "я" && a === "ф") return "JCUKEN";
-  }
-  catch
-  {
+        if (q === "a" && z === "w" && a === "q") return "AZERTY";
+        if (q === "q" && z === "y" && a === "a") return "QWERTZ";
+        if (q === "q" && z === "z" && a === "a") return "QWERTY";
+        if (q === "й" && z === "я" && a === "ф") return "JCUKEN";
+    }
+    catch
+    {
     // fail silently
-  }
+    }
 
-  return undefined;
+    return undefined;
 }
 
 /**
@@ -100,119 +111,119 @@ export async function requestKeyboardLayout(): Promise<undefined | KeyboardLayou
  * Not reliable.
  */
 export function inferKeyboardLayoutFromLang(
-  lang: string | undefined = getLang()
+    lang: string | undefined = getLang()
 ): KeyboardLayout
 {
-  const tag = (lang || "").toLowerCase();
-  const macro = tag.split( "-" )[0]!;
+    const tag = (lang || "").toLowerCase();
+    const macro = tag.split( "-" )[0]!;
 
-  if (
-    MACRO_AZERTY.includes( macro )
+    if (
+        MACRO_AZERTY.includes( macro )
     || tag.startsWith("nl-be") // Flemish (Belgium)
-  ) return "AZERTY";
+    ) return "AZERTY";
 
-  if (
-    MACRO_JCUKEN.includes(macro)
-  ) return "JCUKEN";
+    if (
+        MACRO_JCUKEN.includes(macro)
+    ) return "JCUKEN";
 
-  if (
-    MACRO_QWERTZ.includes(macro)
+    if (
+        MACRO_QWERTZ.includes(macro)
     || tag.startsWith("sr-latn") // Serbian (Latin script)
-  ) return "QWERTZ";
+    ) return "QWERTZ";
 
-  return "QWERTY";
+    return "QWERTY";
 }
 
 const _possibleLayouts = new Set<KeyboardLayout>([ "AZERTY", "JCUKEN", "QWERTY", "QWERTZ" ]);
 export function detectKeyboardLayoutFromKeydown(
-  event: KeyboardEvent
+    event: KeyboardEvent
 ): KeyboardLayout | undefined
 {
-  const key = event.key.toLowerCase();
-  const code = event.code;
+    const key = event.key.toLowerCase();
+    const code = event.code;
 
-  // JCUKEN exclusive
-  if (
-    JCUKEN_REGEX.test(key)
-  )
-  {
-    _possibleLayouts.delete("AZERTY");
-    _possibleLayouts.delete("QWERTY");
-    _possibleLayouts.delete("QWERTZ");
-  }
+    // JCUKEN exclusive
+    if (
+        JCUKEN_LAYOUT_PATTERN.test(key)
+    )
+    {
+        _possibleLayouts.delete("AZERTY");
+        _possibleLayouts.delete("QWERTY");
+        _possibleLayouts.delete("QWERTZ");
+    }
 
-  // AZERTY exclusive
-  else if (
-    code === "Backquote" && key === "²" ||
+    // AZERTY exclusive
+    else if (
+        code === "Backquote" && key === "²" ||
     code === "BracketLeft" && key === "«" ||
     code === "BracketRight" && key === "»" ||
     code === "KeyA" && key === "q" ||
     code === "KeyQ" && key === "a" ||
     code === "KeyW" && key === "z" ||
     code === "KeyZ" && key === "w"
-  )
-  {
-    _possibleLayouts.delete("JCUKEN");
-    _possibleLayouts.delete("QWERTY");
-    _possibleLayouts.delete("QWERTZ");
-  }
+    )
+    {
+        _possibleLayouts.delete("JCUKEN");
+        _possibleLayouts.delete("QWERTY");
+        _possibleLayouts.delete("QWERTZ");
+    }
 
-  // QWERTZ exclusive
-  else if (
-    code === "BracketLeft" && key === "ü" ||
+    // QWERTZ exclusive
+    else if (
+        code === "BracketLeft" && key === "ü" ||
     code === "BracketRight" && key === "ö" ||
     code === "KeyY" && key === "z" ||
     code === "KeyZ" && key === "y" ||
     code === "Slash" && key === "-"
-  )
-  {
-    _possibleLayouts.delete("AZERTY");
-    _possibleLayouts.delete("JCUKEN");
-    _possibleLayouts.delete("QWERTY");
-  }
+    )
+    {
+        _possibleLayouts.delete("AZERTY");
+        _possibleLayouts.delete("JCUKEN");
+        _possibleLayouts.delete("QWERTY");
+    }
 
-  // QWERTY exclusive
-  else if (
-    code === "BracketLeft" && key === "[" ||
+    // QWERTY exclusive
+    else if (
+        code === "BracketLeft" && key === "[" ||
     code === "BracketRight" && key === "]" ||
     code === "KeyZ" && key === "z"
-  )
-  {
-    _possibleLayouts.delete("AZERTY");
-    _possibleLayouts.delete("JCUKEN");
-    _possibleLayouts.delete("QWERTZ");
-  }
+    )
+    {
+        _possibleLayouts.delete("AZERTY");
+        _possibleLayouts.delete("JCUKEN");
+        _possibleLayouts.delete("QWERTZ");
+    }
 
-  // QWERTx
-  else if (
-    code === "KeyQ" && key === "q" ||
+    // QWERTx
+    else if (
+        code === "KeyQ" && key === "q" ||
     code === "KeyW" && key === "w"
-  )
-  {
-    _possibleLayouts.delete("AZERTY");
-    _possibleLayouts.delete("JCUKEN");
-  }
+    )
+    {
+        _possibleLayouts.delete("AZERTY");
+        _possibleLayouts.delete("JCUKEN");
+    }
 
-  // xxERTY
-  else if (
-    code === "KeyY" && key === "y"
-  )
-  {
-    _possibleLayouts.delete("QWERTZ");
-    _possibleLayouts.delete("JCUKEN");
-  }
+    // xxERTY
+    else if (
+        code === "KeyY" && key === "y"
+    )
+    {
+        _possibleLayouts.delete("QWERTZ");
+        _possibleLayouts.delete("JCUKEN");
+    }
 
-  // xxERTx
-  else if (
-    xxERTx_REGEX.test(key)
-  )
-  {
-    _possibleLayouts.delete("JCUKEN");
-  }
+    // xxERTx
+    else if (
+        ERT_LAYOUTS_PATTERN.test(key)
+    )
+    {
+        _possibleLayouts.delete("JCUKEN");
+    }
 
-  return _possibleLayouts.size === 1
-    ? [ ..._possibleLayouts ][0]
-    : undefined;
+    return _possibleLayouts.size === 1
+        ? [ ..._possibleLayouts ][0]
+        : undefined;
 }
 
 /**
@@ -222,235 +233,237 @@ export function detectKeyboardLayoutFromKeydown(
  */
 export function getNavigatorKeyLabel( key: KeyCode ): string | undefined
 {
-  const value = _navigatorLayoutMap?.get( key );
-  return value === undefined ? undefined : _toLocaleTitleCase( value );
+    const value = _navigatorLayoutMap?.get( key );
+
+    return value === undefined ? undefined : _toLocaleTitleCase( value );
 }
 
 export function getLayoutKeyLabel( key: KeyCode, layout: KeyboardLayout ): string
 {
-  if (_keyLabels === undefined)
-  {
+    if (_keyLabels === undefined)
+    {
     // default labels are in QWERTY
-    const DEFAULT_LABELS: Record<KeyCode, string> = {
-      ArrowLeft: "⬅",
-      ArrowRight: "➡",
-      ArrowUp: "⬆",
-      ArrowDown: "⬇",
-      AltLeft: "Left Alt",
-      AltRight: "Right Alt",
-      Backquote: "`",
-      Backslash: "\\",
-      Backspace: "Backspace",
-      BracketLeft: "[",
-      BracketRight: "]",
-      CapsLock: "CapsLock",
-      Comma: ",",
-      ContextMenu: "Context Menu",
-      ControlLeft: "Left Ctrl",
-      ControlRight: "Right Ctrl",
-      Delete: "Delete",
-      Digit0: "0",
-      Digit1: "1",
-      Digit2: "2",
-      Digit3: "3",
-      Digit4: "4",
-      Digit5: "5",
-      Digit6: "6",
-      Digit7: "7",
-      Digit8: "8",
-      Digit9: "9",
-      End: "End",
-      Enter: "Enter",
-      Equal: "=",
-      Escape: "Esc",
-      F1: "F1",
-      F2: "F2",
-      F3: "F3",
-      F4: "F4",
-      F5: "F5",
-      F6: "F6",
-      F7: "F7",
-      F8: "F8",
-      F9: "F9",
-      F10: "F10",
-      F11: "F11",
-      F12: "F12",
-      F13: "F13",
-      F14: "F14",
-      F15: "F15",
-      F16: "F16",
-      F17: "F17",
-      F18: "F18",
-      F19: "F19",
-      F20: "F20",
-      F21: "F21",
-      F22: "F22",
-      F23: "F23",
-      F24: "F24",
-      F25: "F25",
-      F26: "F26",
-      F27: "F27",
-      F28: "F28",
-      F29: "F29",
-      F30: "F30",
-      F31: "F31",
-      F32: "F32",
-      Home: "Home",
-      IntlBackslash: "\\",
-      IntlRo: "Ro",
-      IntlYen: "¥",
-      KeyA: "A",
-      KeyB: "B",
-      KeyC: "C",
-      KeyD: "D",
-      KeyE: "E",
-      KeyF: "F",
-      KeyG: "G",
-      KeyH: "H",
-      KeyI: "I",
-      KeyJ: "J",
-      KeyK: "K",
-      KeyL: "L",
-      KeyM: "M",
-      KeyN: "N",
-      KeyO: "O",
-      KeyP: "P",
-      KeyQ: "Q",
-      KeyR: "R",
-      KeyS: "S",
-      KeyT: "T",
-      KeyU: "U",
-      KeyV: "V",
-      KeyW: "W",
-      KeyX: "X",
-      KeyY: "Y",
-      KeyZ: "Z",
-      Lang1: "Language 1",
-      Lang2: "Language 2",
-      MediaTrackNext: "Next Track",
-      MediaTrackPrevious: "Previous Track",
-      MetaLeft: "Left " + getMetaKeyLabel(),
-      MetaRight: "Right " + getMetaKeyLabel(),
-      Minus: "-",
-      NumLock: "Num Lock",
-      Numpad0: "Num0",
-      Numpad1: "Num1",
-      Numpad2: "Num2",
-      Numpad3: "Num3",
-      Numpad4: "Num4",
-      Numpad5: "Num5",
-      Numpad6: "Num6",
-      Numpad7: "Num7",
-      Numpad8: "Num8",
-      Numpad9: "Num9",
-      NumpadAdd: "+",
-      NumpadComma: ",",
-      NumpadDecimal: ".",
-      NumpadDivide: "/",
-      NumpadMultiply: "*",
-      NumpadSubtract: "-",
-      OSLeft: "OS Left",
-      Pause: "Pause",
-      Period: ".",
-      Quote: "'",
-      ScrollLock: "Scroll Lock",
-      Semicolon: ";",
-      ShiftLeft: "Left Shift",
-      ShiftRight: "Right Shift",
-      Slash: "/",
-      Space: "Space",
-      Tab: "Tab",
-      VolumeDown: "Volume Down",
-      VolumeMute: "Volume Mute",
-      VolumeUp: "Volume Up",
-      WakeUp: "Wake Up",
-    };
+        const DEFAULT_LABELS: Record<KeyCode, string> = {
+            ArrowLeft: "⬅",
+            ArrowRight: "➡",
+            ArrowUp: "⬆",
+            ArrowDown: "⬇",
+            AltLeft: "Left Alt",
+            AltRight: "Right Alt",
+            Backquote: "`",
+            Backslash: "\\",
+            Backspace: "Backspace",
+            BracketLeft: "[",
+            BracketRight: "]",
+            CapsLock: "CapsLock",
+            Comma: ",",
+            ContextMenu: "Context Menu",
+            ControlLeft: "Left Ctrl",
+            ControlRight: "Right Ctrl",
+            Delete: "Delete",
+            Digit0: "0",
+            Digit1: "1",
+            Digit2: "2",
+            Digit3: "3",
+            Digit4: "4",
+            Digit5: "5",
+            Digit6: "6",
+            Digit7: "7",
+            Digit8: "8",
+            Digit9: "9",
+            End: "End",
+            Enter: "Enter",
+            Equal: "=",
+            Escape: "Esc",
+            F1: "F1",
+            F2: "F2",
+            F3: "F3",
+            F4: "F4",
+            F5: "F5",
+            F6: "F6",
+            F7: "F7",
+            F8: "F8",
+            F9: "F9",
+            F10: "F10",
+            F11: "F11",
+            F12: "F12",
+            F13: "F13",
+            F14: "F14",
+            F15: "F15",
+            F16: "F16",
+            F17: "F17",
+            F18: "F18",
+            F19: "F19",
+            F20: "F20",
+            F21: "F21",
+            F22: "F22",
+            F23: "F23",
+            F24: "F24",
+            F25: "F25",
+            F26: "F26",
+            F27: "F27",
+            F28: "F28",
+            F29: "F29",
+            F30: "F30",
+            F31: "F31",
+            F32: "F32",
+            Home: "Home",
+            IntlBackslash: "\\",
+            IntlRo: "Ro",
+            IntlYen: "¥",
+            KeyA: "A",
+            KeyB: "B",
+            KeyC: "C",
+            KeyD: "D",
+            KeyE: "E",
+            KeyF: "F",
+            KeyG: "G",
+            KeyH: "H",
+            KeyI: "I",
+            KeyJ: "J",
+            KeyK: "K",
+            KeyL: "L",
+            KeyM: "M",
+            KeyN: "N",
+            KeyO: "O",
+            KeyP: "P",
+            KeyQ: "Q",
+            KeyR: "R",
+            KeyS: "S",
+            KeyT: "T",
+            KeyU: "U",
+            KeyV: "V",
+            KeyW: "W",
+            KeyX: "X",
+            KeyY: "Y",
+            KeyZ: "Z",
+            Lang1: "Language 1",
+            Lang2: "Language 2",
+            MediaTrackNext: "Next Track",
+            MediaTrackPrevious: "Previous Track",
+            MetaLeft: "Left " + getMetaKeyLabel(),
+            MetaRight: "Right " + getMetaKeyLabel(),
+            Minus: "-",
+            NumLock: "Num Lock",
+            Numpad0: "Num0",
+            Numpad1: "Num1",
+            Numpad2: "Num2",
+            Numpad3: "Num3",
+            Numpad4: "Num4",
+            Numpad5: "Num5",
+            Numpad6: "Num6",
+            Numpad7: "Num7",
+            Numpad8: "Num8",
+            Numpad9: "Num9",
+            NumpadAdd: "+",
+            NumpadComma: ",",
+            NumpadDecimal: ".",
+            NumpadDivide: "/",
+            NumpadMultiply: "*",
+            NumpadSubtract: "-",
+            OSLeft: "OS Left",
+            Pause: "Pause",
+            Period: ".",
+            Quote: "'",
+            ScrollLock: "Scroll Lock",
+            Semicolon: ";",
+            ShiftLeft: "Left Shift",
+            ShiftRight: "Right Shift",
+            Slash: "/",
+            Space: "Space",
+            Tab: "Tab",
+            VolumeDown: "Volume Down",
+            VolumeMute: "Volume Mute",
+            VolumeUp: "Volume Up",
+            WakeUp: "Wake Up",
+        };
 
-    const AZERTY_LABELS: Partial<Record<KeyCode, string>> = {
-      KeyA: "Q",
-      KeyQ: "A",
-      KeyW: "Z",
-      KeyZ: "W",
-      Backquote: "²",
-      BracketLeft: "«",
-      BracketRight: "»",
-    };
+        const AZERTY_LABELS: Partial<Record<KeyCode, string>> = {
+            KeyA: "Q",
+            KeyQ: "A",
+            KeyW: "Z",
+            KeyZ: "W",
+            Backquote: "²",
+            BracketLeft: "«",
+            BracketRight: "»",
+        };
 
-    const JCUKEN_LABELS: Partial<Record<KeyCode, string>> = {
-      KeyA: "Ф",
-      KeyB: "И",
-      KeyC: "С",
-      KeyD: "В",
-      KeyE: "У",
-      KeyF: "А",
-      KeyG: "П",
-      KeyH: "Р",
-      KeyI: "Ш",
-      KeyJ: "О",
-      KeyK: "Л",
-      KeyL: "Д",
-      KeyM: "Ь",
-      KeyN: "Т",
-      KeyO: "Щ",
-      KeyP: "З",
-      KeyQ: "Й",
-      KeyR: "К",
-      KeyS: "Ы",
-      KeyT: "Е",
-      KeyU: "Г",
-      KeyV: "М",
-      KeyW: "Ц",
-      KeyX: "Ч",
-      KeyY: "Н",
-      KeyZ: "Я",
-      Backquote: "Ё",
-      BracketLeft: "х",
-      BracketRight: "ъ",
-      Comma: "Б",
-      Period: "Ю",
-      Quote: "Э",
-      Semicolon: "Ж",
-      Slash: "И",
-    };
+        const JCUKEN_LABELS: Partial<Record<KeyCode, string>> = {
+            KeyA: "Ф",
+            KeyB: "И",
+            KeyC: "С",
+            KeyD: "В",
+            KeyE: "У",
+            KeyF: "А",
+            KeyG: "П",
+            KeyH: "Р",
+            KeyI: "Ш",
+            KeyJ: "О",
+            KeyK: "Л",
+            KeyL: "Д",
+            KeyM: "Ь",
+            KeyN: "Т",
+            KeyO: "Щ",
+            KeyP: "З",
+            KeyQ: "Й",
+            KeyR: "К",
+            KeyS: "Ы",
+            KeyT: "Е",
+            KeyU: "Г",
+            KeyV: "М",
+            KeyW: "Ц",
+            KeyX: "Ч",
+            KeyY: "Н",
+            KeyZ: "Я",
+            Backquote: "Ё",
+            BracketLeft: "х",
+            BracketRight: "ъ",
+            Comma: "Б",
+            Period: "Ю",
+            Quote: "Э",
+            Semicolon: "Ж",
+            Slash: "И",
+        };
 
-    const QWERTZ_LABELS: Partial<Record<KeyCode, string>> = {
-      KeyY: "Z",
-      KeyZ: "Y",
-      BracketLeft: "ü",
-      BracketRight: "ö",
-      Slash: "-",
-    };
+        const QWERTZ_LABELS: Partial<Record<KeyCode, string>> = {
+            KeyY: "Z",
+            KeyZ: "Y",
+            BracketLeft: "ü",
+            BracketRight: "ö",
+            Slash: "-",
+        };
 
-    _keyLabels = {
-      AZERTY: AZERTY_LABELS,
-      JCUKEN: JCUKEN_LABELS,
-      QWERTY: DEFAULT_LABELS,
-      QWERTZ: QWERTZ_LABELS,
-    };
-  }
+        _keyLabels = {
+            AZERTY: AZERTY_LABELS,
+            JCUKEN: JCUKEN_LABELS,
+            QWERTY: DEFAULT_LABELS,
+            QWERTZ: QWERTZ_LABELS,
+        };
+    }
 
-  return _keyLabels[layout][key]
+    return _keyLabels[layout][key]
     ?? _keyLabels["QWERTY"][key]
     ?? key;
 }
 
 function getMetaKeyLabel(): string
 {
-  const n = navigator as any;
-  const platform = n.platform?.toLowerCase() ?? "";
-  const userAgent = n.userAgent?.toLowerCase() ?? "";
-  if (platform.includes("mac")) return "⌘"; // macOS - Command key
-  if (platform.includes("win")) return "⊞"; // Windows - Windows key
-  if (platform.includes("linux")) return "⊞"; // Linux - Super key
-  if (userAgent.includes("android")) return "Search";
-  if (userAgent.includes("iphone") || userAgent.includes("ipad")) return "⌘";
-  return "⊞"; // Windows key
+    const n = navigator as any;
+    const platform = n.platform?.toLowerCase() ?? "";
+    const userAgent = n.userAgent?.toLowerCase() ?? "";
+    if (platform.includes("mac")) return "⌘"; // macOS - Command key
+    if (platform.includes("win")) return "⊞"; // Windows - Windows key
+    if (platform.includes("linux")) return "⊞"; // Linux - Super key
+    if (userAgent.includes("android")) return "Search";
+    if (userAgent.includes("iphone") || userAgent.includes("ipad")) return "⌘";
+
+    return "⊞"; // Windows key
 }
 
 function _toLocaleTitleCase( input: string ): string
 {
-  return input
-    .split(/\s+/)
-    .map( word => word.charAt(0).toLocaleUpperCase() + word.slice(1) )
-    .join(' ');
+    return input
+        .split(/\s+/)
+        .map( word => word.charAt(0).toLocaleUpperCase() + word.slice(1) )
+        .join(' ');
 }
