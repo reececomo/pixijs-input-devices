@@ -8,7 +8,7 @@ export interface CustomDevice
   readonly lastInteraction: number;
 
   /** Triggered during the polling function. */
-  update( now: number ): void;
+  update(now: number): void;
 
   /**
    * (Optional) Clear input.

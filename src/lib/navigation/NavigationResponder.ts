@@ -29,7 +29,7 @@ export interface NavigationResponder {
   handledNavigationIntent?(
     intent: NavigationIntent,
     device: Device,
-  ): boolean;
+ ): boolean;
 
   /**
    * This method is triggered when the target became the first responder.
