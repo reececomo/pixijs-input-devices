@@ -34,7 +34,7 @@ export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydo
 
 export type KeyboardDeviceEvent = {
   layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
-  bind: KeyboardDeviceNamedBindKeydownEvent;
+  binddown: KeyboardDeviceNamedBindKeydownEvent;
 } & {
   [key in KeyCode]: KeyboardDeviceKeydownEvent;
 };
@@ -85,7 +85,7 @@ export class KeyboardDevice
     /**
      * Named binds of keys.
      *
-     * This can be used with `pressedBind( name )`.
+     * This can be used with `bindDown( name )`.
      */
     binds: {
       "navigate.back":  [ "Escape", "Backspace" ],
@@ -119,7 +119,7 @@ export class KeyboardDevice
     }, {} as any );
 
   private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
-  private readonly _bindEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
+  private readonly _bindDownEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
 
   private _layout: KeyboardLayout;
   private _layoutSource: KeyboardLayoutSource;
@@ -188,7 +188,7 @@ export class KeyboardDevice
   // ----- Methods: -----
 
   /** @returns true if any key from the named bind is pressed. */
-  public pressedBind( name: string ): boolean
+  public bindDown( name: string ): boolean
   {
     if ( this.options.binds[name] === undefined ) return false;
     return this.pressedAny( this.options.binds[name] );
@@ -251,23 +251,23 @@ export class KeyboardDevice
   }
 
   /** Add a named bind event listener (or all if none provided). */
-  public onBind(
+  public onBindDown(
     name: string,
     listener: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void,
     options?: EventOptions,
   ): this
   {
-    this._bindEmitter.on( name, listener, options );
+    this._bindDownEmitter.on( name, listener, options );
     return this;
   }
 
   /** Remove a named bind event listener (or all if none provided). */
-  public offBind(
+  public offBindDown(
     name: string,
     listener?: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void
   ): this
   {
-    this._bindEmitter.off( name, listener );
+    this._bindDownEmitter.off( name, listener );
     return this;
   }
 
@@ -405,8 +405,8 @@ export class KeyboardDevice
           repeat: e.repeat,
         };
 
-        this._bindEmitter.emit( name, event );
-        this._emitter.emit( "bind", event );
+        this._bindDownEmitter.emit( name, event );
+        this._emitter.emit( "binddown", event );
       });
     }
   }

@@ -7,8 +7,6 @@ import { EventEmitter, EventOptions } from "../../utils/events";
 
 export { Button, GamepadLayout };
 
-type NintendoRemapMode = "none" | "accurate" | "physical";
-
 export type GamepadVibration = {
   // GamepadEffectParameters
   duration?: number;
@@ -52,7 +50,7 @@ export type GamepadNamedBindEvent = {
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type GamepadDeviceEvent = {
-  bind: GamepadNamedBindEvent;
+  binddown: GamepadNamedBindEvent;
 } & {
   [axis in AxisCode]: GamepadAxisEvent;
 } & {
@@ -94,19 +92,6 @@ export class GamepadDevice
      * @default true,
      */
     emitEvents: true,
-
-    /**
-     * When set to `"physical"` _(default)_, ABXY refer to the equivalent
-     * positions on a standard layout controller.
-     *
-     * When set to `"accurate"`, ABXY refer to the ABXY buttons on a Nintendo
-     * controller.
-     *
-     * When set to `"none"`, ABXY refer to the unmapped buttons in the 0, 1,
-     * 2, and 3 positions respectively.
-     * @default "physical"
-     */
-    nintendoRemapMode: "physical" as NintendoRemapMode,
 
     /**
      * When enabled, all "navigate.*" binds will trigger a default haptic.
@@ -176,11 +161,11 @@ export class GamepadDevice
 
     /**
      * Create named binds of buttons.
-     * This can be used with `pressedBind( name )`.
+     * This can be used with `bindDown( name )`.
      */
     binds: {
-      "navigate.trigger": [ "A" ],
-      "navigate.back": [ "B" ],
+      "navigate.trigger": [ "Face1" ],
+      "navigate.back": [ "Face2" ],
       "navigate.up": [ "DPadUp", "LeftStickUp" ],
       "navigate.left": [ "DPadLeft", "LeftStickLeft" ],
       "navigate.down": [ "DPadDown", "LeftStickDown" ],
@@ -253,13 +238,13 @@ export class GamepadDevice
   // ----- Internal: -----
 
   private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
-  private readonly _bindEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
+  private readonly _bindDownEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
   private readonly _debounces = new Map<GamepadCode, number>();
 
   // ----- Button helpers: -----
 
   /** @returns true if any button from the named bind is pressed. */
-  public pressedBind( name: string ): boolean
+  public bindDown( name: string ): boolean
   {
     if ( this.options.binds[name] === undefined ) return false;
     return this.pressedAny( this.options.binds[name] );
@@ -322,23 +307,23 @@ export class GamepadDevice
   }
 
   /** Add a named bind event listener (or all if none provided). */
-  public onBind(
+  public onBindDown(
     name: string,
     listener: ( event: GamepadNamedBindEvent ) => void,
     options?: EventOptions,
   ): this
   {
-    this._bindEmitter.on( name, listener, options );
+    this._bindDownEmitter.on( name, listener, options );
     return this;
   }
 
   /** Remove a named bind event listener (or all if none provided). */
-  public offBind(
+  public offBindDown(
     name: string,
     listener?: ( event: GamepadNamedBindEvent ) => void
   ): this
   {
-    this._bindEmitter.off( name, listener );
+    this._bindDownEmitter.off( name, listener );
     return this;
   }
 
@@ -396,7 +381,7 @@ export class GamepadDevice
   public constructor( public source: Gamepad )
   {
     this.id = "gamepad" + source.index;
-    this.layout = detectLayout( source );
+    this.layout = detectLayout( source?.id ) ?? "unknown";
   }
 
   private _updatePresses( source: Gamepad, now: number ): void
@@ -457,8 +442,8 @@ export class GamepadDevice
               name: name,
             };
 
-            this._bindEmitter.emit( name, event );
-            this._emitter.emit( "bind", event );
+            this._bindDownEmitter.emit( name, event );
+            this._emitter.emit( "binddown", event );
           });
         }
       }
@@ -468,30 +453,6 @@ export class GamepadDevice
     for (let _b = 0; _b < buttonCount; _b++)
     {
       let b = _b as Button;
-
-      // remap nintendo binds (if enabled)
-      if (
-        this.layout === "nintendo" &&
-        this.options.nintendoRemapMode !== "none"
-      )
-      {
-        if ( this.options.nintendoRemapMode === "physical" )
-        {
-          // physical:
-          // set A,B,X,Y to be the equivalent physical positions
-          if ( b === Button.B ) b = Button.A;
-          else if ( b === Button.A ) b = Button.B;
-          else if ( b === Button.X ) b = Button.Y;
-          else if ( b === Button.Y ) b = Button.X;
-        }
-        else
-        {
-          // accurate:
-          // set A,B,X,Y to match nintendo labels
-          if ( b === Button.B ) b = Button.X;
-          else if ( b === Button.X ) b = Button.B;
-        }
-      }
 
       const buttonCode = ButtonCode[b];
 
@@ -531,8 +492,8 @@ export class GamepadDevice
             name: name,
           };
 
-          this._bindEmitter.emit( name, event );
-          this._emitter.emit( "bind", event );
+          this._bindDownEmitter.emit( name, event );
+          this._emitter.emit( "binddown", event );
         });
       }
     }

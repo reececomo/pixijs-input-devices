@@ -92,11 +92,10 @@ class NavigationManager
   {
     if ( this._root == null )
     {
-      // register mixin
-      // registerPixiJSNavigationMixin( Container );
+      // TODO: auto-register mixin?
 
       // listen to intents
-      InputDevice.onBind( navigationIntents, (e) => this._propagate(e) );
+      InputDevice.onBindDown( navigationIntents, (e) => this._propagate(e) );
     }
 
     this._root = stage;

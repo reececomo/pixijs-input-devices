@@ -53,14 +53,14 @@ describe( "Navigation", () =>
 
     expect( buttonWasTriggered ).toBe( false );
 
-    InputDevice.emitBind({
+    InputDevice.emitBindDown({
       name: "navigate.trigger",
       device: InputDevice.keyboard, // any
     });
 
     expect( buttonWasTriggered ).toBe( true );
 
-    InputDevice.emitBind({
+    InputDevice.emitBindDown({
       name: "navigate.right",
       device: InputDevice.keyboard, // any
     });
@@ -71,7 +71,7 @@ describe( "Navigation", () =>
     UINavigation.pushResponder( menu );
 
     // now try to go back
-    InputDevice.emitBind({
+    InputDevice.emitBindDown({
       name: "navigate.left",
       device: InputDevice.keyboard, // any
     });
@@ -81,7 +81,7 @@ describe( "Navigation", () =>
     UINavigation.popResponder();
 
     // now try to go back again
-    InputDevice.emitBind({
+    InputDevice.emitBindDown({
       name: "navigate.left",
       device: InputDevice.keyboard, // any
     });

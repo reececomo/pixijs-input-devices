@@ -29,7 +29,7 @@ export interface CustomDevice
   update( now: number ): void;
 
   /** @returns true when a bind was activated in the previous update(). */
-  pressedBind( name: string ): boolean
+  bindDown( name: string ): boolean
 
   /**
    * (Optional) Clear input.

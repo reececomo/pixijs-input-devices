@@ -59,7 +59,7 @@ class MockDevice implements CustomDevice
     }
   }
 
-  public pressedBind( name: string ): boolean
+  public bindDown( name: string ): boolean
   {
     return false; // no bind support
   }

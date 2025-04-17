@@ -53,7 +53,7 @@ class InputDeviceManager
      * When the window loses focus, this triggers the clear
      * input function.
      */
-    clearInputInBackground: true,
+    clearInputOnBackground: true,
   };
 
   // ----- Internal: -----
@@ -63,7 +63,7 @@ class InputDeviceManager
   private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
   private readonly _customDevices: CustomDevice[] = [];
   private readonly _emitter = new EventEmitter<InputDeviceEvent>();
-  private readonly _bindEmitter = new EventEmitter<Record<string, NamedBindEvent>>();
+  private readonly _bindDownEmitter = new EventEmitter<Record<string, NamedBindEvent>>();
 
   private _hasFocus: boolean = false;
   private _lastInteractedDevice?: Device;
@@ -158,33 +158,33 @@ class InputDeviceManager
   }
 
   /** Adds a named bind event listener. */
-  public onBind<N extends string>(
+  public onBindDown<N extends string>(
     name: N | readonly N[],
     listener: ( event: NamedBindEvent<N> ) => void,
     options?: EventOptions,
   ): this
   {
     name = Array.isArray( name ) ? name : [name];
-    name.forEach( n => this._bindEmitter.on( n, listener, options ) );
+    name.forEach( n => this._bindDownEmitter.on( n, listener, options ) );
     return this;
   }
 
   /** Remove a named bind event listener (or all if none provided). */
-  public offBind(
+  public offBindDown(
     name: string | string[],
     listener?: ( event: NamedBindEvent ) => void
   ): this
   {
     name = Array.isArray( name ) ? name : [name];
-    name.forEach( n => this._bindEmitter.off( n, listener ) );
+    name.forEach( n => this._bindDownEmitter.off( n, listener ) );
 
     return this;
   }
 
   /** Report a named bind event (from a CustomDevice). */
-  public emitBind( e: NamedBindEvent ): void
+  public emitBindDown( e: NamedBindEvent ): void
   {
-    this._bindEmitter.emit( e.name, e );
+    this._bindDownEmitter.emit( e.name, e );
   }
 
   // ----- Devices: -----
@@ -207,7 +207,7 @@ class InputDeviceManager
       device.detected = true;
 
       // forward named bind events
-      device.on( "bind", (e) => this.emitBind(e) );
+      device.on( "binddown", (e) => this.emitBindDown(e) );
     }
     else if ( device instanceof GamepadDevice )
     {
@@ -215,7 +215,7 @@ class InputDeviceManager
       this._gamepadDevices.push( device );
 
       // forward named bind events
-      device.on( "bind", (e) => this.emitBind(e) );
+      device.on( "binddown", (e) => this.emitBindDown(e) );
     }
     else
     {
@@ -261,7 +261,7 @@ class InputDeviceManager
     {
       // early exit: window not in focus
 
-      if ( this._hasFocus && this.options.clearInputInBackground )
+      if ( this._hasFocus && this.options.clearInputOnBackground )
       {
         // clear input when focus is lost
         this.devices.forEach( device => device.clear?.() );

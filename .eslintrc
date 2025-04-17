@@ -1,22 +1,22 @@
 {
   "root": true,
   "ignorePatterns": [
-    "dist"
+    "dist",
+    "*.js"
   ],
   "rules": {
-    "@typescript-eslint/indent": 0,
-    "@typescript-eslint/no-duplicate-enum-values": 0,
-    "@typescript-eslint/no-empty-function": 0,
-    "@typescript-eslint/no-empty-interface": 0,
-    "@typescript-eslint/no-explicit-any": 0,
-    "@typescript-eslint/no-extra-semi": 0,
-    "@typescript-eslint/no-inferrable-types": 0,
-    "@typescript-eslint/no-non-null-assertion": 0,
-    "@typescript-eslint/no-this-alias": 0,
-    "@typescript-eslint/unified-signatures": 0,
-    "newline-before-return": 0,
-    "no-fallthrough": 0,
-    "prefer-const": 0,
+    "@typescript-eslint/indent": "off",
+    "@typescript-eslint/no-duplicate-enum-values": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "@typescript-eslint/no-empty-interface": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-extra-semi": "off",
+    "@typescript-eslint/no-inferrable-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-this-alias": "off",
+    "@typescript-eslint/unified-signatures": "off",
+    "no-fallthrough": "off",
+    "prefer-const": "off",
     "@typescript-eslint/explicit-member-accessibility": 1,
     "no-trailing-spaces": "warn",
     "@typescript-eslint/ban-types": "warn",
@@ -24,6 +24,7 @@
       "warn",
       200
     ],
+    "newline-before-return": "warn",
     "brace-style": [
       "warn",
       "allman"

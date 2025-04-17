@@ -14,32 +14,32 @@ describe( "KeyboardDevice", () =>
         crouch: [ "ControlLeft", "ShiftLeft" ],
       };
 
-      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
-      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
+      expect( keyboard.bindDown( "jump" ) ).toBe( false );
+      expect( keyboard.bindDown( "crouch" ) ).toBe( false );
 
       mockKeydown( "ShiftLeft" );
       keyboard.update( now );
 
-      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
-      expect( keyboard.pressedBind( "crouch" ) ).toBe( true );
+      expect( keyboard.bindDown( "jump" ) ).toBe( false );
+      expect( keyboard.bindDown( "crouch" ) ).toBe( true );
 
       mockKeyup( "ShiftLeft" );
       keyboard.update( now );
 
-      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
-      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
+      expect( keyboard.bindDown( "jump" ) ).toBe( false );
+      expect( keyboard.bindDown( "crouch" ) ).toBe( false );
 
       mockKeydown( "ControlLeft" );
       keyboard.update( now );
 
-      expect( keyboard.pressedBind( "jump" ) ).toBe( true );
-      expect( keyboard.pressedBind( "crouch" ) ).toBe( true );
+      expect( keyboard.bindDown( "jump" ) ).toBe( true );
+      expect( keyboard.bindDown( "crouch" ) ).toBe( true );
 
       mockKeyup( "ControlLeft" );
       keyboard.update( now );
 
-      expect( keyboard.pressedBind( "jump" ) ).toBe( false );
-      expect( keyboard.pressedBind( "crouch" ) ).toBe( false );
+      expect( keyboard.bindDown( "jump" ) ).toBe( false );
+      expect( keyboard.bindDown( "crouch" ) ).toBe( false );
     });
   });
 });

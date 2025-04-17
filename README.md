@@ -21,7 +21,7 @@ import { InputDevice, GamepadDevice } from "pixijs-input-devices"
 
 // Set named binds
 GamepadDevice.configureDefaultBinds({
-    jump: [ "A" ]
+    jump: [ "Face1" ]
 })
 InputDevice.keyboard.configureBinds({
     jump: [ "ArrowUp", "Space" ]
@@ -29,11 +29,11 @@ InputDevice.keyboard.configureBinds({
 
 // Use binds
 for ( const device of InputDevice.devices ) {
-    if ( device.pressedBind("jump") ) // ...
+    if ( device.bindDown("jump") ) // ...
 }
 
 // Event-driven
-InputDevice.onBind( "jump", ({ device }) => {
+InputDevice.onBindDown( "jump", ({ device }) => {
     if ( device.type === "gamepad" ) {
         device.playVibration({ duration: 50 })
     }
@@ -159,12 +159,12 @@ InputDevice.off( "deviceadded" ) // stop listening
 | `"lastdevicechanged"` | `{device}` | The _last interacted device_ has changed. |
 
 
-#### InputDevice - onBind() Events
+#### InputDevice - onBindDown() Events
 
 You may also subscribe globally to **named bind** events:
 
 ```ts
-InputDevice.onBind( "my_custom_bind", (event) => {
+InputDevice.onBindDown( "my_custom_bind", (event) => {
     // a bound input waas triggered
 })
 ```
@@ -220,7 +220,7 @@ InputDevice.keyboard.layoutSource  // "manual"
 | Event | Description | Payload |
 |---|---|---|
 | `"layoutdetected"` | `{layout,layoutSource,device}` | The keyboard layout (`"QWERTY"`, `"QWERTZ"`, `"AZERTY"`, or `"JCUKEN"`) has been detected, either from the native API or from keypresses. |
-| `"bind"` | `{name,event,keyCode,keyLabel,device}` | A **named bind** key was pressed. |
+| `"binddown"` | `{name,event,keyCode,keyLabel,device}` | A **named bind** key was pressed. |
 | **Key presses:** | | |
 | `"KeyA"` | `{event,keyCode,keyLabel,device}` | The `"KeyA"` was pressed. |
 | `"KeyB"` | `{event,keyCode,keyLabel,device}` | The `"KeyB"` was pressed. |
@@ -263,20 +263,20 @@ gamepad.playVibration({
 
 The gamepad buttons reference **Standard Controller Layout**:
 
-| Button Index | GamepadCode | Description | Xbox | Playstation | Nintendo<sup>[[?]](#gamepad---nintendo-layout-remapping)</sup> |
+| Button Index | GamepadCode | Description | Xbox | Playstation | Nintendo |
 |:---:|:---|:---|:---:|:---:|:---:|
-| `0` | `"A"` | **Face Button 0** | A | Cross | B* |
-| `1` | `"B"` | **Face Button 1** | B | Circle | A* |
-| `2` | `"X"` | **Face Button 2** | X | Square | Y* |
-| `3` | `"Y"` | **Face Button 3** | Y | Triangle | X* |
+| `0` | `"Face1"` | **Face Button 1** | A | Cross | B |
+| `1` | `"Face2"` | **Face Button 2** | B | Circle | A |
+| `2` | `"Face3"` | **Face Button 3** | X | Square | Y |
+| `3` | `"Face4"` | **Face Button 4** | Y | Triangle | X |
 | `4` | `"LeftShoulder"` | **Left Shoulder** | LB | L1 | L |
 | `5` | `"RightShoulder"` | **Right Shoulder** | RB | R1 | R |
 | `6` | `"LeftTrigger"` | **Left Trigger** | LT | L2 | ZL |
 | `7` | `"RightTrigger"` | **Right Trigger** | RT | R2 | ZR |
-| `8` | `"Back"` | **Back** | Back | Options | Minus |
-| `9` | `"Start"` | **Start** | Start | Select | Plus |
-| `10` | `"LeftStickClick"` | **Left Stick Click** | LSB | L3 | L3 |
-| `11` | `"RightStickClick"` | **Right Stick Click** | RSB | R3 | R3 |
+| `8` | `"Back"` | **Back** | Share | Options | Minus |
+| `9` | `"Start"` | **Start** | Menu | Select | Plus |
+| `10` | `"LeftStickClick"` | **Left Stick (Click)** | LSB | L3 | L3 |
+| `11` | `"RightStickClick"` | **Right Stick (Click)** | RSB | R3 | R3 |
 | `12` | `"DPadUp"` | **D-Pad Up** | ⬆️ | ⬆️ | ⬆️ |
 | `13` | `"DPadDown"` | **D-Pad Down** | ⬇️ | ⬇️ | ⬇️ |
 | `14` | `"DPadLeft"` | **D-Pad Left** |  ⬅️ | ⬅️ | ⬅️ |
@@ -288,10 +288,10 @@ Bindable helpers are available for the joysticks too:
 
 | Axis # | GamepadCode | Standard | Layout
 |:---:|:---:|:---:|:---:|
-| `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (Left/Right)** | ⬅️➡️ |
-| `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Up/Down)** | ⬆️⬇️ |
-| `2` | `"RightStickLeft"`<br/>`"RightStickRight"` | **Right Stick (Left/Right)** | ⬅️➡️ |
-| `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Up/Down)** | ⬆️⬇️ |
+| `0` | `"LeftStickLeft"`<br/>`"LeftStickRight"` | **Left Stick (X-Axis)** | ⬅️➡️ |
+| `1` | `"LeftStickUp"`<br/>`"LeftStickDown"` | **Left Stick (Y-Axis)** | ⬆️⬇️ |
+| `2` | `"RightStickLeft"`<br/>`"RightStickRight"` | **Right Stick (X-Axis)** | ⬅️➡️ |
+| `3` | `"RightStickUp"`<br/>`"RightStickDown"` | **Right Stick (Y-Axis)** | ⬆️⬇️ |
 
 > [!TIP]
 > Set the `joystick.threshold` option in `GamepadDevice.defaultOptions` to control when this is triggered.
@@ -299,60 +299,21 @@ Bindable helpers are available for the joysticks too:
 #### Gamepad Layouts
 
 ```ts
-gamepad.layout  // "nintendo" | "xbox" | "playstation" | "logitech" | "steam" | "standard"
+gamepad.layout // "xbox_one"
 ```
 
-Layout detection is **highly non-standard** across major browsers, it should generally be used for aesthetic
-improvements (e.g. showing [device-specific icons](https://thoseawesomeguys.com/prompts/)).
-
-There is some limited layout remapping support built-in for Nintendo controllers, which appear to be the
-only major brand controller that deviates from the standard.
-
-##### Gamepad - Nintendo Layout Remapping
-
-> [!CAUTION]
-> ***Nintendo:** Both the labels and physical positions of the A,B,X,Y buttons are different
-> on Nintendo controllers.
->
-> Set `GamepadDevice.defaultOptions.nintendoRemapMode` to apply the remapping as required.
->
-> - `"physical"` _**(default)**_ &ndash; The A,B,X,Y button codes will refer the standard face button positions (Left=X, Top=Y, Bottom=A, Right=B).
-> - `"accurate"` &ndash; The A,B,X,Y button codes will refer to the exact Nintendo labels (Left=Y, Top=X, Bottom=B, Right=A).
-> - `"none"` &ndash; The A,B,X,Y button codes mapping stay at the default indices (Left=Y, Top=B, Bottom=X, Right=A).
->
-> ```
-> standard       nintendo        nintendo       nintendo
->  layout       "physical"      "accurate"       "none"
-> reference      (default)
-> 
->     Y             Y              X               B
->   X   B         X   B          Y   A           Y   A
->     A             A              B               X
->
->     3             3              2               1
->   2   1         2   1          3   0           3   0
->     0             0              1               2
-> ```
-
-You can manually override this per-gamepad, or for all gamepads:
-
-```ts
-// set default
-GamepadDevice.defaultOptions.nintendoRemapMode = "none"
-
-// set for a single gamepad
-gamepad.options.nintendoRemapMode = "accurate"
-```
+Gamepad device layout reporting is a non-standard API, and should only be used for aesthetic
+enhancements improvements (i.e. [display layout-specific icons](https://thoseawesomeguys.com/prompts/)).
 
 #### GamepadDevice Events
 
 | Event | Description | Payload |
 |---|---|---|
-| `"bind"` | `{name,button,buttonCode,device}` | A **named bind** button was pressed. |
+| `"binddown"` | `{name,button,buttonCode,device}` | A **named bind** button was pressed. |
 | **Button presses:** | | |
-| `"A"` | `{button,buttonCode,device}` | Standard layout button `"A"` was pressed. Equivalent to `0`. |
-| `"B"` | `{button,buttonCode,device}` | Standard layout button `"B"` was pressed. Equivalent to `1`. |
-| `"X"` | `{button,buttonCode,device}` | Standard layout button `"X"` was pressed. Equivalent to `2`. |
+| `"Face1"` | `{button,buttonCode,device}` | Standard layout button `"Face1"` was pressed. Equivalent to `0`. |
+| `"Face2"` | `{button,buttonCode,device}` | Standard layout button `"Face2"` was pressed. Equivalent to `1`. |
+| `"Face3"` | `{button,buttonCode,device}` | Standard layout button `"Face3"` was pressed. Equivalent to `2`. |
 | … | … | … |
 | **Button presses (no label):** | | |
 | `0` or `Button.A` | `{button,buttonCode,device}` | Button at offset `0` was pressed. |
@@ -396,8 +357,8 @@ InputDevice.keyboard.configureBinds({
 
 // all gamepads:
 GamepadDevice.configureDefaultBinds({
-    jump: [ "A", "LeftStickUp" ],
-    crouch: [ "B", "X", "RightTrigger" ],
+    jump: [ "Face1", "LeftStickUp" ],
+    crouch: [ "Face2", "Face3", "RightTrigger" ],
     toggleGraphics: [ "RightStickUp", "RightStickDown" ],
 })
 ```
@@ -408,11 +369,11 @@ These can then be used with either the real-time and event-based APIs.
 
 ```ts
 // listen to all devices:
-InputDevice.onBind( "toggleGraphics", ( e ) => toggleGraphics() )
+InputDevice.onBindDown( "toggleGraphics", ( e ) => toggleGraphics() )
 
 // listen to specific devices:
-InputDevice.keyboard.onBind( "jump", ( e ) => doJump() )
-InputDevice.gamepads[0].onBind( "jump", ( e ) => doJump() )
+InputDevice.keyboard.onBindDown( "jump", ( e ) => doJump() )
+InputDevice.gamepads[0].onBindDown( "jump", ( e ) => doJump() )
 ```
 
 #### Real-time:
@@ -421,14 +382,14 @@ InputDevice.gamepads[0].onBind( "jump", ( e ) => doJump() )
 let jump = false, crouch = false, moveX = 0
 
 const keyboard = InputDevice.keyboard
-if ( keyboard.pressedBind( "jump" ) ) jump = true
-if ( keyboard.pressedBind( "crouch" ) ) crouch = true
+if ( keyboard.bindDown( "jump" ) ) jump = true
+if ( keyboard.bindDown( "crouch" ) ) crouch = true
 if ( keyboard.key.ArrowLeft ) moveX = -1
 else if ( keyboard.key.ArrowRight ) moveX = 1
 
 for ( const gamepad of InputDevice.gamepads ) {
-    if ( gamepad.pressedBind( "jump" ) ) jump = true
-    if ( gamepad.pressedBind( "crouch" ) ) crouch = true
+    if ( gamepad.bindDown( "jump" ) ) jump = true
+    if ( gamepad.bindDown( "crouch" ) ) crouch = true
 
     // gamepads have additional analog inputs
     // we're going to apply these only if touched
@@ -526,8 +487,8 @@ Navigation Intent Bind | Keyboard | Gamepad
 `"navigate.right"` | "ArrowRight", "KeyD" | "DPadRight", "LeftStickRight"
 `"navigate.up"` | "ArrowUp", "KeyW" | "DPadUp", "LeftStickUp"
 `"navigate.down"` | "ArrowDown", "KeyS" | "DPadDown", "LeftStickDown"
-`"navigate.trigger"` | "Enter", "Space" | "A"
-`"navigate.back"` | "Escape", "Backspace" | "B", "Back"
+`"navigate.trigger"` | "Enter", "Space" | "Face1"
+`"navigate.back"` | "Escape", "Backspace" | "Face2", "Back"
 
 ### Manual control for submenus & modal views
 
@@ -586,7 +547,7 @@ export class OnScreenInputContainer extends Container implements CustomDevice {
     }
 
     // e.g. disable named binds for onscreen joysticks:
-    pressedBind(name){ return false } 
+    bindDown(name){ return false } 
 }
 
 const onscreen = new OnScreenInputContainer()
@@ -623,22 +584,22 @@ and then switch groups depending on the mode:
 ```ts
 if ( gameMode === "multiplayer" )
 {
-    player1.jump   = device.pressedBind( "p1_jump" )
-    player1.defend = device.pressedBind( "p1_defend" )
-    player1.moveX += device.pressedBind( "p1_left" ) ? -1 : 0
-    player1.moveX += device.pressedBind( "p1_right" ) ? 1 : 0
+    player1.jump   = device.bindDown( "p1_jump" )
+    player1.defend = device.bindDown( "p1_defend" )
+    player1.moveX += device.bindDown( "p1_left" ) ? -1 : 0
+    player1.moveX += device.bindDown( "p1_right" ) ? 1 : 0
 
-    player2.jump   = device.pressedBind( "p2_jump" )
-    player2.defend = device.pressedBind( "p2_defend" )
-    player2.moveX += device.pressedBind( "p2_left" ) ? -1 : 0
-    player2.moveX += device.pressedBind( "p2_right" ) ? 1 : 0
+    player2.jump   = device.bindDown( "p2_jump" )
+    player2.defend = device.bindDown( "p2_defend" )
+    player2.moveX += device.bindDown( "p2_left" ) ? -1 : 0
+    player2.moveX += device.bindDown( "p2_right" ) ? 1 : 0
 }
 else
 {
-    player1.jump   = device.pressedBind( "jump" )
-    player1.defend = device.pressedBind( "defend" )
-    player1.moveX += device.pressedBind( "left" ) ? -1 : 0
-    player1.moveX += device.pressedBind( "right" ) ? 1 : 0
+    player1.jump   = device.bindDown( "jump" )
+    player1.defend = device.bindDown( "defend" )
+    player1.moveX += device.bindDown( "left" ) ? -1 : 0
+    player1.moveX += device.bindDown( "right" ) ? 1 : 0
 
     updateComputerPlayerInput( player2 )
 }

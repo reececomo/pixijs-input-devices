@@ -19,10 +19,10 @@ export const AxisCode = [
 export type AxisCode = typeof AxisCode[number];
 
 export const Button = {
-  A: 0,
-  B: 1,
-  X: 2,
-  Y: 3,
+  Face1: 0,
+  Face2: 1,
+  Face3: 2,
+  Face4: 3,
   LeftShoulder: 4,
   RightShoulder: 5,
   LeftTrigger: 6,
@@ -40,10 +40,10 @@ export const Button = {
 export type Button = (typeof Button)[keyof typeof Button];
 
 export const ButtonCode = [
-  "A",
-  "B",
-  "X",
-  "Y",
+  "Face1",
+  "Face2",
+  "Face3",
+  "Face4",
   "LeftShoulder",
   "RightShoulder",
   "LeftTrigger",
@@ -61,10 +61,10 @@ export type ButtonCode = typeof ButtonCode[number];
 
 /** Array with strongly-typed indices (0-15) */
 export type GamepadButtons = {
-  [Button.A]: GamepadButton,
-  [Button.B]: GamepadButton,
-  [Button.X]: GamepadButton,
-  [Button.Y]: GamepadButton,
+  [Button.Face1]: GamepadButton,
+  [Button.Face2]: GamepadButton,
+  [Button.Face3]: GamepadButton,
+  [Button.Face4]: GamepadButton,
   [Button.LeftShoulder]: GamepadButton,
   [Button.RightShoulder]: GamepadButton,
   [Button.LeftTrigger]: GamepadButton,
