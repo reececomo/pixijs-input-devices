@@ -1,54 +1,76 @@
 # 🎮 PixiJS Input Devices &nbsp;[![License](https://badgen.net/npm/license/pixijs-input-devices)](https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE) [![Tests](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg)](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml) [![Downloads per month](https://img.shields.io/npm/dm/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices) [![NPM version](https://img.shields.io/npm/v/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices)
 
-⚡ Simple keyboard & gamepad management for PixiJS
+⚡ Simple &amp; powerful input device support for a variety of devices in PixiJS
 
 | | |
 | ------ | ------ |
-| 🎮 Handle [keyboard](#keyboarddevice), [gamepads](#gamepaddevice), and [more](#custom-devices)! | 🚀 [Real-time](#real-time) &amp; [event-driven](#keyboarddevice-events) APIs |
-| ⚡ Highly-optimized for [performance](https://web.dev/articles/inp) | 🧭 Built-in [UI navigation](#uinavigation-api) |
+| 🎮 Instant [keyboard](#keyboarddevice), [gamepads](#gamepaddevice), and [custom device](#custom-devices) support | 🚀 [Real-time](#real-time) &amp; [event-driven](#keyboarddevice-events) APIs |
+| ⚡ Optimized for [performance](https://web.dev/articles/inp) | 🧭 Built-in [UI navigation](#uinavigation-api) |
 | 🔮 Highly configurable (with sensible defaults) | 🪄 Supports [input binding](#named-binds) |
 | ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🌐 Automatic [Intl layouts](#keyboard-layout---detection) detection |
 | 🍃 Zero dependencies & tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
 
 
-## Sample Usage
-
-*Handle device inputs with ease.*
+## Basic Usage
 
 ```ts
-import { InputDevice, GamepadDevice } from "pixijs-input-devices"
+import { InputDevice } from "pixijs-input-devices";
 
+let moveX = 0.0,
+    jump = false;
 
-// Set named binds
-GamepadDevice.configureDefaultBinds({
-    jump: [ "Face1" ]
-})
-InputDevice.keyboard.configureBinds({
-    jump: [ "ArrowUp", "Space" ]
-})
+for (const device of InputDevice.devices)
+{
+    if (device.bindDown("left"))    moveX = -1;
+    if (device.bindDown("right"))   moveX =  1;
+    if (device.bindDown("jump"))    jump = true;
 
-// Use binds
-for (const device of InputDevice.devices) {
-    if (device.bindDown("jump")) // ...
+    if (device.type === "gamepad" && device.leftJoystick.x != 0.0)
+    {
+        moveX = device.leftJoystick.x;
+    }
 }
-
-// Event-driven
-InputDevice.onBindDown("jump", ({ device }) => {
-    // play a haptic on supported devices
-    device.playHaptic({
-        duration: 50,
-        strongMagnitude: 0.5,
-    })
-})
 ```
 
-## Getting Started with PixiJS Input Devices
+#### Configure binds
+
+```ts
+import { GamepadDevice, KeyboardDevice } from "pixijs-input-devices";
+
+// ⌨️ keyboard
+KeyboardDevice.global.configureBinds({
+    jump:   ["Space"],
+    left:   ["KeyA", "ArrowLeft"],
+    right:  ["KeyD", "ArrowRight"],
+});
+
+// 🎮 gamepads
+GamepadDevice.configureDefaultBinds({
+    left:   ["DpadLeft"],
+    right:  ["DpadRight"],
+    jump:   ["Face1"],
+});
+```
+
+> [!TIP]
+> See [**Named binds**](#named-binds) for more information on configuring devices.
+
+#### Events
+
+```ts
+// targeted
+device.onBindDown("menu", ({ device }) => { });
+
+// global
+InputDevice.onBindDown("menu", ({ device }) => { });
+```
+
+## 💿 Install
 
 *Everything you need to quickly integrate device management.*
 
-**PixiJS Input Devices** adds first-class support for input devices, and
-provides a simple, but powerful navigation manager that can enable devices to
-navigate existing pointer-based UIs.
+**PixiJS Input Devices** provides an input manager, and a navigation manager that enables
+non-pointer devices to navigate pointer-based user interfaces (UIs).
 
 The key concepts are:
 
