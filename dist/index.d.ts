@@ -324,8 +324,6 @@ export declare class GamepadDevice {
 	 */
 	readonly id: string;
 	readonly type = "gamepad";
-	/** Whether this gamepad has vibration capabilties. */
-	readonly isVibrationCapable: boolean;
 	/**
 	 * Associate custom meta data with a device.
 	 */
@@ -339,7 +337,11 @@ export declare class GamepadDevice {
 	 * button layouts or displaying branded icons.
 	 * @example "playstation"
 	 */
-	layout: GamepadLayout;
+	readonly layout: GamepadLayout;
+	/**
+	 * Whether the gamepad reports that trigger rumble is supported.
+	 */
+	readonly supportsTriggerRumble: boolean;
 	/**
 	 * Gamepad configuration options.
 	 */
@@ -362,9 +364,11 @@ export declare class GamepadDevice {
 	leftShoulder: number;
 	/** A scalar 0.0 to 1.0 representing the right shoulder value */
 	rightShoulder: number;
+	private readonly haptics;
 	private readonly _emitter;
 	private readonly _bindDownEmitter;
 	private readonly _debounces;
+	constructor(source: Gamepad);
 	/** @returns true if any button from the named bind is pressed. */
 	bindDown(name: string): boolean;
 	/** @returns true if any of the given buttons are pressed. */
@@ -382,15 +386,15 @@ export declare class GamepadDevice {
 	/** Remove a named bind event listener (or all if none provided). */
 	offBindDown(name: string, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/**
-	 * Play a vibration effect (if supported).
-	 *
-	 * This API only works in browsers that support it.
-	 * @see https://caniuse.com/mdn-api_gamepad_vibrationactuator
+	 * Play a haptic effect (when supported).
 	 */
-	playHaptic({ duration, weakMagnitude, strongMagnitude, vibrationType, rightTrigger, leftTrigger, startDelay, }: HapticEffect): void;
+	playHaptic(effect: HapticEffect): void;
+	/**
+	 * Stop all haptic effects.
+	 */
+	stopHaptics(): void;
 	update(source: Gamepad, now: number): void;
 	clear(): void;
-	constructor(source: Gamepad);
 	private _updatePresses;
 	/**
 	 * Inline relay debouncer.
@@ -862,18 +866,16 @@ export type GamepadNamedBindEvent = {
 export type HapticEffect = {
 	/** How long the vibration lasts (in milliseconds) */
 	duration: number;
-	/** Strength of the high-frequency motor (feels more like a "buzz") */
-	strongMagnitude?: number;
-	/** Strength of the low-frequency motor (feels more like a "rumble") */
-	weakMagnitude?: number;
+	/** Strength of the strong-magnitude, high-frequency motor (feels more like a "buzz") */
+	buzz?: number;
+	/** Strength of the weak-magnitude, low-frequency motor (feels more like a "rumble") */
+	rumble?: number;
 	/** Strength of the left trigger motor (if supported) */
 	leftTrigger?: number;
 	/** Strength of the right trigger motor (if supported) */
 	rightTrigger?: number;
 	/** Delay the start of the vibration effect (in milliseconds) */
 	startDelay?: number;
-} & {
-	vibrationType?: "dual-rumble" | "trigger-rumble";
 };
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {

@@ -5,6 +5,7 @@ import { detectLayout, GamepadLayout } from "./layouts";
 import { EventEmitter, EventOptions } from "../../utils/events";
 import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
 import { HapticEffect } from "../HapticVibration";
+import { GamepadHapticManager } from "./GamepadHapticManager";
 
 
 export { Button, GamepadLayout };
@@ -171,9 +172,6 @@ export class GamepadDevice
     public readonly id: string;
     public readonly type = "gamepad";
 
-    /** Whether this gamepad has vibration capabilties. */
-    public readonly isVibrationCapable = ( "vibrationActuator" in this.source );
-
     /**
      * Associate custom meta data with a device.
      */
@@ -189,7 +187,12 @@ export class GamepadDevice
      * button layouts or displaying branded icons.
      * @example "playstation"
      */
-    public layout: GamepadLayout;
+    public readonly layout: GamepadLayout;
+
+    /**
+     * Whether the gamepad reports that trigger rumble is supported.
+     */
+    public readonly supportsTriggerRumble: boolean;
 
     /**
      * Gamepad configuration options.
@@ -229,9 +232,18 @@ export class GamepadDevice
 
     // ----- Internal: -----
 
+    private readonly haptics: GamepadHapticManager | undefined;
     private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
     private readonly _bindDownEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
     private readonly _debounces = new Map<GamepadCode, number>();
+
+    public constructor( public source: Gamepad )
+    {
+        this.id = "gamepad" + source.index;
+        this.layout = detectLayout( source?.id ) ?? "unknown";
+        this.haptics = new GamepadHapticManager(source);
+        this.supportsTriggerRumble = this.haptics.hasTriggerRumble;
+    }
 
     // ----- Button helpers: -----
 
@@ -327,34 +339,21 @@ export class GamepadDevice
     // ----- Vibration: -----
 
     /**
-     * Play a vibration effect (if supported).
-     *
-     * This API only works in browsers that support it.
-     * @see https://caniuse.com/mdn-api_gamepad_vibrationactuator
+     * Play a haptic effect (when supported).
      */
-    public playHaptic({
-        duration,
-        weakMagnitude,
-        strongMagnitude,
-        vibrationType,
-        rightTrigger,
-        leftTrigger,
-        startDelay,
-    }: HapticEffect): void
+    public playHaptic(effect: HapticEffect): void
     {
-        if ( !this.isVibrationCapable ) return;
         if ( !this.options.vibration.enabled ) return;
 
-        const intensity = this.options.vibration.intensity;
+        this.haptics.play(effect, this.options.vibration.intensity);
+    }
 
-        ( this.source as any ).vibrationActuator.playEffect( vibrationType ?? "dual-rumble", {
-            duration,
-            startDelay: startDelay ?? 0,
-            weakMagnitude: intensity * ( weakMagnitude ?? 0 ),
-            strongMagnitude: intensity * ( strongMagnitude ?? 0 ),
-            leftTrigger: intensity * ( leftTrigger ?? 0 ),
-            rightTrigger: intensity * ( rightTrigger ?? 0 ),
-        });
+    /**
+     * Stop all haptic effects.
+     */
+    public stopHaptics(): void
+    {
+        this.haptics.reset();
     }
 
     // ----- Lifecycle: -----
@@ -363,6 +362,7 @@ export class GamepadDevice
     {
         this._updatePresses( source, now );
         this.source = source;
+        this.haptics.update();
     }
 
     public clear(): void
@@ -373,12 +373,8 @@ export class GamepadDevice
 
             return obj;
         }, {} as any );
-    }
 
-    public constructor( public source: Gamepad )
-    {
-        this.id = "gamepad" + source.index;
-        this.layout = detectLayout( source?.id ) ?? "unknown";
+        this.haptics.reset();
     }
 
     private _updatePresses( source: Gamepad, now: number ): void

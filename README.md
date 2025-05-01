@@ -283,16 +283,46 @@ if (gamepad.leftJoystick.x < -0.33)
 
 #### Vibration & Haptics
 
-Use the `playVibration()` method to play a haptic vibration, in supported browsers.
+Use the `playHaptic()` method to play a haptic vibration effect on supported devices.
 
 ```ts
-gamepad.playVibration({
+device.playHaptic({
     duration: 150,
-    weakMagnitude: 0.75,
-    strongMagnitude: 0.25,
+    rumble: 0.75,
+    buzz: 0.25,
+    rightTrigger: 0.1, // limited support
     // …
-})
+});
 ```
+
+and to cancel all haptics:
+
+```ts
+device.stopHaptics();
+```
+
+##### Multiple simultaneous haptics on Gamepads
+
+Haptics automatically manage their queue under-the-hood, so you can combine or queue
+them very easily.
+
+```ts
+device.playHaptic({ duration: 150, buzz: 0.75 });
+device.playHaptic({ duration: 500, rumble: 0.5 });
+device.playHaptic({ duration: 250, rumble: 1.0 });
+device.playHaptic({
+    startDelay: 450,
+    duration: 300
+    leftTrigger: 0.25,
+    rightTrigger: 0.25,
+    buzz: 1.0,
+    rumble: device.supportsTriggerRumble ? 0.5 : 1.0,
+});
+```
+
+> [!TIP]
+> **Configure gamepad vibration:** On gamepads you can use `device.options.vibration.enabled`
+> and `device.options.vibration.intensity` to control vibration.
 
 #### Gamepad Button Codes
 
