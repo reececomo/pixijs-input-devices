@@ -88,9 +88,6 @@ export class GamepadHapticManager
 
     public update(): void
     {
-        // TODO: remove debug and run build
-        console.debug("[gamepadhaptic] " + this.activeEffects.length + " haptics: " + JSON.stringify(this.activeEffects));
-
         const now = performance.now();
 
         let rumble = 0.0;
@@ -152,8 +149,6 @@ export class GamepadHapticManager
 
             if (this.hapticEvent !== undefined)
             {
-                console.log("[gamepadhaptic] issuing haptic:", rumble, buzz, leftTrigger, rightTrigger, JSON.stringify(this.state));
-
                 this.state.expires = now + MAX_KEYFRAME_MS;
 
                 this.gamepad.vibrationActuator.playEffect(this.hapticEvent, {
