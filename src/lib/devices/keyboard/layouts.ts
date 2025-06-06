@@ -61,7 +61,7 @@ function getLang(): string | undefined
 {
     const n = navigator as any;
 
-    if ( n.languages?.length )
+    if (n.languages?.length)
     {
         return n.languages[0]!;
     }
@@ -78,7 +78,7 @@ export async function requestKeyboardLayout(): Promise<undefined | KeyboardLayou
 {
     const n = navigator as any;
 
-    if ( !n.keyboard || !n.keyboard.getLayoutMap )
+    if (!n.keyboard || !n.keyboard.getLayoutMap)
     {
         return undefined; // api unavailable
     }
@@ -115,10 +115,10 @@ export function inferKeyboardLayoutFromLang(
 ): KeyboardLayout
 {
     const tag = (lang || "").toLowerCase();
-    const macro = tag.split( "-" )[0]!;
+    const macro = tag.split("-")[0]!;
 
     if (
-        MACRO_AZERTY.includes( macro )
+        MACRO_AZERTY.includes(macro)
     || tag.startsWith("nl-be") // Flemish (Belgium)
     ) return "AZERTY";
 
@@ -231,14 +231,14 @@ export function detectKeyboardLayoutFromKeydown(
  *
  * @see https://caniuse.com/mdn-api_keyboardlayoutmap
  */
-export function getNavigatorKeyLabel( key: KeyCode ): string | undefined
+export function getNavigatorKeyLabel(key: KeyCode): string | undefined
 {
-    const value = _navigatorLayoutMap?.get( key );
+    const value = _navigatorLayoutMap?.get(key);
 
-    return value === undefined ? undefined : _toLocaleTitleCase( value );
+    return value === undefined ? undefined : _toLocaleTitleCase(value);
 }
 
-export function getLayoutKeyLabel( key: KeyCode, layout: KeyboardLayout ): string
+export function getLayoutKeyLabel(key: KeyCode, layout: KeyboardLayout): string
 {
     if (_keyLabels === undefined)
     {
@@ -460,10 +460,10 @@ function getMetaKeyLabel(): string
     return "⊞"; // Windows key
 }
 
-function _toLocaleTitleCase( input: string ): string
+function _toLocaleTitleCase(input: string): string
 {
     return input
         .split(/\s+/)
-        .map( word => word.charAt(0).toLocaleUpperCase() + word.slice(1) )
+        .map(word => word.charAt(0).toLocaleUpperCase() + word.slice(1))
         .join(' ');
 }

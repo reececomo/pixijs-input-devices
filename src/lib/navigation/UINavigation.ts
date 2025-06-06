@@ -45,25 +45,25 @@ class NavigationManager
       ?? this._rootFocused;
     }
 
-    public set focusTarget( target: Container | undefined )
+    public set focusTarget(target: Container | undefined)
     {
         const previous = this.focusTarget;
-        if ( previous === target) return;
+        if (previous === target) return;
 
         const responderStage = this.getResponderStage();
-        if ( !responderStage ) return;
+        if (!responderStage) return;
 
-        if ( target )
+        if (target)
         {
-            if ( !target.isNavigatable ) return;
-            if ( !isChildOf( target, responderStage ) ) return;
+            if (!target.isNavigatable) return;
+            if (!isChildOf(target, responderStage)) return;
         }
 
-        if ( this.firstResponder != null ) this.firstResponder.focusTarget = target;
+        if (this.firstResponder != null) this.firstResponder.focusTarget = target;
         else this._rootFocused = target;
 
-        if ( previous ) this._emitBlur( previous );
-        if ( target ) this._emitFocus( target );
+        if (previous) this._emitBlur(previous);
+        if (target) this._emitFocus(target);
     }
 
     /**
@@ -88,14 +88,14 @@ class NavigationManager
      * @param stage - Root navigation responder container, where navigatable
      * containers can live.
      */
-    public configureWithRoot( stage: Container ): void
+    public configureWithRoot(stage: Container): void
     {
-        if ( this._root == null )
+        if (this._root == null)
         {
             // TODO: auto-register mixin?
 
             // listen to intents
-            InputDevice.onBindDown( navigationIntents, (e) => this._propagate(e) );
+            InputDevice.onBindDown(navigationIntents, (e) => this._propagate(e));
         }
 
         this._root = stage;
@@ -117,7 +117,7 @@ class NavigationManager
         responder?.resignedAsFirstResponder?.();
         this._invalidateFocusedIfNeeded();
 
-        if ( this.firstResponder )
+        if (this.firstResponder)
         {
             this.firstResponder.becameFirstResponder?.();
         }
@@ -136,24 +136,24 @@ class NavigationManager
     /**
      * Set the new top-most global interaction target.
      */
-    public pushResponder( responder: Container | NavigationResponder ): void
+    public pushResponder(responder: Container | NavigationResponder): void
     {
         const res = responder as NavigationResponder;
 
-        if ( this._responders.includes( res ) )
+        if (this._responders.includes(res))
         {
-            throw new Error( "Responder already in stack." );
+            throw new Error("Responder already in stack.");
         }
 
         const previousResponder = this.firstResponder;
 
-        this._responders.unshift( res );
+        this._responders.unshift(res);
 
         previousResponder?.resignedAsFirstResponder?.();
         this._invalidateFocusedIfNeeded();
 
         res.becameFirstResponder?.();
-        if ( res.autoFocus ?? true ) this.autoFocus();
+        if (res.autoFocus ?? true) this.autoFocus();
     }
 
     /**
@@ -161,22 +161,22 @@ class NavigationManager
      */
     public autoFocus(): void
     {
-        if ( !UINavigation.enabled ) return;
+        if (!UINavigation.enabled) return;
 
         const responderStage = this.getResponderStage();
-        if ( !responderStage ) return;
+        if (!responderStage) return;
 
-        const navigatable = getFirstNavigatable( responderStage );
+        const navigatable = getFirstNavigatable(responderStage);
 
-        if ( navigatable === undefined )
+        if (navigatable === undefined)
         {
             // early exit: no containers found
-            console.debug( "navigation: no navigatable containers found" );
+            console.debug("navigation: no navigatable containers found");
 
             return;
         }
 
-        if ( navigatable === this.focusTarget ) return;
+        if (navigatable === this.focusTarget) return;
 
         this.focusTarget = navigatable;
     }
@@ -186,18 +186,18 @@ class NavigationManager
      */
     public getResponderStage(): Container
     {
-        return this.responders.find( isContainer ) ?? this._root;
+        return this.responders.find(isContainer) ?? this._root;
     }
 
     // ----- Implementation: -----
 
     private _propagate({ device, name }: NamedBindEvent<NavigationIntent>): void
     {
-        if ( !this.enabled ) return;
+        if (!this.enabled) return;
 
-        for ( const target of this._responders )
+        for (const target of this._responders)
         {
-            if ( target.handledNavigationIntent?.( name, device ) )
+            if (target.handledNavigationIntent?.(name, device))
             {
                 // stop on the first responder that acknowledges the intent
                 // has been handled
@@ -207,15 +207,15 @@ class NavigationManager
 
         // no custom navigation responders were triggered.
         // move on to the default behavior:
-        if ( this._root == null )
+        if (this._root == null)
         {
             this.enabled = false;
-            throw new Error( "Navigation requires root responder to be configured" );
+            throw new Error("Navigation requires root responder to be configured");
         }
         else
         {
             const responderStage = this.getResponderStage();
-            this._handleGlobalIntent( responderStage, name );
+            this._handleGlobalIntent(responderStage, name);
         }
     }
 
@@ -224,29 +224,29 @@ class NavigationManager
         intent: NavigationIntent
     ): void
     {
-        this._invalidateFocusedIfNeeded( responderStage );
+        this._invalidateFocusedIfNeeded(responderStage);
 
         const focusTarget = this.focusTarget;
 
         // if we currently have no focus target, then find one.
-        if ( focusTarget === undefined )
+        if (focusTarget === undefined)
         {
             this.autoFocus();
 
             return;
         }
 
-        if ( intent === "navigate.back" )
+        if (intent === "navigate.back")
         {
-            this._emitBlur( focusTarget );
+            this._emitBlur(focusTarget);
             this.focusTarget = undefined;
 
             return;
         }
 
-        if ( intent === "navigate.trigger" )
+        if (intent === "navigate.trigger")
         {
-            this._emitTrigger( focusTarget );
+            this._emitTrigger(focusTarget);
 
             return;
         }
@@ -260,7 +260,7 @@ class NavigationManager
             }
         ) ?? focusTarget;
 
-        if ( nextTarget === focusTarget )
+        if (nextTarget === focusTarget)
         {
             // no change, do nothing
             return;
@@ -269,70 +269,70 @@ class NavigationManager
         this.focusTarget = nextTarget;
     }
 
-    private _emitBlur( target: Container): void
+    private _emitBlur(target: Container): void
     {
         const eventNames = target.eventNames();
 
         // dispatch default events
-        if ( eventNames.includes( "pointerout" ) ) target.emit( "pointerout" );
-        else if ( eventNames.includes( "mouseout" ) ) target.emit( "mouseout" );
-        else if ( this.options.enableFallbackOverEffect )
+        if (eventNames.includes("pointerout")) target.emit("pointerout");
+        else if (eventNames.includes("mouseout")) target.emit("mouseout");
+        else if (this.options.enableFallbackOverEffect)
         {
             target.alpha = 1.0;
         }
 
         // always dispatch the blur event
-        target.emit( "deviceout" );
+        target.emit("deviceout");
     }
 
-    private _emitFocus( target: Container ): void
+    private _emitFocus(target: Container): void
     {
         const eventNames = target.eventNames();
 
         // dispatch default events
-        if ( eventNames.includes( "pointerover" ) ) target.emit( "pointerover" );
-        else if ( eventNames.includes( "mouseover" ) ) target.emit( "mouseover" );
-        else if ( this.options.enableFallbackOverEffect )
+        if (eventNames.includes("pointerover")) target.emit("pointerover");
+        else if (eventNames.includes("mouseover")) target.emit("mouseover");
+        else if (this.options.enableFallbackOverEffect)
         {
             target.alpha = 0.5;
         }
 
         // always dispatch the focus event
-        target.emit( "deviceover" );
+        target.emit("deviceover");
     }
 
-    private _emitTrigger( target: Container ): void
+    private _emitTrigger(target: Container): void
     {
         const eventNames = target.eventNames();
 
         // dispatch default events
-        if ( eventNames.includes( "pointerdown" ) ) target.emit( "pointerdown" );
-        else if ( eventNames.includes( "mousedown" ) ) target.emit( "mousedown" );
-        else if ( this.options.enableFallbackOverEffect )
+        if (eventNames.includes("pointerdown")) target.emit("pointerdown");
+        else if (eventNames.includes("mousedown")) target.emit("mousedown");
+        else if (this.options.enableFallbackOverEffect)
         {
             target.alpha = 0.75;
         }
 
         // always dispatch the trigger event
-        target.emit( "devicedown" );
+        target.emit("devicedown");
     }
 
     private _invalidateFocusedIfNeeded(
         responderStage = this.getResponderStage(),
     ): void
     {
-        if ( !responderStage ) return;
+        if (!responderStage) return;
         const focusTarget = this.focusTarget;
 
-        if ( focusTarget && !isChildOf( focusTarget, responderStage ) )
+        if (focusTarget && !isChildOf(focusTarget, responderStage))
         {
-            this._emitBlur( focusTarget );
+            this._emitBlur(focusTarget);
             this.focusTarget = undefined;
         }
     }
 }
 
-function isContainer( responder: NavigationResponder ): responder is NavigationResponder & Container
+function isContainer(responder: NavigationResponder): responder is NavigationResponder & Container
 {
     return "children" in responder;
 }

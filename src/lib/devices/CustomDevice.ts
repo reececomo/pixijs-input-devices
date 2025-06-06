@@ -1,4 +1,4 @@
-import { HapticEffect } from "./HapticVibration";
+import { HapticEffect } from "./HapticEffect";
 
 export interface CustomDevice
 {
@@ -28,15 +28,15 @@ export interface CustomDevice
   readonly lastInteraction: number;
 
   /** Triggered during the polling function. */
-  update( now: number ): void;
+  update(now: number): void;
 
   /** @returns true when a bind was activated in the previous update(). */
-  bindDown( name: string ): boolean
+  bindDown(name: string): boolean
 
   /**
    * Play a vibration effect (if device supports it).
    */
-  playHaptic( hapticEffect: HapticEffect ): void;
+  playHaptic(hapticEffect: HapticEffect): void;
 
   /**
    * (Optional) Clear input.
