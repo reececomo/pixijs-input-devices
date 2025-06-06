@@ -4,13 +4,13 @@ import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
 import { detectLayout, GamepadLayout } from "./layouts";
 import { EventEmitter, EventOptions } from "../../utils/events";
 import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
-import { HapticEffect } from "../HapticVibration";
+import { HapticEffect } from "../HapticEffect";
 import { GamepadHapticManager } from "./GamepadHapticManager";
 
 
 export { Button, GamepadLayout };
 
-export type GamepadButtonDownEvent = ( gamepad: GamepadDevice, button: Button ) => void;
+export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 
 export interface GamepadButtonPressEvent {
   device: GamepadDevice;
@@ -198,7 +198,7 @@ export class GamepadDevice
      * Gamepad configuration options.
      */
     public options: typeof GamepadDevice.defaultOptions =
-        JSON.parse( JSON.stringify( GamepadDevice.defaultOptions ) ); // clone
+        JSON.parse(JSON.stringify(GamepadDevice.defaultOptions)); // clone
 
     // ----- Joysticks: -----
 
@@ -209,12 +209,12 @@ export class GamepadDevice
 
     /** Accessors for buttons */
     public button: Record<AxisCode | ButtonCode, boolean> =
-        [...ButtonCode, ...AxisCode ].reduce( (obj, key) =>
+        [...ButtonCode, ...AxisCode ].reduce((obj, key) =>
         {
             obj[key] = false;
 
             return obj;
-        }, {} as any );
+        }, {} as any);
 
     // ----- Triggers: -----
 
@@ -237,10 +237,10 @@ export class GamepadDevice
     private readonly _bindDownEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
     private readonly _debounces = new Map<GamepadCode, number>();
 
-    public constructor( public source: Gamepad )
+    public constructor(public source: Gamepad)
     {
         this.id = "gamepad" + source.index;
-        this.layout = detectLayout( source?.id ) ?? "unknown";
+        this.layout = detectLayout(source?.id) ?? "unknown";
         this.haptics = new GamepadHapticManager(source);
         this.supportsTriggerRumble = this.haptics.hasTriggerRumble;
     }
@@ -248,30 +248,30 @@ export class GamepadDevice
     // ----- Button helpers: -----
 
     /** @returns true if any button from the named bind is pressed. */
-    public bindDown( name: string ): boolean
+    public bindDown(name: string): boolean
     {
-        if ( this.options.binds[name] === undefined ) return false;
+        if (this.options.binds[name] === undefined) return false;
 
-        return this.pressedAny( this.options.binds[name] );
+        return this.pressedAny(this.options.binds[name]);
     }
 
     /** @returns true if any of the given buttons are pressed. */
-    public pressedAny( btns: GamepadCode[] ): boolean
+    public pressedAny(btns: GamepadCode[]): boolean
     {
-        for ( let i = 0; i < btns.length; i++ )
+        for (let i = 0; i < btns.length; i++)
         {
-            if ( this.button[btns[i]!] ) return true;
+            if (this.button[btns[i]!]) return true;
         }
 
         return false;
     }
 
     /** @returns true if all of the given buttons are pressed. */
-    public pressedAll( btns: GamepadCode[] ): boolean
+    public pressedAll(btns: GamepadCode[]): boolean
     {
-        for ( let i = 0; i < btns.length; i++ )
+        for (let i = 0; i < btns.length; i++)
         {
-            if ( !this.button[btns[i]!] ) return false;
+            if (!this.button[btns[i]!]) return false;
         }
 
         return true;
@@ -297,7 +297,7 @@ export class GamepadDevice
         options?: EventOptions,
     ): this
     {
-        this._emitter.on( event, listener, options );
+        this._emitter.on(event, listener, options);
 
         return this;
     }
@@ -316,11 +316,11 @@ export class GamepadDevice
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
         name: string,
-        listener: ( event: GamepadNamedBindEvent ) => void,
+        listener: (event: GamepadNamedBindEvent) => void,
         options?: EventOptions,
     ): this
     {
-        this._bindDownEmitter.on( name, listener, options );
+        this._bindDownEmitter.on(name, listener, options);
 
         return this;
     }
@@ -328,10 +328,10 @@ export class GamepadDevice
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
         name: string,
-        listener?: ( event: GamepadNamedBindEvent ) => void
+        listener?: (event: GamepadNamedBindEvent) => void
     ): this
     {
-        this._bindDownEmitter.off( name, listener );
+        this._bindDownEmitter.off(name, listener);
 
         return this;
     }
@@ -341,11 +341,11 @@ export class GamepadDevice
     /**
      * Play a haptic effect (when supported).
      */
-    public playHaptic(effect: HapticEffect): void
+    public playHaptic(...effects: HapticEffect[]): void
     {
-        if ( !this.options.vibration.enabled ) return;
+        if (!this.options.vibration.enabled) return;
 
-        this.haptics.play(effect, this.options.vibration.intensity);
+        effects.forEach((effect) => this.haptics.play(effect, this.options.vibration.intensity));
     }
 
     /**
@@ -358,42 +358,42 @@ export class GamepadDevice
 
     // ----- Lifecycle: -----
 
-    public update( source: Gamepad, now: number ): void
+    public update(source: Gamepad, now: number): void
     {
-        this._updatePresses( source, now );
+        this._updatePresses(source, now);
         this.source = source;
         this.haptics.update();
     }
 
     public clear(): void
     {
-        this.button = [...AxisCode, ...ButtonCode].reduce( (obj, key) =>
+        this.button = [...AxisCode, ...ButtonCode].reduce((obj, key) =>
         {
             obj[key] = false;
 
             return obj;
-        }, {} as any );
+        }, {} as any);
 
         this.haptics.reset();
     }
 
-    private _updatePresses( source: Gamepad, now: number ): void
+    private _updatePresses(source: Gamepad, now: number): void
     {
         const axisCount = 4;
         const buttonCount = 16;
         const joy = this.options.joystick;
 
         // axis
-        for ( let a = 0; a < axisCount; a++ )
+        for (let a = 0; a < axisCount; a++)
         {
-            const value = _scale( source.axes[a], joy.deadzone );
-            const axisCode = AxisCode[a * 2 + ( value > 0 ? 1 : 0 )];
+            const value = _scale(source.axes[a], joy.deadzone);
+            const axisCode = AxisCode[a * 2 + (value > 0 ? 1 : 0)];
 
-            if ( Math.abs( value ) < joy.pressThreshold )
+            if (Math.abs(value) < joy.pressThreshold)
             {
-                if ( !this.button[axisCode] )
+                if (!this.button[axisCode])
                 {
-                    this._debounces.delete( axisCode );
+                    this._debounces.delete(axisCode);
                 }
 
                 this.button[axisCode] = false;
@@ -402,7 +402,7 @@ export class GamepadDevice
             {
                 const delayMs = joy.autoRepeatDelayMs[+this.button[axisCode]];
 
-                if ( this._debounce( axisCode, delayMs ) && this.button[axisCode] )
+                if (this._debounce(axisCode, delayMs) && this.button[axisCode])
                 {
                     continue;
                 }
@@ -411,11 +411,11 @@ export class GamepadDevice
                 this.lastInteraction = now;
 
                 // emit events
-                if ( this.options.emitEvents )
+                if (this.options.emitEvents)
                 {
-                    if ( this._emitter.hasListener( axisCode ) )
+                    if (this._emitter.hasListener(axisCode))
                     {
-                        this._emitter.emit( axisCode, {
+                        this._emitter.emit(axisCode, {
                             device: this,
                             axis: a as Axis,
                             axisCode,
@@ -423,9 +423,9 @@ export class GamepadDevice
                     }
 
                     // check named bind events
-                    Object.entries( this.options.binds ).forEach(([ name, values ]) =>
+                    Object.entries(this.options.binds).forEach(([ name, values ]) =>
                     {
-                        if ( !values.includes(axisCode) ) return;
+                        if (!values.includes(axisCode)) return;
 
                         const event: GamepadNamedBindEvent = {
                             device: this,
@@ -435,8 +435,8 @@ export class GamepadDevice
                             name: name,
                         };
 
-                        this._bindDownEmitter.emit( name, event );
-                        this._emitter.emit( "binddown", event );
+                        this._bindDownEmitter.emit(name, event);
+                        this._emitter.emit("binddown", event);
                     });
                 }
             }
@@ -449,7 +449,7 @@ export class GamepadDevice
 
             const buttonCode = ButtonCode[b];
 
-            if ( this.button[buttonCode] === source.buttons[_b]?.pressed )
+            if (this.button[buttonCode] === source.buttons[_b]?.pressed)
             {
                 continue; // skip: no change
             }
@@ -460,12 +460,12 @@ export class GamepadDevice
             const isPressed = source.buttons[_b]?.pressed ?? false;
             this.button[buttonCode] = isPressed;
 
-            if ( isPressed && this.options.emitEvents )
+            if (isPressed && this.options.emitEvents)
             {
                 // emit events
-                if ( this._emitter.hasListener( buttonCode ) )
+                if (this._emitter.hasListener(buttonCode))
                 {
-                    this._emitter.emit( buttonCode, {
+                    this._emitter.emit(buttonCode, {
                         device: this,
                         button: b,
                         buttonCode,
@@ -473,9 +473,9 @@ export class GamepadDevice
                 }
 
                 // check named bind events
-                Object.entries( this.options.binds ).forEach(([ name, buttons ]) =>
+                Object.entries(this.options.binds).forEach(([ name, buttons ]) =>
                 {
-                    if ( !buttons.includes(buttonCode) ) return;
+                    if (!buttons.includes(buttonCode)) return;
 
                     const event: GamepadNamedBindEvent = {
                         device: this,
@@ -485,46 +485,46 @@ export class GamepadDevice
                         name: name,
                     };
 
-                    this._bindDownEmitter.emit( name, event );
-                    this._emitter.emit( "binddown", event );
+                    this._bindDownEmitter.emit(name, event);
+                    this._emitter.emit("binddown", event);
                 });
             }
         }
 
         // triggers
         const tdz = this.options.trigger.deadzone;
-        this.leftTrigger = _scale( source.buttons[Button.LeftTrigger].value, tdz );
-        this.rightTrigger = _scale( source.buttons[Button.RightTrigger].value, tdz );
-        this.leftShoulder = _scale( source.buttons[Button.LeftShoulder].value, tdz );
-        this.rightShoulder = _scale( source.buttons[Button.RightShoulder].value, tdz );
+        this.leftTrigger = _scale(source.buttons[Button.LeftTrigger].value, tdz);
+        this.rightTrigger = _scale(source.buttons[Button.RightTrigger].value, tdz);
+        this.leftShoulder = _scale(source.buttons[Button.LeftShoulder].value, tdz);
+        this.rightShoulder = _scale(source.buttons[Button.RightShoulder].value, tdz);
 
         // joysticks
         const jdz = joy.deadzone;
-        this.leftJoystick.x = _scale( source.axes[Axis.LeftStickX] ?? 0, jdz );
-        this.leftJoystick.y = _scale( source.axes[Axis.LeftStickY] ?? 0, jdz);
-        this.rightJoystick.x = _scale( source.axes[Axis.RightStickX] ?? 0, jdz );
-        this.rightJoystick.y = _scale( source.axes[Axis.RightStickY] ?? 0, jdz );
+        this.leftJoystick.x = _scale(source.axes[Axis.LeftStickX] ?? 0, jdz);
+        this.leftJoystick.y = _scale(source.axes[Axis.LeftStickY] ?? 0, jdz);
+        this.rightJoystick.x = _scale(source.axes[Axis.RightStickX] ?? 0, jdz);
+        this.rightJoystick.y = _scale(source.axes[Axis.RightStickY] ?? 0, jdz);
     }
 
     /**
      * Inline relay debouncer.
      * @returns true when already in progress and the operation should be skipped
      */
-    private _debounce( key: GamepadCode, delayMs: number ): boolean
+    private _debounce(key: GamepadCode, delayMs: number): boolean
     {
         const now = Date.now();
 
         if (
-            ( this._debounces.get( key ) ?? 0 ) > now
+            (this._debounces.get(key) ?? 0) > now
         ) return true;
 
-        this._debounces.set( key, now + delayMs );
+        this._debounces.set(key, now + delayMs);
 
         return false;
     }
 }
 
-function _scale( value: number, range: [ min: number, max: number ] ): number
+function _scale(value: number, range: [ min: number, max: number ]): number
 {
     const scaled = (Math.abs(value) - range[0]) / (range[1] - range[0]);
 

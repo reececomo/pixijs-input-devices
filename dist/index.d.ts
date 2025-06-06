@@ -388,7 +388,7 @@ export declare class GamepadDevice {
 	/**
 	 * Play a haptic effect (when supported).
 	 */
-	playHaptic(effect: HapticEffect): void;
+	playHaptic(...effects: HapticEffect[]): void;
 	/**
 	 * Stop all haptic effects.
 	 */
@@ -489,12 +489,8 @@ export declare class KeyboardDevice {
 	pressedAll(keys: KeyCode[]): boolean;
 	/** Set custom binds */
 	configureBinds<BindName extends string = string | NavigationIntent>(binds: Partial<Record<BindName, KeyCode[]>>): void;
-	/**
-	 * Plays a vibration effect on supported devices.
-	 *
-	 * Not supported on keyboard.
-	 */
-	playHaptic(hapticEffect: HapticEffect): void;
+	/** Haptics not supported on default keyboard. */
+	playHaptic(): void;
 	/** Add an event listener. */
 	on<K extends keyof KeyboardDeviceEvent>(event: K, listener: (event: KeyboardDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
@@ -511,10 +507,10 @@ export declare class KeyboardDevice {
 	 * @see https://caniuse.com/mdn-api_keyboardlayoutmap
 	 *
 	 * @example
-	 * keyboard.getKeyLabel( "KeyZ" ) === "W" // AZERTY
-	 * keyboard.getKeyLabel( "KeyZ" ) === "Я" // JCUKEN
-	 * keyboard.getKeyLabel( "KeyZ" ) === "Z" // QWERTY
-	 * keyboard.getKeyLabel( "KeyZ" ) === "Y" // QWERTZ
+	 * keyboard.getKeyLabel("KeyZ") === "W" // AZERTY
+	 * keyboard.getKeyLabel("KeyZ") === "Я" // JCUKEN
+	 * keyboard.getKeyLabel("KeyZ") === "Z" // QWERTY
+	 * keyboard.getKeyLabel("KeyZ") === "Y" // QWERTZ
 	 */
 	getKeyLabel(key: KeyCode, layout?: KeyboardLayout): string;
 	/**
@@ -712,7 +708,7 @@ export declare function isVisible(target: Container): boolean;
  *
  * @param container A reference to `PIXI.Container`.
  */
-export declare function registerPixiJSNavigationMixin(container: any): void;
+export declare function registerPixiJSNavigationMixin<T = Container>(container: T): void;
 export interface CustomDevice {
 	/**
 	 * Device type.
@@ -762,6 +758,20 @@ export interface GamepadButtonPressEvent {
 	device: GamepadDevice;
 	button: Button;
 	buttonCode: ButtonCode;
+}
+export interface HapticEffect {
+	/** How long the vibration lasts (in milliseconds) */
+	duration: number;
+	/** Strength of the low-frequency strong-magnitude motor (a deeper, heavier rumble) */
+	rumble?: number;
+	/** Strength of the high-frequency weak-magnitude motor (a lighter, buzzier vibration) */
+	buzz?: number;
+	/** Strength of the left trigger motor (on supported devices) */
+	leftTrigger?: number;
+	/** Strength of the right trigger motor (on supported devices) */
+	rightTrigger?: number;
+	/** Delay the start of the vibration effect (in milliseconds) */
+	startDelay?: number;
 }
 export interface InputDeviceEvent {
 	deviceadded: {
@@ -862,20 +872,6 @@ export type GamepadNamedBindEvent = {
 	type: "axis";
 	axis: Axis;
 	axisCode: AxisCode;
-};
-export type HapticEffect = {
-	/** How long the vibration lasts (in milliseconds) */
-	duration: number;
-	/** Strength of the strong-magnitude, high-frequency motor (feels more like a "buzz") */
-	buzz?: number;
-	/** Strength of the weak-magnitude, low-frequency motor (feels more like a "rumble") */
-	rumble?: number;
-	/** Strength of the left trigger motor (if supported) */
-	leftTrigger?: number;
-	/** Strength of the right trigger motor (if supported) */
-	rightTrigger?: number;
-	/** Delay the start of the vibration effect (in milliseconds) */
-	startDelay?: number;
 };
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {

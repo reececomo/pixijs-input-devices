@@ -10,7 +10,6 @@ import {
     getNavigatorKeyLabel
 } from "./layouts";
 import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
-import { HapticEffect } from "../HapticVibration";
 
 
 export { KeyCode, KeyboardLayout };
@@ -114,12 +113,12 @@ export class KeyboardDevice
 
     /** Accessors for keys */
     public key: Record<KeyCode, boolean> =
-        Object.keys(KeyCode).reduce( (obj, key) =>
+        Object.keys(KeyCode).reduce((obj, key) =>
         {
             obj[key] = false;
 
             return obj;
-        }, {} as any );
+        }, {} as any);
 
     private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
     private readonly _bindDownEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
@@ -134,16 +133,16 @@ export class KeyboardDevice
         this._layoutSource = "lang";
 
         // auto-detect layout
-        requestKeyboardLayout().then( layout =>
+        requestKeyboardLayout().then(layout =>
         {
-            if ( layout === undefined ) return; // not detected
+            if (layout === undefined) return; // not detected
 
             this._layoutSource = "browser";
             this._layout = layout;
 
             this.options.detectLayoutOnKeypress = false;
 
-            this._emitter.emit( "layoutdetected", {
+            this._emitter.emit("layoutdetected", {
                 layoutSource: "browser",
                 layout: layout,
                 device: this,
@@ -175,7 +174,7 @@ export class KeyboardDevice
     {
         return this._layout;
     }
-    public set layout( value: KeyboardLayout )
+    public set layout(value: KeyboardLayout)
     {
         this._layoutSource = "manual";
         this._layout = value;
@@ -191,30 +190,30 @@ export class KeyboardDevice
     // ----- Methods: -----
 
     /** @returns true if any key from the named bind is pressed. */
-    public bindDown( name: string ): boolean
+    public bindDown(name: string): boolean
     {
-        if ( this.options.binds[name] === undefined ) return false;
+        if (this.options.binds[name] === undefined) return false;
 
-        return this.pressedAny( this.options.binds[name] );
+        return this.pressedAny(this.options.binds[name]);
     }
 
     /** @returns true if any of the given keys are pressed. */
-    public pressedAny( keys: KeyCode[] ): boolean
+    public pressedAny(keys: KeyCode[]): boolean
     {
-        for ( let i = 0; i < keys.length; i++ )
+        for (let i = 0; i < keys.length; i++)
         {
-            if ( this.key[keys[i]!] ) return true;
+            if (this.key[keys[i]!]) return true;
         }
 
         return false;
     }
 
     /** @returns true if all of the given keys are pressed. */
-    public pressedAll( keys: KeyCode[] ): boolean
+    public pressedAll(keys: KeyCode[]): boolean
     {
-        for ( let i = 0; i < keys.length; i++ )
+        for (let i = 0; i < keys.length; i++)
         {
-            if ( !this.key[keys[i]!] ) return false;
+            if (!this.key[keys[i]!]) return false;
         }
 
         return true;
@@ -231,14 +230,10 @@ export class KeyboardDevice
         };
     }
 
-    /**
-     * Plays a vibration effect on supported devices.
-     *
-     * Not supported on keyboard.
-     */
-    public playHaptic( hapticEffect: HapticEffect ): void
+    /** Haptics not supported on default keyboard. */
+    public playHaptic(): void
     {
-        // unsupported
+        // no vibration support
     }
 
     // ----- Events: -----
@@ -250,7 +245,7 @@ export class KeyboardDevice
         options?: EventOptions,
     ): this
     {
-        this._emitter.on( event, listener, options );
+        this._emitter.on(event, listener, options);
 
         return this;
     }
@@ -269,11 +264,11 @@ export class KeyboardDevice
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
         name: string,
-        listener: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void,
+        listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void,
         options?: EventOptions,
     ): this
     {
-        this._bindDownEmitter.on( name, listener, options );
+        this._bindDownEmitter.on(name, listener, options);
 
         return this;
     }
@@ -281,10 +276,10 @@ export class KeyboardDevice
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
         name: string,
-        listener?: ( event: KeyboardDeviceNamedBindKeydownEvent ) => void
+        listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void
     ): this
     {
-        this._bindDownEmitter.off( name, listener );
+        this._bindDownEmitter.off(name, listener);
 
         return this;
     }
@@ -299,27 +294,27 @@ export class KeyboardDevice
      * @see https://caniuse.com/mdn-api_keyboardlayoutmap
      *
      * @example
-     * keyboard.getKeyLabel( "KeyZ" ) === "W" // AZERTY
-     * keyboard.getKeyLabel( "KeyZ" ) === "Я" // JCUKEN
-     * keyboard.getKeyLabel( "KeyZ" ) === "Z" // QWERTY
-     * keyboard.getKeyLabel( "KeyZ" ) === "Y" // QWERTZ
+     * keyboard.getKeyLabel("KeyZ") === "W" // AZERTY
+     * keyboard.getKeyLabel("KeyZ") === "Я" // JCUKEN
+     * keyboard.getKeyLabel("KeyZ") === "Z" // QWERTY
+     * keyboard.getKeyLabel("KeyZ") === "Y" // QWERTZ
      */
-    public getKeyLabel( key: KeyCode, layout?: KeyboardLayout ): string
+    public getKeyLabel(key: KeyCode, layout?: KeyboardLayout): string
     {
-        if ( layout ) return getLayoutKeyLabel( key, layout );
+        if (layout) return getLayoutKeyLabel(key, layout);
 
-        return getNavigatorKeyLabel( key )
-      ?? getLayoutKeyLabel( key, layout ?? this._layout );
+        return getNavigatorKeyLabel(key)
+      ?? getLayoutKeyLabel(key, layout ?? this._layout);
     }
 
     /**
      * Process deferred keyboard events.
      */
-    public update( now: number ): void
+    public update(now: number): void
     {
-        if( this._deferredKeydown.length > 0 )
+        if(this._deferredKeydown.length > 0)
         {
-            this._deferredKeydown.forEach( (event) => this._processDeferredKeydownEvent(event) );
+            this._deferredKeydown.forEach((event) => this._processDeferredKeydownEvent(event));
             this._deferredKeydown.length = 0;
         }
     }
@@ -347,7 +342,7 @@ export class KeyboardDevice
             e =>
             {
                 k[e.code] = true;
-                d.push( e );
+                d.push(e);
                 this.lastInteraction = performance.now();
             },
             { passive: true, capture: true }
@@ -364,11 +359,11 @@ export class KeyboardDevice
         );
     }
 
-    private _processDeferredKeydownEvent( e: KeyboardEvent ): void
+    private _processDeferredKeydownEvent(e: KeyboardEvent): void
     {
         const keyCode = e.code as KeyCode;
 
-        if ( !e.repeat )
+        if (!e.repeat)
         {
             // detect keyboard layout
             if (
@@ -376,14 +371,14 @@ export class KeyboardDevice
         && this._layoutSource === "lang"
             )
             {
-                const layout = detectKeyboardLayoutFromKeydown( e );
-                if ( layout !== undefined )
+                const layout = detectKeyboardLayoutFromKeydown(e);
+                if (layout !== undefined)
                 {
                     this._layout = layout;
                     this._layoutSource = "keypress";
                     this.options.detectLayoutOnKeypress = false;
 
-                    this._emitter.emit( "layoutdetected", {
+                    this._emitter.emit("layoutdetected", {
                         layout: layout,
                         layoutSource: "keypress",
                         device: this,
@@ -392,24 +387,24 @@ export class KeyboardDevice
             }
 
             // dispatch events
-            if ( this.options.emitEvents && this._emitter.hasListener( keyCode ) )
+            if (this.options.emitEvents && this._emitter.hasListener(keyCode))
             {
-                this._emitter.emit( keyCode, {
+                this._emitter.emit(keyCode, {
                     device: this,
                     keyCode,
-                    keyLabel: this.getKeyLabel( keyCode ),
+                    keyLabel: this.getKeyLabel(keyCode),
                     event: e,
                 });
             }
         }
 
-        if ( this.options.emitEvents )
+        if (this.options.emitEvents)
         {
             // check named binds
-            Object.entries( this.options.binds ).forEach(([ name, keys ]) =>
+            Object.entries(this.options.binds).forEach(([ name, keys ]) =>
             {
-                if ( !keys.includes( keyCode ) ) return;
-                if ( e.repeat && !this.options.repeatableBinds.includes( name ))
+                if (!keys.includes(keyCode)) return;
+                if (e.repeat && !this.options.repeatableBinds.includes(name))
                 {
                     return;
                 }
@@ -417,14 +412,14 @@ export class KeyboardDevice
                 const event = {
                     device: this,
                     keyCode,
-                    keyLabel: this.getKeyLabel( keyCode ),
+                    keyLabel: this.getKeyLabel(keyCode),
                     event: e,
                     name: name,
                     repeat: e.repeat,
                 };
 
-                this._bindDownEmitter.emit( name, event );
-                this._emitter.emit( "binddown", event );
+                this._bindDownEmitter.emit(name, event);
+                this._emitter.emit("binddown", event);
             });
         }
     }

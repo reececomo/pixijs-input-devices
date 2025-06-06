@@ -303,8 +303,7 @@ device.stopHaptics();
 
 ##### Multiple simultaneous haptics on Gamepads
 
-Haptics automatically manage their queue under-the-hood, so you can combine or queue
-them very easily.
+Haptic vibrations automatically combine, so you can execute complex haptic patterns.
 
 ```ts
 device.playHaptic({ duration: 150, buzz: 0.75 });

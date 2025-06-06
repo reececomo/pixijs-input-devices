@@ -1,4 +1,4 @@
-import { HapticEffect } from "../HapticVibration";
+import { HapticEffect } from "../HapticEffect";
 
 type QueuedHapticEffect = HapticEffect & {
     /** When the effect should start */
@@ -153,8 +153,8 @@ export class GamepadHapticManager
 
                 this.gamepad.vibrationActuator.playEffect(this.hapticEvent, {
                     duration: MAX_KEYFRAME_MS,
-                    strongMagnitude: buzz * this.intensity,
-                    weakMagnitude: rumble * this.intensity,
+                    strongMagnitude: rumble * this.intensity,
+                    weakMagnitude: buzz * this.intensity,
                     leftTrigger: leftTrigger * this.intensity,
                     rightTrigger: rightTrigger * this.intensity,
                 });
