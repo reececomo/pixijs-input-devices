@@ -41,15 +41,17 @@ import { Container } from 'pixi.js';
 
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
-	/** Whether the context has a mouse/trackpad pointer. */
+	/** Whether the window context is detected as having a mouse-like pointer. */
 	readonly hasMouseLikePointer: boolean;
-	/** Whether the context is a mobile device. */
-	readonly isMobile: boolean;
-	/** Whether the context has touchscreen capability. */
+	/** Whether the window context is a touchscreen. */
 	readonly isTouchCapable: boolean;
+	/** Whether the window context is detected as mobile. */
+	readonly isMobile: boolean;
 	/** Global keyboard interface (for all virtual & physical keyboards). */
 	readonly keyboard: KeyboardDevice;
-	/** Options that apply to input devices */
+	/**
+	 * Options that apply to input devices.
+	 */
 	options: {
 		/**
 		 * When the window loses focus, this triggers the clear

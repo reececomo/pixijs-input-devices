@@ -24,16 +24,16 @@ class InputDeviceManager
 
     // ----- Context capabilities: -----
 
-    /** Whether the context has a mouse/trackpad pointer. */
+    /** Whether the window context is detected as having a mouse-like pointer. */
     public readonly hasMouseLikePointer: boolean =
         window.matchMedia("(pointer: fine) and (hover: hover)").matches;
 
-    /** Whether the context is a mobile device. */
-    public readonly isMobile: boolean = isMobile();
-
-    /** Whether the context has touchscreen capability. */
+    /** Whether the window context is a touchscreen. */
     public readonly isTouchCapable: boolean =
-        "ontouchstart" in window || navigator.maxTouchPoints > 0;
+        ("ontouchstart" in window || window.TouchEvent) && navigator.maxTouchPoints > 0;
+
+    /** Whether the window context is detected as mobile. */
+    public readonly isMobile: boolean = isMobile();
 
     // ----- Global devices: -----
 
@@ -42,7 +42,9 @@ class InputDeviceManager
 
     // ----- Global options: -----
 
-    /** Options that apply to input devices */
+    /**
+     * Options that apply to input devices.
+     */
     public options = {
         /**
          * When the window loses focus, this triggers the clear
