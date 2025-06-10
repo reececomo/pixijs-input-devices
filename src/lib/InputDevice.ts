@@ -1,6 +1,6 @@
 import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
-import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
+import { Keyboard, KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 
@@ -38,8 +38,10 @@ class InputDeviceManager
 
     // ----- Global devices: -----
 
-    /** Global keyboard interface (for all virtual & physical keyboards). */
-    public readonly keyboard: KeyboardDevice = KeyboardDevice.global;
+    /**
+     * Global keyboard interface (for all virtual & physical keyboards).
+     */
+    public readonly keyboard = Keyboard;
 
     // ----- Global options: -----
 
