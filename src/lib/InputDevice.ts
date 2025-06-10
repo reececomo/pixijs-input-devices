@@ -246,15 +246,18 @@ class InputDeviceManager
      */
     public remove(device: Device): void
     {
-        if (device instanceof GamepadDevice)
+        if (device instanceof KeyboardDevice)
         {
-            // gamepad
+            device.detected = false;
+        }
+        else if (device instanceof GamepadDevice)
+        {
             this._gamepadIdx.delete(device.source.index);
 
             const gamepadsIndex = this._gamepads.indexOf(device);
             if (gamepadsIndex !== -1) this._gamepads.splice(gamepadsIndex, 1);
         }
-        else if (!(device instanceof KeyboardDevice))
+        else
         {
             // custom device
             const customIndex = this._custom.indexOf(device);
