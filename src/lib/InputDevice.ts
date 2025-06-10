@@ -303,21 +303,10 @@ class InputDeviceManager
         this._hasFocus = true;
         const now = performance.now();
 
-        // keyboard
-        if (this.keyboard.detected) this.keyboard.update(now);
-
-        // gamepads
-        if (this._gamepads.length > 0)
-        {
-            this._pollGamepads(now);
-        }
-
-        // custom
-        if (this._custom.length > 0)
-        {
-            this._custom.forEach(custom => custom.update(now));
-        }
-
+        // poll inputs
+        if (this.keyboard.detected)         this.keyboard.update(now);
+        if (this._gamepads.length > 0)      this._pollGamepads(now);
+        for (const custom of this._custom)  custom.update(now);
         this._updateLastInteracted();
 
         return this._devices;
