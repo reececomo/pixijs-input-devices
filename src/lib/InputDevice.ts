@@ -1,11 +1,12 @@
 import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
-import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
+import { Keyboard, KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 
 
-export interface InputDeviceEvent {
+export interface InputDeviceEvent
+{
   deviceadded: { device: Device },
   deviceremoved: { device: Device },
   lastdevicechanged: { device: Device },
@@ -37,8 +38,10 @@ class InputDeviceManager
 
     // ----- Global devices: -----
 
-    /** Global keyboard interface (for all virtual & physical keyboards). */
-    public readonly keyboard: KeyboardDevice = KeyboardDevice.global;
+    /**
+     * Global keyboard interface (for all virtual & physical keyboards).
+     */
+    public readonly keyboard = Keyboard;
 
     // ----- Global options: -----
 
@@ -61,45 +64,51 @@ class InputDeviceManager
     // ----- Internal: -----
 
     private readonly _devices: Device[] = [];
-    private readonly _gamepadDevices: GamepadDevice[] = [];
-    private readonly _gamepadDeviceMap = new Map<number, GamepadDevice>();
-    private readonly _customDevices: CustomDevice[] = [];
+
+    // gamepads:
+    private readonly _gamepads: GamepadDevice[] = [];
+    private readonly _gamepadIdx = new Map<number, GamepadDevice>();
+
+    // custom devices:
+    private readonly _custom: CustomDevice[] = [];
+
+    // events:
     private readonly _emitter = new EventEmitter<InputDeviceEvent>();
     private readonly _bindDownEmitter = new EventEmitter<Record<string, NamedBindEvent>>();
 
+    // state:
     private _hasFocus: boolean = false;
     private _lastInteractedDevice?: Device;
 
     private constructor()
     {
-    // gamepads
-        window.addEventListener(
-            "gamepadconnected",
-            () => this._pollGamepads(performance.now()) // (handles register)
-        );
-        window.addEventListener(
-            "gamepaddisconnected",
-            (event) => this._removeGamepad(event.gamepad.index)
-        );
-
-        // keyboard:
-        //   the keyboard interface is always available globally, but is only registered
-        //   as "connected" input device (i.e. put into the list of active devices) when
-        //   we are confident it is available
-        if (!this.isMobile && this.hasMouseLikePointer)
-        {
-            // auto-register
-            this.add(this.keyboard);
-        }
+        // Keyboard:
+        //   Auto-register as the default device in a desktop-like environment.
+        //   Otherwise wait until first usage to activate instead.
+        if (!this.isMobile && this.hasMouseLikePointer) this.add(this.keyboard);
         else
         {
-            // defer register until first keydown
             window.addEventListener(
                 "keydown",
                 () => this.add(this.keyboard),
                 { once: true }
             );
         }
+
+        // Gamepads:
+        //   Listen for connect/disconnect events.
+        window.addEventListener("gamepadconnected", (event) =>
+        {
+            const device = new GamepadDevice(event.gamepad);
+            this.add(device);
+        });
+
+        window.addEventListener("gamepaddisconnected", (event) =>
+        {
+            const device = this._gamepadIdx.get(event.gamepad.index);
+            if (device) this.remove(device);
+        });
+
     }
 
     /**
@@ -119,7 +128,7 @@ class InputDeviceManager
      */
     public get gamepads(): readonly GamepadDevice[]
     {
-        return this._gamepadDevices;
+        return this._gamepads;
     }
 
     /**
@@ -129,7 +138,7 @@ class InputDeviceManager
      */
     public get custom(): readonly CustomDevice[]
     {
-        return this._customDevices;
+        return this._custom;
     }
 
     /**
@@ -219,8 +228,8 @@ class InputDeviceManager
         }
         else if (device instanceof GamepadDevice)
         {
-            this._gamepadDeviceMap.set(device.source.index, device);
-            this._gamepadDevices.push(device);
+            this._gamepadIdx.set(device.source.index, device);
+            this._gamepads.push(device);
 
             // forward named bind events
             device.on("binddown", (e) => this.emitBindDown(e));
@@ -228,7 +237,7 @@ class InputDeviceManager
         else
         {
             // custom devices are respon
-            this._customDevices.push(device);
+            this._custom.push(device);
         }
 
         this._emitter.emit("deviceadded", { device });
@@ -239,13 +248,24 @@ class InputDeviceManager
      */
     public remove(device: Device): void
     {
-    // remove custom device
-        if (!(device instanceof KeyboardDevice || device instanceof GamepadDevice))
+        if (device instanceof KeyboardDevice)
         {
-            const customIndex = this._customDevices.indexOf(device);
+            device.detected = false;
+        }
+        else if (device instanceof GamepadDevice)
+        {
+            this._gamepadIdx.delete(device.source.index);
+
+            const gamepadsIndex = this._gamepads.indexOf(device);
+            if (gamepadsIndex !== -1) this._gamepads.splice(gamepadsIndex, 1);
+        }
+        else
+        {
+            // custom device
+            const customIndex = this._custom.indexOf(device);
             if (customIndex !== -1)
             {
-                this._customDevices.splice(customIndex, 1);
+                this._custom.splice(customIndex, 1);
             }
         }
 
@@ -283,21 +303,10 @@ class InputDeviceManager
         this._hasFocus = true;
         const now = performance.now();
 
-        // keyboard
-        if (this.keyboard.detected) this.keyboard.update(now);
-
-        // gamepads
-        if (this._gamepadDevices.length > 0)
-        {
-            this._pollGamepads(now);
-        }
-
-        // custom
-        if (this._customDevices.length > 0)
-        {
-            this._customDevices.forEach(custom => custom.update(now));
-        }
-
+        // poll inputs
+        if (this.keyboard.detected)         this.keyboard.update(now);
+        if (this._gamepads.length > 0)      this._pollGamepads(now);
+        for (const custom of this._custom)  custom.update(now);
         this._updateLastInteracted();
 
         return this._devices;
@@ -318,7 +327,7 @@ class InputDeviceManager
             {
                 if (
                     last === undefined
-          || device.lastInteraction > last.lastInteraction
+                    || device.lastInteraction > last.lastInteraction
                 )
                 {
                     last = device;
@@ -335,46 +344,17 @@ class InputDeviceManager
         this._lastInteractedDevice = last;
     }
 
-    /**
-     * @returns updates connected gamepads, performing a poll of latest input
-     */
-    private _pollGamepads(now: number): ReadonlyArray<GamepadDevice>
+    // ----- Implementation: -----
+
+    private _pollGamepads(now: number): void
     {
-        if (!document.hasFocus()) return this._gamepadDevices;
-        if (navigator.getGamepads === undefined) return this._gamepadDevices;
+        if (navigator.getGamepads == null) return;
 
         for (const source of navigator.getGamepads())
         {
             if (source == null) continue;
-
-            if (this._gamepadDeviceMap.has(source.index))
-            {
-                const gamepad = this._gamepadDeviceMap.get(source.index);
-                gamepad.update(source, now);
-            }
-            else
-            {
-                const gamepad = new GamepadDevice(source);
-                this.add(gamepad);
-                gamepad.update(source, now);
-            }
+            this._gamepadIdx.get(source.index)?.update(source, now);
         }
-
-        return this._gamepadDevices;
-    }
-
-    // ----- Implementation: -----
-
-    private _removeGamepad(gamepadIndex: number): void
-    {
-        const gamepad = this._gamepadDeviceMap.get(gamepadIndex);
-        if (! gamepad) return;
-
-        const gamepadsIndex = this._gamepadDevices.indexOf(gamepad);
-        if (gamepadsIndex !== -1) this._gamepadDevices.splice(gamepadsIndex, 1);
-
-        this.remove(gamepad);
-        this._gamepadDeviceMap.delete(gamepadIndex);
     }
 }
 

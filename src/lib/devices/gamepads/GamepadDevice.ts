@@ -232,7 +232,7 @@ export class GamepadDevice
 
     // ----- Internal: -----
 
-    private readonly haptics: GamepadHapticManager | undefined;
+    private readonly _haptics: GamepadHapticManager | undefined;
     private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
     private readonly _bindDownEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
     private readonly _debounces = new Map<GamepadCode, number>();
@@ -241,8 +241,8 @@ export class GamepadDevice
     {
         this.id = "gamepad" + source.index;
         this.layout = detectLayout(source?.id) ?? "unknown";
-        this.haptics = new GamepadHapticManager(source);
-        this.supportsTriggerRumble = this.haptics.hasTriggerRumble;
+        this._haptics = new GamepadHapticManager(source);
+        this.supportsTriggerRumble = this._haptics.hapticEvent === "trigger-rumble";
     }
 
     // ----- Button helpers: -----
@@ -345,7 +345,7 @@ export class GamepadDevice
     {
         if (!this.options.vibration.enabled) return;
 
-        effects.forEach((effect) => this.haptics.play(effect, this.options.vibration.intensity));
+        effects.forEach((effect) => this._haptics.play(effect, this.options.vibration.intensity));
     }
 
     /**
@@ -353,16 +353,16 @@ export class GamepadDevice
      */
     public stopHaptics(): void
     {
-        this.haptics.reset();
+        this._haptics.reset();
     }
 
     // ----- Lifecycle: -----
 
     public update(source: Gamepad, now: number): void
     {
-        this._updatePresses(source, now);
         this.source = source;
-        this.haptics.update();
+        this._poll(source, now);
+        this._haptics.update();
     }
 
     public clear(): void
@@ -374,10 +374,10 @@ export class GamepadDevice
             return obj;
         }, {} as any);
 
-        this.haptics.reset();
+        this._haptics.reset();
     }
 
-    private _updatePresses(source: Gamepad, now: number): void
+    private _poll(source: Gamepad, now: number): void
     {
         const axisCount = 4;
         const buttonCount = 16;

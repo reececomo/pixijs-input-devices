@@ -424,3 +424,5 @@ export class KeyboardDevice
         }
     }
 }
+
+export const Keyboard = KeyboardDevice.global;

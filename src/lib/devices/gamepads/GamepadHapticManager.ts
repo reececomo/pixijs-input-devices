@@ -13,7 +13,6 @@ const MAX_KEYFRAME_MS = 2_000;
 export class GamepadHapticManager
 {
     public readonly hapticEvent?: "dual-rumble" | "trigger-rumble";
-    public readonly hasTriggerRumble: boolean;
 
     private gamepad: Gamepad;
     private activeEffects: QueuedHapticEffect[] = [];
@@ -41,8 +40,6 @@ export class GamepadHapticManager
                 : "dual-rumble";
         }
         else this.hapticEvent = undefined;
-
-        this.hasTriggerRumble = this.hapticEvent === "trigger-rumble";
     }
 
     public play(haptic: HapticEffect, intensity: number): void
