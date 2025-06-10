@@ -35,16 +35,23 @@ for (const device of InputDevice.devices)
 #### Configure binds
 
 ```ts
-import { GamepadDevice, KeyboardDevice } from "pixijs-input-devices";
+import { InputDevice, GamepadDevice } from "pixijs-input-devices";
 
 // ⌨️ keyboard
-KeyboardDevice.global.configureBinds({
+InputDevice.keyboard.configureBinds({
     jump:   ["Space"],
     left:   ["KeyA", "ArrowLeft"],
     right:  ["KeyD", "ArrowRight"],
 });
 
-// 🎮 gamepads
+// 🎮 gamepad
+InputDevice.gamepads[0].configurBinds({
+    left:   ["DpadLeft"],
+    right:  ["DpadRight"],
+    jump:   ["Face1"],
+});
+
+// 🎮 gamepads (all)
 GamepadDevice.configureDefaultBinds({
     left:   ["DpadLeft"],
     right:  ["DpadRight"],
@@ -132,9 +139,9 @@ registerPixiJSNavigationMixin(PIXI.Container)
 The `InputDevice` singleton controls all device discovery.
 
 ```ts
-InputDevice.keyboard  // KeyboardDevice
+InputDevice.keyboard  // Keyboard
 InputDevice.gamepads  // GamepadDevice[]
-InputDevice.custom    // Device[]
+InputDevice.custom    // CustomDevice[]
 ```
 
 You can access all **active/connected** devices using `.devices`:
@@ -193,14 +200,20 @@ InputDevice.onBindDown("my_custom_bind", (event) => {
 })
 ```
 
-### KeyboardDevice
+### Keyboard
 
 Unlike gamepads & custom devices, there is a single global keyboard device.
 
 ```ts
-let keyboard = InputDevice.keyboard
+if (device.type === "keyboard" && device.key.ControlLeft) {  // …
 
-if (keyboard.key.ControlLeft) {  // …
+// or
+
+if (Keyboard.key.ControlLeft) {  // …
+
+// or
+
+if (InputDevice.keyboard.key.ControlLeft) {  // …
 ```
 
 > [!NOTE]

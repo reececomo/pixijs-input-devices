@@ -64,9 +64,9 @@ declare class InputDeviceManager {
 		requireDocumentFocus: boolean;
 	};
 	private readonly _devices;
-	private readonly _gamepadDevices;
-	private readonly _gamepadDeviceMap;
-	private readonly _customDevices;
+	private readonly _gamepads;
+	private readonly _gamepadIdx;
+	private readonly _custom;
 	private readonly _emitter;
 	private readonly _bindDownEmitter;
 	private _hasFocus;
@@ -117,11 +117,7 @@ declare class InputDeviceManager {
 	 */
 	update(): ReadonlyArray<Device>;
 	private _updateLastInteracted;
-	/**
-	 * @returns updates connected gamepads, performing a poll of latest input
-	 */
 	private _pollGamepads;
-	private _removeGamepad;
 }
 declare class NavigationManager {
 	static global: NavigationManager;
@@ -679,6 +675,7 @@ export declare const KeyCode: {
 	readonly VolumeUp: "VolumeUp";
 	readonly WakeUp: "WakeUp";
 };
+export declare const Keyboard: KeyboardDevice;
 /**
  * Responsible for global navigation interactions.
  *
