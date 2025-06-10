@@ -202,18 +202,27 @@ InputDevice.onBindDown("my_custom_bind", (event) => {
 
 ### Keyboard
 
-Unlike gamepads & custom devices, there is a single global keyboard device.
+There is a single global keyboard device.
+
+```ts
+import { Keyboard } from "pixijs-input-devices";
+
+if (Keyboard.key.ControlLeft) {  // …
+```
+
+`InputDevice` also provides global accessors for `gamepads`, `keyboard` and `custom`.
+
+```ts
+import { InputDevice } from "pixijs-input-devices";
+
+if (InputDevice.keyboard.key.ControlLeft) {  // …
+if (InputDevice.gamepads[0].button.DpadLeft) {  // …
+```
+
+and of course, keyboards can be type-narrowed when iterating through devices:
 
 ```ts
 if (device.type === "keyboard" && device.key.ControlLeft) {  // …
-
-// or
-
-if (Keyboard.key.ControlLeft) {  // …
-
-// or
-
-if (InputDevice.keyboard.key.ControlLeft) {  // …
 ```
 
 > [!NOTE]
