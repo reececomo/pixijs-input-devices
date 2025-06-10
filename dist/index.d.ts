@@ -47,7 +47,9 @@ declare class InputDeviceManager {
 	readonly isTouchCapable: boolean;
 	/** Whether the window context is detected as mobile. */
 	readonly isMobile: boolean;
-	/** Global keyboard interface (for all virtual & physical keyboards). */
+	/**
+	 * Global keyboard interface (for all virtual & physical keyboards).
+	 */
 	readonly keyboard: KeyboardDevice;
 	/**
 	 * Options that apply to input devices.
@@ -362,7 +364,7 @@ export declare class GamepadDevice {
 	leftShoulder: number;
 	/** A scalar 0.0 to 1.0 representing the right shoulder value */
 	rightShoulder: number;
-	private readonly haptics;
+	private readonly _haptics;
 	private readonly _emitter;
 	private readonly _bindDownEmitter;
 	private readonly _debounces;
@@ -393,7 +395,7 @@ export declare class GamepadDevice {
 	stopHaptics(): void;
 	update(source: Gamepad, now: number): void;
 	clear(): void;
-	private _updatePresses;
+	private _poll;
 	/**
 	 * Inline relay debouncer.
 	 * @returns true when already in progress and the operation should be skipped
