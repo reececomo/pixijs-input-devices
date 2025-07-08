@@ -3,6 +3,7 @@ import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
 import { Keyboard, KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
+import { Options } from "./utils/Options";
 
 
 export interface InputDeviceEvent
@@ -48,18 +49,7 @@ class InputDeviceManager
     /**
      * Options that apply to input devices.
      */
-    public options = {
-        /**
-         * When the window loses focus, this triggers the clear
-         * input function.
-         */
-        clearInputOnBackground: true,
-
-        /**
-         * Require window/document to be in foreground.
-         */
-        requireDocumentFocus: true,
-    };
+    public options = Options;
 
     // ----- Internal: -----
 

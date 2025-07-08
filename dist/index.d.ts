@@ -55,15 +55,9 @@ declare class InputDeviceManager {
 	 * Options that apply to input devices.
 	 */
 	options: {
-		/**
-		 * When the window loses focus, this triggers the clear
-		 * input function.
-		 */
 		clearInputOnBackground: boolean;
-		/**
-		 * Require window/document to be in foreground.
-		 */
 		requireDocumentFocus: boolean;
+		supressHapticsInactivityPeriodMs: number;
 	};
 	private readonly _devices;
 	private readonly _gamepads;

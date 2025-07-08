@@ -73,6 +73,15 @@ export class GamepadHapticManager
 
         if (this.gamepad.vibrationActuator)
         {
+            // play empty effect
+            this.gamepad.vibrationActuator.playEffect("dual-rumble", {
+                duration: 1,
+                strongMagnitude: 0,
+                weakMagnitude: 0,
+                leftTrigger: 0,
+                rightTrigger: 0,
+            });
+
             this.gamepad.vibrationActuator.reset();
         }
         else if ((this.gamepad as any).hapticActuators)

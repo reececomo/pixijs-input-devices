@@ -3,9 +3,10 @@
 import { Axis, AxisCode, Button, ButtonCode } from "./buttons";
 import { detectLayout, GamepadLayout } from "./layouts";
 import { EventEmitter, EventOptions } from "../../utils/events";
-import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
-import { HapticEffect } from "../HapticEffect";
 import { GamepadHapticManager } from "./GamepadHapticManager";
+import { HapticEffect } from "../HapticEffect";
+import { NavigationIntent } from "../../../lib/navigation/NavigationIntent";
+import { Options } from "../../utils/Options";
 
 
 export { Button, GamepadLayout };
@@ -344,6 +345,14 @@ export class GamepadDevice
     public playHaptic(...effects: HapticEffect[]): void
     {
         if (!this.options.vibration.enabled) return;
+
+        if (
+            Options.supressHapticsInactivityPeriodMs > 0
+            && performance.now() - this.lastInteraction > Options.supressHapticsInactivityPeriodMs
+        )
+        {
+            return; // haptics are muted
+        }
 
         effects.forEach((effect) => this._haptics.play(effect, this.options.vibration.intensity));
     }
