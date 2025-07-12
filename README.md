@@ -4,33 +4,12 @@
 
 | | |
 | ------ | ------ |
-| 🎮 Instant [keyboard](#keyboarddevice), [gamepads](#gamepaddevice), and [custom device](#custom-devices) support | 🚀 [Real-time](#real-time) &amp; [event-driven](#keyboarddevice-events) APIs |
-| ⚡ Optimized for [performance](https://web.dev/articles/inp) | 🧭 Built-in [UI navigation](#uinavigation-api) |
-| 🔮 Highly configurable (with sensible defaults) | 🪄 Supports [input binding](#named-binds) |
-| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🌐 Automatic [Intl layouts](#keyboard-layout---detection) detection |
-| 🍃 Zero dependencies & tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
+| 🎮 Enable [keyboard](#keyboard), [gamepads](#gamepaddevice), [and more](#custom-devices) | 🪄 Input [binding](#named-binds) |
+| ⚡ Performance [optimized](https://web.dev/articles/inp) | 🚀 Simple APIs ([realtime](#real-time), [events](#keyboarddevice-events)) |
+| 🔮 Configurable (and sensible defaults) | 🧭 Navigate [pointer-based UIs](#uinavigation-api) |
+| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🌐 International layout [support](#keyboard-layout---detection) |
+| 🍃 Zero dependencies, tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
 
-
-## Basic Usage
-
-```ts
-import { InputDevice } from "pixijs-input-devices";
-
-let moveX = 0.0,
-    jump = false;
-
-for (const device of InputDevice.devices)
-{
-    if (device.bindDown("left"))    moveX = -1;
-    if (device.bindDown("right"))   moveX =  1;
-    if (device.bindDown("jump"))    jump = true;
-
-    if (device.type === "gamepad" && device.leftJoystick.x != 0.0)
-    {
-        moveX = device.leftJoystick.x;
-    }
-}
-```
 
 #### Configure binds
 
@@ -41,26 +20,45 @@ import { InputDevice, GamepadDevice } from "pixijs-input-devices";
 InputDevice.keyboard.configureBinds({
     jump:   ["Space"],
     left:   ["KeyA", "ArrowLeft"],
-    right:  ["KeyD", "ArrowRight"],
+    right:  ["KeyD", "ArrowRight"]
 });
 
-// 🎮 gamepad
-InputDevice.gamepads[0].configurBinds({
-    left:   ["DpadLeft"],
-    right:  ["DpadRight"],
-    jump:   ["Face1"],
-});
-
-// 🎮 gamepads (all)
+// 🎮 all gamepads
 GamepadDevice.configureDefaultBinds({
     left:   ["DpadLeft"],
     right:  ["DpadRight"],
-    jump:   ["Face1"],
+    jump:   ["Face1"]
+});
+
+// 🎮 individual gamepad
+InputDevice.gamepads[0].configurBinds({
+    left:   ["LeftStickLeft"],
+    right:  ["LeftStickRight"]
 });
 ```
 
 > [!TIP]
 > See [**Named binds**](#named-binds) for more information on configuring devices.
+
+## Basic Usage
+
+```ts
+let jump = false;
+let moveX = 0;
+
+for (let device of InputDevice.devices)
+{
+    if (device.bindDown("jump")) jump = true;
+    if (device.bindDown("left")) moveX = -1;
+    if (device.bindDown("right")) moveX = 1;
+
+    // 🎮 analog
+    if (device.type === "gamepad" && device.leftJoystick.x)
+    {
+        moveX = device.leftJoystick.x;
+    }
+}
+```
 
 #### Events
 
