@@ -396,58 +396,74 @@ export class GamepadDevice
         for (let a = 0; a < axisCount; a++)
         {
             const value = _scale(source.axes[a], joy.deadzone);
-            const axisCode = AxisCode[a * 2 + (value > 0 ? 1 : 0)];
+
+            // Get both direction codes for this axis
+            const negativeAxisCode = AxisCode[a * 2];     // Left / Up
+            const positiveAxisCode = AxisCode[a * 2 + 1]; // Right / Down
 
             if (Math.abs(value) < joy.pressThreshold)
             {
-                if (!this.button[axisCode])
+                // Joystick is at rest – clear both directions and debounces
+                if (this.button[negativeAxisCode] || this.button[positiveAxisCode])
                 {
-                    this._debounces.delete(axisCode);
+                    this._debounces.delete(negativeAxisCode);
+                    this._debounces.delete(positiveAxisCode);
                 }
 
-                this.button[axisCode] = false;
+                this.button[negativeAxisCode] = false;
+                this.button[positiveAxisCode] = false;
+
+                continue;
             }
-            else
+
+            // Determine active & inactive directions
+            const activeAxisCode = value < 0 ? negativeAxisCode : positiveAxisCode;
+            const inactiveAxisCode = activeAxisCode === negativeAxisCode ? positiveAxisCode : negativeAxisCode;
+
+            // Clear the opposite direction when switching
+            if (this.button[inactiveAxisCode])
             {
-                const delayMs = joy.autoRepeatDelayMs[+this.button[axisCode]];
+                this.button[inactiveAxisCode] = false;
+                this._debounces.delete(inactiveAxisCode);
+            }
 
-                if (this._debounce(axisCode, delayMs) && this.button[axisCode])
+            const delayMs = joy.autoRepeatDelayMs[+this.button[activeAxisCode]];
+            if (this._debounce(activeAxisCode, delayMs) && this.button[activeAxisCode])
+            {
+                continue;
+            }
+
+            this.button[activeAxisCode] = true;
+            this.lastInteraction = now;
+
+            // emit events
+            if (this.options.emitEvents)
+            {
+                if (this._emitter.hasListener(activeAxisCode))
                 {
-                    continue;
-                }
-
-                this.button[axisCode] = true;
-                this.lastInteraction = now;
-
-                // emit events
-                if (this.options.emitEvents)
-                {
-                    if (this._emitter.hasListener(axisCode))
-                    {
-                        this._emitter.emit(axisCode, {
-                            device: this,
-                            axis: a as Axis,
-                            axisCode,
-                        });
-                    }
-
-                    // check named bind events
-                    Object.entries(this.options.binds).forEach(([ name, values ]) =>
-                    {
-                        if (!values.includes(axisCode)) return;
-
-                        const event: GamepadNamedBindEvent = {
-                            device: this,
-                            type: "axis",
-                            axis: a as Axis,
-                            axisCode,
-                            name: name,
-                        };
-
-                        this._bindDownEmitter.emit(name, event);
-                        this._emitter.emit("binddown", event);
+                    this._emitter.emit(activeAxisCode, {
+                        device: this,
+                        axis: a as Axis,
+                        axisCode: activeAxisCode,
                     });
                 }
+
+                // check named bind events
+                Object.entries(this.options.binds).forEach(([ name, values ]) =>
+                {
+                    if (!values.includes(activeAxisCode)) return;
+
+                    const event: GamepadNamedBindEvent = {
+                        device: this,
+                        type: "axis",
+                        axis: a as Axis,
+                        axisCode: activeAxisCode,
+                        name: name,
+                    };
+
+                    this._bindDownEmitter.emit(name, event);
+                    this._emitter.emit("binddown", event);
+                });
             }
         }
 
