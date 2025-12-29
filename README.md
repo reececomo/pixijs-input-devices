@@ -124,7 +124,7 @@ import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-device
 const app = new PIXI.Application(/*…*/)
 
 // enable the navigation API
-UINavigation.configureWithRoot(app.stage)
+UINavigation.enable(app.stage)
 registerPixiJSNavigationMixin(PIXI.Container)
 ```
 
@@ -483,14 +483,14 @@ for (const gamepad of InputDevice.gamepads) {
 
 ## UINavigation API
 
-_Traverse a UI using input devices._
+_Traversing a pointer-based UI using input devices._
 
 ### Quick setup
 
 Set up navigation once using:
 
 ```ts
-UINavigation.configureWithRoot(app.stage)  // any root container
+UINavigation.enable(app.stage)  // any root container
 registerPixiJSNavigationMixin(PIXI.Container)
 ```
 
@@ -528,19 +528,13 @@ otherwise the default global navigation behavior kicks in.
 
 ### Default Global Navigation Behaviors
 
-When a navigation intent is **not** handled manually by a responder, it is handled in one of the following ways:
+When a navigation action is **not** handled manually by a responder, it is handled in one of the following ways:
 
-| Intent | Behavior |
+| Action | Behavior |
 |---|---|
-|`"navigate.back"`|<ul><li>No action.</li></ul>|
-|`"navigate.left"`, `"navigate.right"`, `"navigate.up"`, `"navigate.down"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, receives a `"deviceover"` event.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"` or `"mouseover"` (in that order), it will fire that too.</li><li>If we were previously focused on a container, that previous container receives a `"deviceout"` event.</li><li>If the blurred container has register an event handler for either `"pointerout"` or `"mouseout"` (in that order), that event handler will be fired too.</li></ul>|
-|`"navigate.trigger"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"devicedown"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"` or `"mousedown"` (in that order), that event handler will be fired too.</li></ul>|
-
-| Container event  | Description | Compatibility
-|-----------------|-------------|------------------------------------------
-| `"devicedown"`   | Target was triggered. | `"pointerdown"`, `"mousedown"`
-| `"deviceover"`   | Target became focused. | `"pointerover"`, `"mouseover"`
-| `"deviceout"`    | Target lost focus. | `"pointerout"`, `"mouseout"`
+|`"NavigateBack"`|<ul><li>No action.</li></ul>|
+|`"NavigateLeft"`, `"NavigateRight"`, `"NavigateUp"`, `"NavigateDown"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, receives a `"pointerover"` event.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"`, it will fire that too.</li><li>If we were previously focused on a container, that previous container receives a `"pointerout"` event.</li></ul>|
+|`"NavigateActivate"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"pointerdown"` and `"pointerup"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"`, that event handler will be fired too.</li></ul>|
 
 ### Container Navigatability
 
@@ -548,17 +542,9 @@ Containers are extended with a few properties/accessors:
 
 | Container properties | type | default | description
 |---------------------|------|---------|--------------
-| `isNavigatable`      | `get(): boolean` | `false` | returns `true` if `navigationMode` is set to `"target"`, |or is `"auto"` and a `"pointerdown"` or `"mousedown"` event handler is registered.
-| `navigationMode`     | `"auto"` \| `"disabled"` \| `"target"` | `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it has a `"pointerdown"` or `"mousedown"` event handler registered.
+| `isNavigatable`      | `readonly boolean` | `false` | returns `true` if `navigationMode` is set to `"pointer"`, |or is `"auto"` and is interactive.
+| `navigationMode`     | `"auto"` \| `"pointer"` | `"none"` \| `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it is int
 | `navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
-
-> [!NOTE]
-> **isNavigatable:** By default, any element with `"pointerdown"` or `"mousedown"` handlers is navigatable.
-
-> [!WARNING]
-> **Fallback Hover Effect:** If there is no `"pointerover"` or `"mouseover"` handler detected on a container, `UINavigation`
->  will apply abasic alpha effect to the selected item to indicate which container is currently the navigation target. This
-> can be disabled by setting `UINavigation.options.enableFallbackOverEffect` to `false`.
 
 ### Default Binds
 
@@ -566,12 +552,12 @@ The keyboard and gamepad devices are preconfigured with the following binds, fee
 
 Navigation Intent Bind | Keyboard | Gamepad
 ---|---|---
-`"navigate.left"` | "ArrowLeft", "KeyA" | "DpadLeft", "LeftStickLeft"
-`"navigate.right"` | "ArrowRight", "KeyD" | "DpadRight", "LeftStickRight"
-`"navigate.up"` | "ArrowUp", "KeyW" | "DpadUp", "LeftStickUp"
-`"navigate.down"` | "ArrowDown", "KeyS" | "DpadDown", "LeftStickDown"
-`"navigate.trigger"` | "Enter", "Space" | "Face1"
-`"navigate.back"` | "Escape", "Backspace" | "Face2", "Back"
+`"NavigateLeft"` | "ArrowLeft", "KeyA" | "DpadLeft", "LeftStickLeft"
+`"NavigateRight"` | "ArrowRight", "KeyD" | "DpadRight", "LeftStickRight"
+`"NavigateUp"` | "ArrowUp", "KeyW" | "DpadUp", "LeftStickUp"
+`"NavigateDown"` | "ArrowDown", "KeyS" | "DpadDown", "LeftStickDown"
+`"NavigateActivate"` | "Enter", "Space" | "Face1"
+`"NavigateBack"` | "Escape", "Backspace" | "Face2", "Back"
 
 ### Manual control for submenus & modal views
 

@@ -5,36 +5,46 @@ import { detectLayout, GamepadLayout } from "./layouts";
 import { EventEmitter, EventOptions } from "../../utils/events";
 import { GamepadHapticManager } from "./GamepadHapticManager";
 import { HapticEffect } from "../HapticEffect";
-import { NavigationIntent } from "../../../lib/navigation/NavigationIntent";
+import { NavigateBinds } from "../../navigation/NavigateBind";
 import { Options } from "../../utils/Options";
+import { NamedBind } from "../../binds/Binds";
+import { DeviceMetadata } from "../metadata";
 
 
 export { Button, GamepadLayout };
 
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 
-export interface GamepadButtonPressEvent {
+export interface GamepadButtonEvent {
   device: GamepadDevice;
   button: Button;
   buttonCode: ButtonCode;
+  pressed: boolean;
+  value: 0 | 1;
 }
 
 export interface GamepadAxisEvent {
   device: GamepadDevice;
   axis: Axis;
   axisCode: AxisCode;
+  pressed: boolean;
+  value: number;
 }
 
 export type GamepadNamedBindEvent = {
-  device: GamepadDevice;
-  name: string;
   type: "button";
+  device: GamepadDevice;
+  name: NamedBind;
+  pressed: boolean;
+  value: 0 | 1;
   button: Button;
   buttonCode: ButtonCode;
 } | {
-  device: GamepadDevice;
-  name: string;
   type: "axis";
+  device: GamepadDevice;
+  name: NamedBind;
+  pressed: boolean;
+  value: number;
   axis: Axis;
   axisCode: AxisCode;
 }
@@ -42,10 +52,11 @@ export type GamepadNamedBindEvent = {
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type GamepadDeviceEvent = {
   binddown: GamepadNamedBindEvent;
+  bindup: GamepadNamedBindEvent;
 } & {
   [axis in AxisCode]: GamepadAxisEvent;
 } & {
-  [button in ButtonCode]: GamepadButtonPressEvent;
+  [button in ButtonCode]: GamepadButtonEvent;
 };
 
 /**
@@ -67,7 +78,7 @@ export class GamepadDevice
     /**
      * Setup named binds for all newly connecting gamepads.
      */
-    public static configureDefaultBinds<BindName extends string = string | NavigationIntent>(
+    public static configureDefaultBinds<BindName extends NamedBind = NamedBind>(
         binds: Partial<Record<BindName, GamepadCode[]>>,
     ): void
     {
@@ -157,13 +168,13 @@ export class GamepadDevice
          * @readonly
          */
         binds: {
-            "navigate.trigger": ["Face1" ],
-            "navigate.back": [ "Face2" ],
-            "navigate.up": [ "DpadUp", "LeftStickUp" ],
-            "navigate.left": [ "DpadLeft", "LeftStickLeft" ],
-            "navigate.down": [ "DpadDown", "LeftStickDown" ],
-            "navigate.right": [ "DpadRight", "LeftStickRight" ],
-        } as Partial<Record<string, GamepadCode[]>>,
+            "NavigateActivate"  : [ "Face1" ],
+            "NavigateBack"      : [ "Face2" ],
+            "NavigateUp"        : [ "DpadUp", "LeftStickUp" ],
+            "NavigateLeft"      : [ "DpadLeft", "LeftStickLeft" ],
+            "NavigateDown"      : [ "DpadDown", "LeftStickDown" ],
+            "NavigateRight"     : [ "DpadRight", "LeftStickRight" ],
+        } as Partial<Record<NamedBind, GamepadCode[]>>,
     };
 
     /**
@@ -176,7 +187,7 @@ export class GamepadDevice
     /**
      * Associate custom meta data with a device.
      */
-    public readonly meta: Record<string, any> = {};
+    public readonly meta: DeviceMetadata = {};
 
     /**
      * When the gamepad was last interacted with.
@@ -235,7 +246,8 @@ export class GamepadDevice
 
     private readonly _haptics: GamepadHapticManager | undefined;
     private readonly _emitter = new EventEmitter<GamepadDeviceEvent>();
-    private readonly _bindDownEmitter = new EventEmitter<Record<string, GamepadNamedBindEvent>>();
+    private readonly _bindDownEmitter = new EventEmitter<Record<NamedBind, GamepadNamedBindEvent>>();
+    private readonly _bindUpEmitter = new EventEmitter<Record<NamedBind, GamepadNamedBindEvent>>();
     private readonly _debounces = new Map<GamepadCode, number>();
 
     public constructor(public source: Gamepad)
@@ -249,7 +261,7 @@ export class GamepadDevice
     // ----- Button helpers: -----
 
     /** @returns true if any button from the named bind is pressed. */
-    public bindDown(name: string): boolean
+    public bindDown(name: NamedBind): boolean
     {
         if (this.options.binds[name] === undefined) return false;
 
@@ -279,7 +291,7 @@ export class GamepadDevice
     }
 
     /** Set named binds for this gamepad */
-    public configureBinds<BindName extends string = string | NavigationIntent>(
+    public configureBinds<BindName extends string = string | NavigateBinds>(
         binds: Partial<Record<BindName, GamepadCode[]>>
     ): void
     {
@@ -316,7 +328,7 @@ export class GamepadDevice
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
-        name: string,
+        name: NamedBind,
         listener: (event: GamepadNamedBindEvent) => void,
         options?: EventOptions,
     ): this
@@ -328,13 +340,55 @@ export class GamepadDevice
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
-        name: string,
+        name: NamedBind,
         listener?: (event: GamepadNamedBindEvent) => void
     ): this
     {
         this._bindDownEmitter.off(name, listener);
 
         return this;
+    }
+
+    /** Add a named bind event listener (or all if none provided). */
+    public onBindUp(
+        name: NamedBind,
+        listener: (event: GamepadNamedBindEvent) => void,
+        options?: EventOptions,
+    ): this
+    {
+        this._bindUpEmitter.on(name, listener, options);
+
+        return this;
+    }
+
+    /** Remove a named bind event listener (or all if none provided). */
+    public offBindUp(
+        name: NamedBind,
+        listener?: (event: GamepadNamedBindEvent) => void
+    ): this
+    {
+        this._bindUpEmitter.off(name, listener);
+
+        return this;
+    }
+
+    /** Add a named bind event listener (or all if none provided). */
+    public onBind(
+        name: NamedBind,
+        listener: (event: GamepadNamedBindEvent) => void,
+        options?: EventOptions,
+    ): this
+    {
+        return this.onBindUp(name, listener, options);
+    }
+
+    /** Remove a named bind event listener (or all if none provided). */
+    public offBind(
+        name: NamedBind,
+        listener?: (event: GamepadNamedBindEvent) => void
+    ): this
+    {
+        return this.offBindDown(name, listener).offBindUp(name, listener);
     }
 
     // ----- Vibration: -----
@@ -400,7 +454,43 @@ export class GamepadDevice
 
             if (Math.abs(value) < joy.pressThreshold)
             {
-                if (!this.button[axisCode])
+                if (this.button[axisCode])
+                {
+                    // emit events
+                    if (this.options.emitEvents)
+                    {
+                        if (this._emitter.hasListener(axisCode))
+                        {
+                            this._emitter.emit(axisCode, {
+                                device: this,
+                                axis: a as Axis,
+                                axisCode,
+                                pressed: false,
+                                value,
+                            });
+                        }
+
+                        // check named bind events
+                        Object.entries(this.options.binds).forEach(([ name, values ]) =>
+                        {
+                            if (!values.includes(axisCode)) return;
+
+                            const event: GamepadNamedBindEvent = {
+                                device: this,
+                                type: "axis",
+                                axis: a as Axis,
+                                axisCode,
+                                name: name as NamedBind,
+                                pressed: false,
+                                value,
+                            };
+
+                            this._bindDownEmitter.emit(name as NamedBind, event);
+                            this._emitter.emit("binddown", event);
+                        });
+                    }
+                }
+                else
                 {
                     this._debounces.delete(axisCode);
                 }
@@ -428,6 +518,8 @@ export class GamepadDevice
                             device: this,
                             axis: a as Axis,
                             axisCode,
+                            pressed: true,
+                            value,
                         });
                     }
 
@@ -441,10 +533,12 @@ export class GamepadDevice
                             type: "axis",
                             axis: a as Axis,
                             axisCode,
-                            name: name,
+                            name: name as NamedBind,
+                            pressed: true,
+                            value,
                         };
 
-                        this._bindDownEmitter.emit(name, event);
+                        this._bindDownEmitter.emit(name as NamedBind, event);
                         this._emitter.emit("binddown", event);
                     });
                 }
@@ -478,6 +572,8 @@ export class GamepadDevice
                         device: this,
                         button: b,
                         buttonCode,
+                        pressed: true,
+                        value: 1 as const,
                     });
                 }
 
@@ -491,10 +587,12 @@ export class GamepadDevice
                         type: "button",
                         button: b,
                         buttonCode,
-                        name: name,
+                        name: name as NamedBind,
+                        pressed: true,
+                        value: 1 as const,
                     };
 
-                    this._bindDownEmitter.emit(name, event);
+                    this._bindDownEmitter.emit(name as NamedBind, event);
                     this._emitter.emit("binddown", event);
                 });
             }

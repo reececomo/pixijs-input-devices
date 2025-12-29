@@ -9,40 +9,46 @@ import {
     detectKeyboardLayoutFromKeydown,
     getNavigatorKeyLabel
 } from "./layouts";
-import { NavigationIntent } from "src/lib/navigation/NavigationIntent";
+import { NavigateBinds } from "../../navigation/NavigateBind";
+import { NamedBind } from "../../binds/Binds";
+import { DeviceMetadata } from "../metadata";
 
 
 export { KeyCode, KeyboardLayout };
 
-export interface KeyboardDeviceKeydownEvent {
+export interface KeyboardDeviceKeyEvent {
   event: KeyboardEvent,
-  device: KeyboardDevice,
+  device: KeyboardDeviceInstance,
   keyCode: KeyCode,
   /** Layout-specific label for key. @example "Ц" // JCUKEN for "KeyW" */
   keyLabel: string,
 }
 
 export interface KeyboardDeviceLayoutUpdatedEvent {
-  device: KeyboardDevice;
+  device: KeyboardDeviceInstance;
   layout: KeyboardLayout;
   layoutSource: KeyboardLayoutSource;
 }
 
-export interface KeyboardDeviceNamedBindKeydownEvent extends KeyboardDeviceKeydownEvent {
-  name: string;
+export interface KeyboardDeviceNamedBindKeyEvent extends KeyboardDeviceKeyEvent
+{
+  name: NamedBind;
+  pressed: boolean;
+  value: 0 | 1;
   repeat: boolean;
 }
 
 export type KeyboardDeviceEvent = {
   layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
-  binddown: KeyboardDeviceNamedBindKeydownEvent;
+  binddown: KeyboardDeviceNamedBindKeyEvent;
+  bindup: KeyboardDeviceNamedBindKeyEvent;
 } & {
-  [key in KeyCode]: KeyboardDeviceKeydownEvent;
+  [key in KeyCode]: KeyboardDeviceKeyEvent;
 };
 
-export class KeyboardDevice
+export class KeyboardDeviceInstance
 {
-    public static global = new KeyboardDevice();
+    public static global = new KeyboardDeviceInstance();
 
     public readonly type = "keyboard";
     public readonly id = "keyboard";
@@ -50,7 +56,7 @@ export class KeyboardDevice
     /**
      * Associate custom meta data with a device.
      */
-    public readonly meta: Record<string, any> = {};
+    public readonly meta: DeviceMetadata = {};
 
     /** Timestamp of when the keyboard was last interacted with. */
     public lastInteraction = performance.now();
@@ -89,25 +95,25 @@ export class KeyboardDevice
          * @readonly
          */
         binds: {
-            "navigate.back":  [ "Escape", "Backspace" ],
-            "navigate.down":  [ "ArrowDown", "KeyS" ],
-            "navigate.left":  [ "ArrowLeft", "KeyA" ],
-            "navigate.right":  [ "ArrowRight", "KeyD" ],
-            "navigate.trigger":  [ "Enter", "Space" ],
-            "navigate.up":  [ "ArrowUp", "KeyW" ],
-        } as Partial<Record<string, KeyCode[]>>,
+            "NavigateBack"      :  [ "Escape", "Backspace" ],
+            "NavigateDown"      :  [ "ArrowDown", "KeyS" ],
+            "NavigateLeft"      :  [ "ArrowLeft", "KeyA" ],
+            "NavigateRight"     :  [ "ArrowRight", "KeyD" ],
+            "NavigateActivate"  :  [ "Enter", "Space" ],
+            "NavigateUp"        :  [ "ArrowUp", "KeyW" ],
+        } as Partial<Record<NamedBind, KeyCode[]>>,
 
         /**
      * These are the binds that are allowed to repeat when a key
      * is held down.
      *
-     * @default ["navigate.down", "navigate.left", "navigate.right", "navigate.up"]
+     * @default ["NavigateDown", "NavigateLeft", "NavigateRight", "NavigateUp"]
      */
         repeatableBinds: [
-            "navigate.down",
-            "navigate.left",
-            "navigate.right",
-            "navigate.up",
+            "NavigateDown",
+            "NavigateLeft",
+            "NavigateRight",
+            "NavigateUp",
         ],
     };
 
@@ -121,7 +127,8 @@ export class KeyboardDevice
         }, {} as any);
 
     private readonly _emitter = new EventEmitter<KeyboardDeviceEvent>();
-    private readonly _bindDownEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeydownEvent>>();
+    private readonly _bindDownEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeyEvent>>();
+    private readonly _bindUpEmitter = new EventEmitter<Record<string, KeyboardDeviceNamedBindKeyEvent>>();
 
     private _layout: KeyboardLayout;
     private _layoutSource: KeyboardLayoutSource;
@@ -189,8 +196,8 @@ export class KeyboardDevice
 
     // ----- Methods: -----
 
-    /** @returns true if any key from the named bind is pressed. */
-    public bindDown(name: string): boolean
+    /** @returns true if any KeyCode from the named bind is pressed. */
+    public bindDown(name: NamedBind): boolean
     {
         if (this.options.binds[name] === undefined) return false;
 
@@ -220,8 +227,8 @@ export class KeyboardDevice
     }
 
     /** Set custom binds */
-    public configureBinds<BindName extends string = string | NavigationIntent>(
-        binds: Partial<Record<BindName, KeyCode[]>>
+    public configureBinds<B extends NamedBind>(
+        binds: Partial<Record<B, KeyCode[]>>
     ): void
     {
         this.options.binds = {
@@ -264,7 +271,7 @@ export class KeyboardDevice
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
         name: string,
-        listener: (event: KeyboardDeviceNamedBindKeydownEvent) => void,
+        listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
     {
@@ -276,12 +283,54 @@ export class KeyboardDevice
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
         name: string,
-        listener?: (event: KeyboardDeviceNamedBindKeydownEvent) => void
+        listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
         this._bindDownEmitter.off(name, listener);
 
         return this;
+    }
+
+    /** Add a named bind event listener (or all if none provided). */
+    public onBindUp(
+        name: string,
+        listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
+        options?: EventOptions,
+    ): this
+    {
+        this._bindUpEmitter.on(name, listener, options);
+
+        return this;
+    }
+
+    /** Remove a named bind event listener (or all if none provided). */
+    public offBindUp(
+        name: string,
+        listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
+    ): this
+    {
+        this._bindUpEmitter.off(name, listener);
+
+        return this;
+    }
+
+    /** Add a named bind event listener (or all if none provided). */
+    public onBind(
+        name: string,
+        listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
+        options?: EventOptions,
+    ): this
+    {
+        return this.onBindUp(name, listener, options);
+    }
+
+    /** Remove a named bind event listener (or all if none provided). */
+    public offBind(
+        name: string,
+        listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
+    ): this
+    {
+        return this.offBindDown(name, listener).offBindUp(name, listener);
     }
 
     // ----- Helpers: -----
@@ -414,8 +463,10 @@ export class KeyboardDevice
                     keyCode,
                     keyLabel: this.getKeyLabel(keyCode),
                     event: e,
-                    name: name,
+                    name: name as NamedBind,
                     repeat: e.repeat,
+                    value: 1 as const,
+                    pressed: true,
                 };
 
                 this._bindDownEmitter.emit(name, event);
@@ -425,4 +476,4 @@ export class KeyboardDevice
     }
 }
 
-export const Keyboard = KeyboardDevice.global;
+export const KeyboardDevice = KeyboardDeviceInstance.global;

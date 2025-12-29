@@ -1,22 +1,48 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as PIXI from 'pixi.js';
+import type { Container } from "pixi.js";
 
-/*
- * PixiJs Mixin:
- */
+export type NavigationMode = "auto" | "none" | "pointer";
+type DeprecatedNavigationMode = "target" | "disabled";
 
-declare module 'pixi.js' {
+export interface NavigateLinks
+{
+  /** Container to navigate to on "NavigateLeft". */
+  left?: Container;
 
-  export interface Container {
+  /** Container to navigate to on "NavigateRight". */
+  right?: Container;
+
+  /** Container to navigate to on "NavigateUp". */
+  up?: Container;
+
+  /** Container to navigate to on "NavigateDown". */
+  down?: Container;
+
+  /** Container to navigate to on "NavigateBack". */
+  back?: Container;
+
+  /** Container to navigate to on "NavigateActivate". */
+  activate?: Container;
+}
+
+declare module "pixi.js"
+{
+  export interface Container
+  {
+    /**
+     * @returns true when navigationMode is "target", or
+     * navigationMode is "auto" and the container has an
+     * event handler for a "pointerdown" event.
+     */
+    readonly isNavigatable: boolean;
 
     /**
-     * Whether this container is navigatable or not.
+     * Whether this container is device navigatable or not.
      *
-     * Set this to "disabled" to manually exclude a container and its children.
+     * Set to "none" to exclude an interactive container and its children.
      *
      * @default "auto"
      */
-    navigationMode?: "auto" | "target" | "disabled" | undefined;
+    navigationMode: NavigationMode | DeprecatedNavigationMode;
 
     /**
      * When selecting a default navigation focus target, the
@@ -27,13 +53,10 @@ declare module 'pixi.js' {
     navigationPriority: number;
 
     /**
-     * @returns true when navigationMode is "target", or
-     * navigationMode is "auto" and the container has an
-     * event handler for a "pointerdown" or "mousedown" event.
+     * (Optional) Explicit navigation links for device navigation actions.
      */
-    readonly isNavigatable: boolean;
+    nav?: NavigateLinks;
   }
-
 }
 
 export {};

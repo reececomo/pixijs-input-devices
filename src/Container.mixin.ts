@@ -22,21 +22,24 @@ export function registerPixiJSNavigationMixin<T = Container>(container: T): void
     Object.defineProperty(prototype, "isNavigatable", {
         get: function(this: Container): boolean
         {
-            if (this.navigationMode === "target") return true;
-            if (this.navigationMode !== "auto") return false;
+            if (this.destroyed) return false;
 
-            // if (
-            //   this.interactive === false
-            //   || (this.isInteractive !== undefined)
-            //   && !this.isInteractive()
-            //) return false;
+            if (
+                this.navigationMode === "pointer"
+                || this.navigationMode === "target" // legacy
+            )
+            {
+                return true;
+            }
 
-            const onEvents = this.eventNames();
+            if (
+                this.navigationMode !== "auto"
+            )
+            {
+                return false;
+            }
 
-            return onEvents.length > 0 && (
-                onEvents.includes("pointerdown")
-                || onEvents.includes("mousedown")
-            );
+            return !!this.interactive;
         },
         configurable: true,
         enumerable: false,

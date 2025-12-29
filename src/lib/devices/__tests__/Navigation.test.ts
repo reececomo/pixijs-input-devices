@@ -19,6 +19,11 @@ describe("Navigation", () =>
         const button1 = new Container();
         button1.x = -100;
         button1.interactive = true;
+        button1.on("pointerup", () =>
+        {
+            // do something
+            buttonWasTriggered = true;
+        });
         button1.on("pointerdown", () =>
         {
             // do something
@@ -33,36 +38,40 @@ describe("Navigation", () =>
         menu.addChild(menuItem1, menuItem2);
         menu.x = 100;
         menuItem1.y = -50;
-        menuItem1.navigationMode = "target";
+        menuItem1.navigationMode = "pointer";
         menuItem2.y = 50;
-        menuItem2.navigationMode = "target";
+        menuItem2.navigationMode = "pointer";
 
         stageContainer.addChild(
             button1,
             menu,
         );
 
-        expect(UINavigation.getResponderStage()).toBe(undefined);
-        expect(UINavigation.enabled).toBe(false);
+        expect(UINavigation.getStageContainer()).toBe(undefined);
+        expect(UINavigation.active).toBe(false);
 
-        UINavigation.configureWithRoot(stageContainer);
+        UINavigation.enable(stageContainer);
         UINavigation.autoFocus();
 
-        expect(UINavigation.getResponderStage()).toBe(stageContainer);
+        expect(UINavigation.getStageContainer()).toBe(stageContainer);
         expect(UINavigation.focusTarget === button1).toBe(true);
 
         expect(buttonWasTriggered).toBe(false);
 
-        InputDevice.emitBindDown({
-            name: "navigate.trigger",
+        InputDevice.emitBindUp({
+            name: "NavigateActivate",
             device: InputDevice.keyboard, // any
+            pressed: true,
+            value: 1,
         });
 
         expect(buttonWasTriggered).toBe(true);
 
         InputDevice.emitBindDown({
-            name: "navigate.right",
+            name: "NavigateRight",
             device: InputDevice.keyboard, // any
+            pressed: true,
+            value: 1,
         });
 
         expect(UINavigation.focusTarget === menuItem1).toBe(true);
@@ -72,8 +81,10 @@ describe("Navigation", () =>
 
         // now try to go back
         InputDevice.emitBindDown({
-            name: "navigate.left",
+            name: "NavigateLeft",
             device: InputDevice.keyboard, // any
+            pressed: true,
+            value: 1,
         });
 
         expect(UINavigation.focusTarget === menuItem1).toBe(true);
@@ -82,8 +93,10 @@ describe("Navigation", () =>
 
         // now try to go back again
         InputDevice.emitBindDown({
-            name: "navigate.left",
+            name: "NavigateLeft",
             device: InputDevice.keyboard, // any
+            pressed: true,
+            value: 1,
         });
 
         expect(UINavigation.focusTarget === menuItem1).toBe(false);

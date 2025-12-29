@@ -2,7 +2,7 @@ import { Container } from "pixi.js";
 
 
 type NavigatableContainer = Container;
-type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
+type NavigationDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
 
 /**
  * @returns all navigatable containers in some container
@@ -134,7 +134,7 @@ function chooseFirstNavigatableInDirection(
 
     switch (nearestDirection)
     {
-        case "navigate.up": {
+        case "NavigateUp": {
             const sortedUp = otherElements
                 .filter((el) => el.center.y < focusedCenter.y - minimumDistance)
                 .sort((a, b) => a.yDistSqrd - b.yDistSqrd);
@@ -142,7 +142,7 @@ function chooseFirstNavigatableInDirection(
             return sortedUp[0]?.element ?? fallbackElement;
         }
 
-        case "navigate.left": {
+        case "NavigateLeft": {
             const sortedLeft = otherElements
                 .filter((el) => el.center.x < focusedCenter.x - minimumDistance)
                 .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
@@ -150,7 +150,7 @@ function chooseFirstNavigatableInDirection(
             return sortedLeft[0]?.element ?? fallbackElement;
         }
 
-        case "navigate.right": {
+        case "NavigateRight": {
             const sortedRight = otherElements
                 .filter((el) => el.center.x > focusedCenter.x + minimumDistance)
                 .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
@@ -158,7 +158,7 @@ function chooseFirstNavigatableInDirection(
             return sortedRight[0]?.element ?? fallbackElement;
         }
 
-        case "navigate.down": {
+        case "NavigateDown": {
             const sortedDown = otherElements
                 .filter((el) => el.center.y > focusedCenter.y + minimumDistance)
                 .sort((a, b) => a.yDistSqrd - b.yDistSqrd);

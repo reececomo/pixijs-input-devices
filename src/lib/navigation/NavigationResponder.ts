@@ -1,6 +1,6 @@
 import { Container } from "pixi.js";
 import { Device } from "../InputDevice";
-import { type NavigationIntent } from "./NavigationIntent";
+import { type NavigateBinds } from "./NavigateBind";
 
 /**
  * A target that responds to navigation on the stack.
@@ -27,7 +27,7 @@ export interface NavigationResponder {
    * might return `true` here to prevent any intent from being propagated.
    */
   handledNavigationIntent?(
-    intent: NavigationIntent,
+    intent: NavigateBinds,
     device: Device,
  ): boolean;
 
