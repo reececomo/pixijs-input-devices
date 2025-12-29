@@ -162,7 +162,9 @@ class InputDeviceManager
         return this;
     }
 
-    /** Remove an event listener (or all if none provided) */
+    /**
+     * Remove an event listener (or all if none provided)
+     */
     public off<K extends keyof InputDeviceEvent>(
         event: K,
         listener: (event: InputDeviceEvent[K]) => void
@@ -189,30 +191,6 @@ class InputDeviceManager
     }
 
     /**
-     * Remove a named bind event listener (or ALL event listeners if none provided).
-     */
-    public offBindDown<B extends NamedBind>(
-        name: B | readonly B[],
-        listener?: (event: NamedBindEvent<B>) => void
-    ): this
-    {
-        name = Array.isArray(name) ? name : [name];
-        name.forEach(n => this._bindDownEmitter.off(n, listener));
-
-        return this;
-    }
-
-    /** Report a named bind event (from a CustomDevice). */
-    public emitBindDown<B extends NamedBind>(
-        event: Exclude<NamedBindEvent<B>, "pressed" | "value">
-    ): void
-    {
-        event.pressed = true;
-        event.value = 1.0;
-        this._bindDownEmitter.emit(event.name, event);
-    }
-
-    /**
      * Adds a named bind event listener.
      */
     public onBindUp<B extends NamedBind>(
@@ -225,30 +203,6 @@ class InputDeviceManager
         name.forEach(n => this._bindUpEmitter.on(n, listener, options));
 
         return this;
-    }
-
-    /**
-     * Remove a named bind event listener (or ALL event listeners if none provided).
-     */
-    public offBindUp<B extends NamedBind>(
-        name: B | readonly B[],
-        listener?: (event: NamedBindEvent<B>) => void
-    ): this
-    {
-        name = Array.isArray(name) ? name : [name];
-        name.forEach(n => this._bindUpEmitter.off(n, listener));
-
-        return this;
-    }
-
-    /** Report a named bind event (from a CustomDevice). */
-    public emitBindUp<B extends NamedBind>(
-        event: Exclude<NamedBindEvent<B>, "pressed" | "value">
-    ): void
-    {
-        event.pressed = false;
-        event.value = 0.0;
-        this._bindUpEmitter.emit(event.name, event);
     }
 
     /**
@@ -268,6 +222,34 @@ class InputDeviceManager
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
+    public offBindDown<B extends NamedBind>(
+        name: B | readonly B[],
+        listener?: (event: NamedBindEvent<B>) => void
+    ): this
+    {
+        name = Array.isArray(name) ? name : [name];
+        name.forEach(n => this._bindDownEmitter.off(n, listener));
+
+        return this;
+    }
+
+    /**
+     * Remove a named bind event listener (or ALL event listeners if none provided).
+     */
+    public offBindUp<B extends NamedBind>(
+        name: B | readonly B[],
+        listener?: (event: NamedBindEvent<B>) => void
+    ): this
+    {
+        name = Array.isArray(name) ? name : [name];
+        name.forEach(n => this._bindUpEmitter.off(n, listener));
+
+        return this;
+    }
+
+    /**
+     * Remove a named bind event listener (or ALL event listeners if none provided).
+     */
     public offBind<B extends NamedBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
@@ -277,11 +259,35 @@ class InputDeviceManager
             .offBindUp(name, listener);
     }
 
-    /** Report a named bind event (from a CustomDevice). */
-    public emitBind(event: NamedBindEvent<any>): void
+    /**
+     * Report a named bind event (i.e. from UI or a CustomDevice).
+     */
+    public emitBindDown<B extends NamedBind>(name: B, device: Device, value = 1): this
     {
-        this._bindDownEmitter.emit(event.name, event);
-        this._bindUpEmitter.emit(event.name, event);
+        this._bindDownEmitter.emit(name, { name, device, pressed: true, value });
+
+        return this;
+    }
+
+    /**
+     * Report a named bind event (i.e. from UI or a CustomDevice).
+     */
+    public emitBindUp<B extends NamedBind>(name: B, device: Device): this
+    {
+        this._bindUpEmitter.emit(name, { name, device, pressed: false, value: 0 });
+
+        return this;
+    }
+
+    /**
+     * Report a named bind event (i.e. from UI or a CustomDevice).
+     *
+     * Emits a "down" and "up" immediately.
+     */
+    public emitBind<B extends NamedBind>(name: B, device: Device): void
+    {
+        this.emitBindDown(name, device)
+            .emitBindUp(name, device);
     }
 
     // ----- Devices: -----
@@ -305,8 +311,8 @@ class InputDeviceManager
 
             // forward named bind events
             device
-                .on("binddown", (e) => this.emitBindDown(e))
-                .on("bindup", (e) => this.emitBindUp(e));
+                .on("binddown", (e) => this._bindDownEmitter.emit(e.name, e))
+                .on("bindup", (e) => this._bindUpEmitter.emit(e.name, e));
         }
         else if (device instanceof GamepadDevice)
         {
@@ -315,8 +321,8 @@ class InputDeviceManager
 
             // forward named bind events
             device
-                .on("binddown", (e) => this.emitBindDown(e))
-                .on("bindup", (e) => this.emitBindUp(e));
+                .on("binddown", (e) => this._bindDownEmitter.emit(e.name, e))
+                .on("bindup", (e) => this._bindUpEmitter.emit(e.name, e));
         }
         else
         {

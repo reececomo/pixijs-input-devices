@@ -1,7 +1,12 @@
 import { Container, FederatedPointerEvent } from "pixi.js";
+import { Device } from "../InputDevice";
+
+
+const fpe = new FederatedPointerEvent(null);
 
 export function emitPointerEvent(
     target: Container,
+    device: Device,
     eventNames: string[]
 ): void
 {
@@ -14,26 +19,25 @@ export function emitPointerEvent(
 
     for (const eventName of eventNames)
     {
-        target.emit(eventName, createPointerEvent(eventName, point));
+        target.emit(eventName, wrapPointerEvent(device, eventName, point));
     }
 }
 
-function createPointerEvent(
-    eventName: string,
+function wrapPointerEvent(
+    device: Device,
+    type: string,
     point: { x: number; y: number; },
 ): FederatedPointerEvent
 {
-    const event = new FederatedPointerEvent(null);
+    fpe.type = type;
+    fpe.pointerType = device.type === "custom" ? device.id : device.type;
+    fpe.pointerId = -1;
+    fpe.button = 0;
+    fpe.buttons = type === "pointerup" ? 0 : 1;
+    fpe.isPrimary = true;
 
-    event.type = "pointerover";
-    event.pointerType = "mouse";
-    event.pointerId = 1;
-    event.button = 0;
-    event.buttons = eventName === "pointerup" ? 0 : 1;
-    event.isPrimary = true;
+    fpe.client.copyFrom(point);
+    fpe.global.copyFrom(point);
 
-    event.client.copyFrom(point);
-    event.global.copyFrom(point);
-
-    return event;
+    return fpe;
 }

@@ -459,17 +459,6 @@ export class GamepadDevice
                     // emit events
                     if (this.options.emitEvents)
                     {
-                        if (this._emitter.hasListener(axisCode))
-                        {
-                            this._emitter.emit(axisCode, {
-                                device: this,
-                                axis: a as Axis,
-                                axisCode,
-                                pressed: false,
-                                value,
-                            });
-                        }
-
                         // check named bind events
                         Object.entries(this.options.binds).forEach(([ name, values ]) =>
                         {
@@ -485,8 +474,8 @@ export class GamepadDevice
                                 value,
                             };
 
-                            this._bindDownEmitter.emit(name as NamedBind, event);
-                            this._emitter.emit("binddown", event);
+                            this._bindUpEmitter.emit(name as NamedBind, event);
+                            this._emitter.emit("bindup", event);
                         });
                     }
                 }
@@ -563,10 +552,10 @@ export class GamepadDevice
             const isPressed = source.buttons[_b]?.pressed ?? false;
             this.button[buttonCode] = isPressed;
 
-            if (isPressed && this.options.emitEvents)
+            if (this.options.emitEvents)
             {
                 // emit events
-                if (this._emitter.hasListener(buttonCode))
+                if (isPressed && this._emitter.hasListener(buttonCode))
                 {
                     this._emitter.emit(buttonCode, {
                         device: this,
@@ -588,12 +577,15 @@ export class GamepadDevice
                         button: b,
                         buttonCode,
                         name: name as NamedBind,
-                        pressed: true,
-                        value: 1 as const,
+                        pressed: isPressed,
+                        value: isPressed ? 1 : 0,
                     };
 
-                    this._bindDownEmitter.emit(name as NamedBind, event);
-                    this._emitter.emit("binddown", event);
+                    (isPressed ? this._bindDownEmitter : this._bindUpEmitter)
+                        .emit(name as NamedBind, event);
+
+                    this._emitter
+                        .emit(isPressed ? "binddown" : "bindup", event);
                 });
             }
         }

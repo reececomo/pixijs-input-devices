@@ -9,7 +9,6 @@ import {
     detectKeyboardLayoutFromKeydown,
     getNavigatorKeyLabel
 } from "./layouts";
-import { NavigateBinds } from "../../navigation/NavigateBind";
 import { NamedBind } from "../../binds/Binds";
 import { DeviceMetadata } from "../metadata";
 
@@ -133,6 +132,7 @@ export class KeyboardDeviceInstance
     private _layout: KeyboardLayout;
     private _layoutSource: KeyboardLayoutSource;
     private _deferredKeydown: KeyboardEvent[] = [];
+    private _deferredKeyup: KeyboardEvent[] = [];
 
     private constructor()
     {
@@ -361,10 +361,17 @@ export class KeyboardDeviceInstance
      */
     public update(now: number): void
     {
-        if(this._deferredKeydown.length > 0)
+        if (this._deferredKeydown.length > 0)
         {
             this._deferredKeydown.forEach((event) => this._processDeferredKeydownEvent(event));
             this._deferredKeydown.length = 0;
+        }
+
+        if (this.options.emitEvents && this._deferredKeyup.length > 0)
+        {
+            this._deferredKeyup.forEach((event) => this._emitDeferredKeyupEvent(event));
+            this._deferredKeyup.length = 0;
+            this.lastInteraction = now;
         }
     }
 
@@ -385,6 +392,7 @@ export class KeyboardDeviceInstance
     {
         const k = this.key as Record<string, boolean>;
         const d = this._deferredKeydown;
+        const u = this._deferredKeyup;
 
         window.addEventListener(
             "keydown",
@@ -402,6 +410,7 @@ export class KeyboardDeviceInstance
             e =>
             {
                 k[e.code] = false;
+                u.push(e);
                 this.lastInteraction = performance.now();
             },
             { passive: true, capture: true }
@@ -417,7 +426,7 @@ export class KeyboardDeviceInstance
             // detect keyboard layout
             if (
                 this.options.detectLayoutOnKeypress
-        && this._layoutSource === "lang"
+                && this._layoutSource === "lang"
             )
             {
                 const layout = detectKeyboardLayoutFromKeydown(e);
@@ -473,6 +482,31 @@ export class KeyboardDeviceInstance
                 this._emitter.emit("binddown", event);
             });
         }
+    }
+
+    private _emitDeferredKeyupEvent(e: KeyboardEvent): void
+    {
+        const keyCode = e.code as KeyCode;
+
+        // check named binds
+        Object.entries(this.options.binds).forEach(([ name, keys ]) =>
+        {
+            if (!keys.includes(keyCode)) return;
+
+            const event = {
+                device: this,
+                keyCode,
+                keyLabel: this.getKeyLabel(keyCode),
+                event: e,
+                name: name as NamedBind,
+                repeat: e.repeat,
+                value: 0 as const,
+                pressed: false,
+            };
+
+            this._bindUpEmitter.emit(name, event);
+            this._emitter.emit("bindup", event);
+        });
     }
 }
 

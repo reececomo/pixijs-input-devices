@@ -3,6 +3,10 @@ import type { Container } from "pixi.js";
 export type NavigationMode = "auto" | "none" | "pointer";
 type DeprecatedNavigationMode = "target" | "disabled";
 
+/**
+ * Allow Containers to set explicit shortcuts for navigation to
+ * override the default spatial navigation.
+ */
 export interface NavigateLinks
 {
   /** Container to navigate to on "NavigateLeft". */
@@ -29,9 +33,8 @@ declare module "pixi.js"
   export interface Container
   {
     /**
-     * @returns true when navigationMode is "target", or
-     * navigationMode is "auto" and the container has an
-     * event handler for a "pointerdown" event.
+     * @returns true when navigationMode is explictly "pointer", or
+     * navigationMode is "auto" and the container is set to interactive.
      */
     readonly isNavigatable: boolean;
 
@@ -56,11 +59,40 @@ declare module "pixi.js"
      * (Optional) Explicit navigation links for device navigation actions.
      */
     nav?: NavigateLinks;
+
+    // ----- (Optional) NavigationResponder handlers: -----
+
+    /**
+     * Called when received a navigation intent. The target should handle, and
+     * respond with a boolean indicating whether or not the intent was handled.
+     *
+     * Unhandled interaction intents will be bubbled up to the next target. You
+     * might return `true` here to prevent any intent from being propagated.
+     */
+    handledNavigationIntent?(
+      intent: NavigateBinds,
+      device: Device,
+    ): boolean;
+
+    /**
+     * This method is triggered when the target became the first responder.
+     *
+     * Either when pushed, or when another target stopped being the first
+     * responder.
+     */
+    becameFirstResponder?(): void;
+
+    /**
+     * This method is triggered when the target stopped being first responder.
+     *
+     * Either popped, or another target was pushed on top of the stack.
+     */
+    resignedAsFirstResponder?(): void;
   }
 }
 
 export {};
-import { Container } from 'pixi.js';
+import { Container, Rectangle } from 'pixi.js';
 
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
@@ -116,28 +148,18 @@ declare class InputDeviceManager {
 	get lastInteractedDevice(): Device | undefined;
 	/** Add an event listener */
 	on<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
-	/** Remove an event listener (or all if none provided) */
+	/**
+	 * Remove an event listener (or all if none provided)
+	 */
 	off<K extends keyof InputDeviceEvent>(event: K, listener: (event: InputDeviceEvent[K]) => void): this;
 	/**
 	 * Adds a named bind event listener.
 	 */
 	onBindDown<B extends NamedBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
 	/**
-	 * Remove a named bind event listener (or ALL event listeners if none provided).
-	 */
-	offBindDown<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
-	/** Report a named bind event (from a CustomDevice). */
-	emitBindDown<B extends NamedBind>(event: Exclude<NamedBindEvent<B>, "pressed" | "value">): void;
-	/**
 	 * Adds a named bind event listener.
 	 */
 	onBindUp<B extends NamedBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
-	/**
-	 * Remove a named bind event listener (or ALL event listeners if none provided).
-	 */
-	offBindUp<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
-	/** Report a named bind event (from a CustomDevice). */
-	emitBindUp<B extends NamedBind>(event: Exclude<NamedBindEvent<B>, "pressed" | "value">): void;
 	/**
 	 * Adds a named bind event listener.
 	 */
@@ -145,9 +167,29 @@ declare class InputDeviceManager {
 	/**
 	 * Remove a named bind event listener (or ALL event listeners if none provided).
 	 */
+	offBindDown<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
+	/**
+	 * Remove a named bind event listener (or ALL event listeners if none provided).
+	 */
+	offBindUp<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
+	/**
+	 * Remove a named bind event listener (or ALL event listeners if none provided).
+	 */
 	offBind<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
-	/** Report a named bind event (from a CustomDevice). */
-	emitBind(event: NamedBindEvent<any>): void;
+	/**
+	 * Report a named bind event (i.e. from UI or a CustomDevice).
+	 */
+	emitBindDown<B extends NamedBind>(name: B, device: Device, value?: number): this;
+	/**
+	 * Report a named bind event (i.e. from UI or a CustomDevice).
+	 */
+	emitBindUp<B extends NamedBind>(name: B, device: Device): this;
+	/**
+	 * Report a named bind event (i.e. from UI or a CustomDevice).
+	 *
+	 * Emits a "down" and "up" immediately.
+	 */
+	emitBind<B extends NamedBind>(name: B, device: Device): void;
 	/**
 	 * Add a device.
 	 */
@@ -228,13 +270,21 @@ declare class NavigationManager {
 	 */
 	enable(stageRoot: Container): this;
 	/**
+	 * Set the new top-most global interaction target.
+	 */
+	pushResponder(responder: Container | NavigationResponder): void;
+	/**
 	 * Remove the top-most global interaction target
 	 */
 	popResponder(): NavigationResponder | undefined;
 	/**
 	 * Set the new top-most global interaction target.
 	 */
-	pushResponder(responder: Container | NavigationResponder): void;
+	setTopMostResponder(responder: Container | NavigationResponder): void;
+	/**
+	 * Removes the responder if in the responders list.
+	 */
+	removeResponder<T extends Container | NavigationResponder>(responder: T, popAllAbove?: boolean): T | undefined;
 	/**
 	 * Focus on the first navigatable element.
 	 */
@@ -539,6 +589,7 @@ export declare class KeyboardDeviceInstance {
 	private _layout;
 	private _layoutSource;
 	private _deferredKeydown;
+	private _deferredKeyup;
 	private constructor();
 	/**
 	 * Keyboard Layout
@@ -612,6 +663,7 @@ export declare class KeyboardDeviceInstance {
 	clear(): void;
 	private _configureEventListeners;
 	private _processDeferredKeydownEvent;
+	private _emitDeferredKeyupEvent;
 }
 export declare const Button: {
 	readonly Face1: 0;
@@ -799,6 +851,7 @@ export declare function isVisible(target: Container): boolean;
  * @param container A reference to `PIXI.Container`.
  */
 export declare function registerPixiJSNavigationMixin<T = Container>(container: T): void;
+export declare function weightedRectDistance(a: Rectangle, b: Rectangle, weightX?: number, weightY?: number): number;
 /**
  * Augmentable with keyed values that are your Bind Keys
  */
@@ -913,6 +966,10 @@ export interface NamedBindEvent<BindName extends NamedBind> {
 	 */
 	value: number;
 }
+/**
+ * Allow Containers to set explicit shortcuts for navigation to
+ * override the default spatial navigation.
+ */
 export interface NavigateLinks {
 	/** Container to navigate to on "NavigateLeft". */
 	left?: Container;

@@ -58,21 +58,11 @@ describe("Navigation", () =>
 
         expect(buttonWasTriggered).toBe(false);
 
-        InputDevice.emitBindUp({
-            name: "NavigateActivate",
-            device: InputDevice.keyboard, // any
-            pressed: true,
-            value: 1,
-        });
+        InputDevice.emitBindUp("NavigateActivate", InputDevice.keyboard);
 
         expect(buttonWasTriggered).toBe(true);
 
-        InputDevice.emitBindDown({
-            name: "NavigateRight",
-            device: InputDevice.keyboard, // any
-            pressed: true,
-            value: 1,
-        });
+        InputDevice.emitBindDown("NavigateRight", InputDevice.keyboard);
 
         expect(UINavigation.focusTarget === menuItem1).toBe(true);
 
@@ -80,24 +70,14 @@ describe("Navigation", () =>
         UINavigation.pushResponder(menu);
 
         // now try to go back
-        InputDevice.emitBindDown({
-            name: "NavigateLeft",
-            device: InputDevice.keyboard, // any
-            pressed: true,
-            value: 1,
-        });
+        InputDevice.emitBindDown("NavigateLeft", InputDevice.keyboard);
 
         expect(UINavigation.focusTarget === menuItem1).toBe(true);
 
         UINavigation.popResponder();
 
         // now try to go back again
-        InputDevice.emitBindDown({
-            name: "NavigateLeft",
-            device: InputDevice.keyboard, // any
-            pressed: true,
-            value: 1,
-        });
+        InputDevice.emitBindDown("NavigateLeft", InputDevice.keyboard);
 
         expect(UINavigation.focusTarget === menuItem1).toBe(false);
         expect(UINavigation.focusTarget === button1).toBe(true);

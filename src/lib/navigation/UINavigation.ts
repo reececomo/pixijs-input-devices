@@ -134,6 +134,29 @@ class NavigationManager
     }
 
     /**
+     * Set the new top-most global interaction target.
+     */
+    public pushResponder(responder: Container | NavigationResponder): void
+    {
+        const res = responder as NavigationResponder;
+
+        if (this._responders.includes(res))
+        {
+            throw new Error("Responder already in stack.");
+        }
+
+        const previousResponder = this.firstResponder;
+
+        this._responders.unshift(res);
+
+        previousResponder?.resignedAsFirstResponder?.();
+        this._invalidateFocusedIfNeeded();
+
+        res.becameFirstResponder?.();
+        if (res.autoFocus ?? true) this.autoFocus();
+    }
+
+    /**
      * Remove the top-most global interaction target
      */
     public popResponder(): NavigationResponder | undefined
@@ -170,17 +193,22 @@ class NavigationManager
     /**
      * Set the new top-most global interaction target.
      */
-    public pushResponder(responder: Container | NavigationResponder): void
+    public setTopMostResponder(responder: Container | NavigationResponder): void
     {
         const res = responder as NavigationResponder;
-
-        if (this._responders.includes(res))
-        {
-            throw new Error("Responder already in stack.");
-        }
-
         const previousResponder = this.firstResponder;
 
+        // If it's already the top responder, do nothing
+        if (previousResponder === res) return;
+
+        // Remove responder if it already exists in the stack
+        const index = this._responders.indexOf(res);
+        if (index !== -1)
+        {
+            this._responders.splice(index, 1);
+        }
+
+        // Promote to top
         this._responders.unshift(res);
 
         previousResponder?.resignedAsFirstResponder?.();
@@ -189,6 +217,64 @@ class NavigationManager
         res.becameFirstResponder?.();
         if (res.autoFocus ?? true) this.autoFocus();
     }
+
+    /**
+     * Removes the responder if in the responders list.
+     */
+    public removeResponder<T extends Container | NavigationResponder>(
+        responder: T,
+        popAllAbove: boolean = false
+    ): T | undefined
+    {
+        const res = responder as NavigationResponder;
+        const index = this._responders.indexOf(res);
+
+        if (index === -1) return undefined;
+
+        const previousFocused = this.focusTarget;
+        const previousFirstResponder = this.firstResponder;
+
+        let removed: NavigationResponder | undefined;
+
+        if (popAllAbove)
+        {
+            // Remove responder and everything above it
+            const removedResponders = this._responders.splice(0, index + 1);
+            removed = removedResponders[removedResponders.length - 1];
+
+            for (const r of removedResponders)
+            {
+                r.focusTarget = undefined;
+            }
+        }
+        else
+        {
+            // Remove only the specified responder
+            removed = this._responders.splice(index, 1)[0];
+            removed.focusTarget = undefined;
+        }
+
+        const nextFocused = this.focusTarget;
+
+        // Only trigger lifecycle changes if first responder changed
+        if (previousFirstResponder !== this.firstResponder)
+        {
+            previousFirstResponder?.resignedAsFirstResponder?.();
+            this._invalidateFocusedIfNeeded();
+            this.firstResponder?.becameFirstResponder?.();
+        }
+
+        if (
+            previousFocused !== nextFocused
+            && (this.firstResponder?.autoFocus ?? !nextFocused)
+        )
+        {
+            this.autoFocus();
+        }
+
+        return removed as T;
+    }
+
 
     /**
      * Focus on the first navigatable element.
@@ -377,7 +463,7 @@ class NavigationManager
         // default actions
         if (name === Navigate.Back)
         {
-            if (!event.pressed) this._leave(focusTarget);
+            this._leave(focusTarget);
 
             return;
         }
@@ -411,26 +497,26 @@ class NavigationManager
 
     private _enter(target: Container): void
     {
-        if (this.focusSource !== "device") return;
-        emitPointerEvent(target, this.options.events.focus);
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.focus);
     }
 
     private _press(target: Container): void
     {
-        if (this.focusSource !== "device") return;
-        emitPointerEvent(target, this.options.events.down);
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.down);
     }
 
     private _release(target: Container): void
     {
-        if (this.focusSource !== "device") return;
-        emitPointerEvent(target, this.options.events.up);
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.up);
     }
 
     private _leave(target: Container, clearFocusTarget = true): void
     {
-        if (this.focusSource !== "device") return;
-        emitPointerEvent(target, this.options.events.blur);
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.blur);
 
         if (clearFocusTarget)
         {

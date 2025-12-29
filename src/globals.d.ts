@@ -3,6 +3,10 @@ import type { Container } from "pixi.js";
 export type NavigationMode = "auto" | "none" | "pointer";
 type DeprecatedNavigationMode = "target" | "disabled";
 
+/**
+ * Allow Containers to set explicit shortcuts for navigation to
+ * override the default spatial navigation.
+ */
 export interface NavigateLinks
 {
   /** Container to navigate to on "NavigateLeft". */
@@ -29,9 +33,8 @@ declare module "pixi.js"
   export interface Container
   {
     /**
-     * @returns true when navigationMode is "target", or
-     * navigationMode is "auto" and the container has an
-     * event handler for a "pointerdown" event.
+     * @returns true when navigationMode is explictly "pointer", or
+     * navigationMode is "auto" and the container is set to interactive.
      */
     readonly isNavigatable: boolean;
 
@@ -56,6 +59,35 @@ declare module "pixi.js"
      * (Optional) Explicit navigation links for device navigation actions.
      */
     nav?: NavigateLinks;
+
+    // ----- (Optional) NavigationResponder handlers: -----
+
+    /**
+     * Called when received a navigation intent. The target should handle, and
+     * respond with a boolean indicating whether or not the intent was handled.
+     *
+     * Unhandled interaction intents will be bubbled up to the next target. You
+     * might return `true` here to prevent any intent from being propagated.
+     */
+    handledNavigationIntent?(
+      intent: NavigateBinds,
+      device: Device,
+    ): boolean;
+
+    /**
+     * This method is triggered when the target became the first responder.
+     *
+     * Either when pushed, or when another target stopped being the first
+     * responder.
+     */
+    becameFirstResponder?(): void;
+
+    /**
+     * This method is triggered when the target stopped being first responder.
+     *
+     * Either popped, or another target was pushed on top of the stack.
+     */
+    resignedAsFirstResponder?(): void;
   }
 }
 

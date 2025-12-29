@@ -1,4 +1,4 @@
-import { Container } from "pixi.js";
+import { Container, Rectangle } from "pixi.js";
 
 
 type NavigatableContainer = Container;
@@ -97,92 +97,135 @@ function chooseFirstNavigatableInDirection(
     }
 
     const fallbackElement =
-    focusedElement ?? elements[Math.floor(Math.random() * elements.length)];
+        focusedElement ?? elements[Math.floor(Math.random() * elements.length)];
 
+    // we still dont have a focused element, just choose the first the list
     if (focusedElement === undefined)
     {
         return navigatables[0] ?? fallbackElement;
     }
 
-    const focusedGlobalPos = focusedElement.getGlobalPosition();
+    // const focusedGlobalPos = focusedElement.getGlobalPosition();
     const focusedBounds = focusedElement.getBounds();
     const focusedCenter = {
-        x: focusedGlobalPos.x + focusedBounds.left + focusedBounds.width / 2,
-        y: focusedGlobalPos.y + focusedBounds.top + focusedBounds.height / 2,
+        x: (focusedBounds.minX + focusedBounds.maxX) / 2,
+        y: (focusedBounds.minY + focusedBounds.maxY) / 2,
     };
 
     const otherElements = elements
         .filter((el) => el !== focusedElement)
         .map((el) =>
         {
-            const globalPos = el.getGlobalPosition();
+            // const globalPos = el.getGlobalPosition();
             const bounds = el.getBounds();
 
             const center = {
-                x: globalPos.x + bounds.left + bounds.width / 2,
-                y: globalPos.y + bounds.top + bounds.height / 2,
+                x: (bounds.minX + bounds.maxX) / 2,
+                y: (bounds.minY + bounds.maxY) / 2,
             };
 
             return {
                 element: el,
-                bounds: bounds,
-                center: center,
-                xDistSqrd: weightedDistSquared(center, focusedCenter, 1, 3),
-                yDistSqrd: weightedDistSquared(center, focusedCenter, 3, 1),
+                bounds,
+                center,
             };
         });
+
+    let filtered = otherElements;
 
     switch (nearestDirection)
     {
         case "NavigateUp": {
-            const sortedUp = otherElements
-                .filter((el) => el.center.y < focusedCenter.y - minimumDistance)
-                .sort((a, b) => a.yDistSqrd - b.yDistSqrd);
-
-            return sortedUp[0]?.element ?? fallbackElement;
+            filtered = filtered.filter((el) => el.center.y < focusedCenter.y - minimumDistance);
+            break;
         }
 
         case "NavigateLeft": {
-            const sortedLeft = otherElements
-                .filter((el) => el.center.x < focusedCenter.x - minimumDistance)
-                .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
-
-            return sortedLeft[0]?.element ?? fallbackElement;
+            filtered = filtered.filter((el) => el.center.x < focusedCenter.x - minimumDistance);
+            break;
         }
 
         case "NavigateRight": {
-            const sortedRight = otherElements
-                .filter((el) => el.center.x > focusedCenter.x + minimumDistance)
-                .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
-
-            return sortedRight[0]?.element ?? fallbackElement;
+            filtered = filtered.filter((el) => el.center.x > focusedCenter.x + minimumDistance);
+            break;
         }
 
         case "NavigateDown": {
-            const sortedDown = otherElements
-                .filter((el) => el.center.y > focusedCenter.y + minimumDistance)
-                .sort((a, b) => a.yDistSqrd - b.yDistSqrd);
-
-            return sortedDown[0]?.element ?? fallbackElement;
+            filtered = filtered.filter((el) => el.center.y > focusedCenter.y + minimumDistance);
+            break;
         }
 
         default: {
             return focusedElement;
         }
     }
+
+    const sorted = filtered
+        .map((value) =>
+        {
+            const isX = nearestDirection === "NavigateLeft"
+                || nearestDirection === "NavigateRight";
+
+            const weightX = isX ? 0.33 : 1;
+            const weightY = isX ? 1 : 0.33;
+
+            return {
+                ...value,
+                weightedDistance: weightedRectDistance(
+                    value.element.getBounds().rectangle,
+                    focusedBounds.rectangle,
+                    weightX,
+                    weightY
+                ),
+            };
+        })
+        .sort((a, b) => a.weightedDistance - b.weightedDistance);
+
+    return sorted[0]?.element ?? fallbackElement;
 }
 
-function weightedDistSquared(
-    a: { x: number, y : number },
-    b: { x: number, y : number },
-    xw: number,
-    yw: number
+export function weightedRectDistance(
+    a: Rectangle,
+    b: Rectangle,
+    weightX: number = 1,
+    weightY: number = 1
 ): number
 {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
+    const axMin = a.x;
+    const ayMin = a.y;
+    const axMax = a.x + a.width;
+    const ayMax = a.y + a.height;
 
-    return dx * dx * xw + dy * dy * yw;
+    const bxMin = b.x;
+    const byMin = b.y;
+    const bxMax = b.x + b.width;
+    const byMax = b.y + b.height;
+
+    let dx = 0;
+    if (axMax < bxMin)
+    {
+        dx = bxMin - axMax;
+    }
+    else if (bxMax < axMin)
+    {
+        dx = axMin - bxMax;
+    }
+
+    let dy = 0;
+    if (ayMax < byMin)
+    {
+        dy = byMin - ayMax;
+    }
+    else if (byMax < ayMin)
+    {
+        dy = ayMin - byMax;
+    }
+
+    // Apply axis weights
+    const wx = dx * weightX;
+    const wy = dy * weightY;
+
+    return Math.sqrt(wx * wx + wy * wy);
 }
 
 export function isVisible(
