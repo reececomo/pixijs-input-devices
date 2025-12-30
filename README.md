@@ -2,9 +2,13 @@
 
 <p align="center"><i>Device management, navigation for pointer-based UIs, and named input bindings.</i></p>
 
+<p align="center"><a href="https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE"><img src="https://badgen.net/npm/license/pixijs-input-devices" alt="License"></a> <a href="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml"><img src="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg" alt="Tests"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/dm/pixijs-input-devices.svg" alt="Downloads per month"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/v/pixijs-input-devices.svg" alt="NPM version"></a></p>
+
+<br/>
+
 <p align="center"><img src="./hero.png" /></p>
 
-<p align="center"><a href="https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE"><img src="https://badgen.net/npm/license/pixijs-input-devices" alt="License"></a> <a href="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml"><img src="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg" alt="Tests"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/dm/pixijs-input-devices.svg" alt="Downloads per month"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/v/pixijs-input-devices.svg" alt="NPM version"></a></p>
+<br/>
 
 <table align="center">
 <thead>
