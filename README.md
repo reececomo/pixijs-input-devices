@@ -1,17 +1,37 @@
 <h1 align="center">PixiJS Input Devices</h1>
 
-<p align="center"><img src="./hero.png" width="50%" /></p>
+<p align="center"><i>Device management, navigation for pointer-based UIs, and named input bindings.</i></p>
+
+<p align="center"><img src="./hero.png" /></p>
 
 <p align="center"><a href="https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE"><img src="https://badgen.net/npm/license/pixijs-input-devices" alt="License"></a> <a href="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml"><img src="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg" alt="Tests"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/dm/pixijs-input-devices.svg" alt="Downloads per month"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/v/pixijs-input-devices.svg" alt="NPM version"></a></p>
 
-<p align="center">Input device support for non-pointer inputs (keyboards, gamepads, etc.). Navigate pointer-based UIs and more.</p>
-
-| | |
-| ------ | ------ |
-| 🎮 [Keyboard](#keyboard), [gamepads](#gamepaddevice), [and more](#custom-devices) | ✨ Configurable [binds](#named-binds) |
-| 🔮 Completely customizable | 🧭 Navigate [pointer-based UIs](#uinavigation-api) |
-| 🎼 Haptic-feedback support<sup>[[1]](https://caniuse.com/mdn-api_gamepad_vibrationactuator)  | 🌐 Fully [international](#keyboard-layout---detection) |
-| 🍃 Lightweight, zero dependencies | ✨ Supports PixiJS v8, v7.4+ |
+<table align="center">
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🎮 <a href="#keyboard">Keyboard</a>, <a href="#gamepaddevice">gamepads</a>, <a href="#custom-devices">or custom</a></td>
+<td>✨ Configurable <a href="#named-binds">binds</a></td>
+</tr>
+<tr>
+<td>🔮 Completely customizable</td>
+<td>🧭 Navigate <a href="#uinavigation-api">pointer-based UIs</a></td>
+</tr>
+<tr>
+<td>🎼 Haptic-feedback support<sup><a href="https://caniuse.com/mdn-api_gamepad_vibrationactuator">[1]</a></td>
+<td>🌐 Fully <a href="#keyboard-layout---detection">international</a></td>
+</tr>
+<tr>
+<td>🍃 Lightweight, zero dependencies</td>
+<td>✨ Supports PixiJS v8, v7.4+</td>
+</tr>
+</tbody>
+</table>
 
 
 #### Set default binds
