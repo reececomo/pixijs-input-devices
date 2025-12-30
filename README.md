@@ -1,44 +1,36 @@
-# 🎮 PixiJS Input Devices &nbsp;[![License](https://badgen.net/npm/license/pixijs-input-devices)](https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE) [![Tests](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg)](https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml) [![Downloads per month](https://img.shields.io/npm/dm/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices) [![NPM version](https://img.shields.io/npm/v/pixijs-input-devices.svg)](https://www.npmjs.com/package/pixijs-input-devices)
+<h1 align="center">PixiJS Input Devices</h1>
 
-⚡ Simple &amp; powerful input device support for a variety of devices in PixiJS
+<p align="center"><img src="./hero.png" width="50%" /></p>
+
+<p align="center"><a href="https://github.com/reececomo/pixijs-input-devices/blob/main/LICENSE"><img src="https://badgen.net/npm/license/pixijs-input-devices" alt="License"></a> <a href="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml"><img src="https://github.com/reececomo/pixijs-input-devices/actions/workflows/tests.yml/badge.svg" alt="Tests"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/dm/pixijs-input-devices.svg" alt="Downloads per month"></a> <a href="https://www.npmjs.com/package/pixijs-input-devices"><img src="https://img.shields.io/npm/v/pixijs-input-devices.svg" alt="NPM version"></a></p>
+
+<p align="center">Input device support for non-pointer inputs (keyboards, gamepads, etc.). Navigate pointer-based UIs and more.</p>
 
 | | |
 | ------ | ------ |
-| 🎮 Enable [keyboard](#keyboard), [gamepads](#gamepaddevice), [and more](#custom-devices) | 🪄 Input [binding](#named-binds) |
-| ⚡ Performance [optimized](https://web.dev/articles/inp) | 🚀 Simple APIs ([realtime](#real-time), [events](#keyboarddevice-events)) |
-| 🔮 Configurable (and sensible defaults) | 🧭 Navigate [pointer-based UIs](#uinavigation-api) |
-| ✅ Cross-platform &amp; mobile-friendly <sup>[[1]](https://caniuse.com/mdn-api_keyboardlayoutmap) [[2]](https://caniuse.com/mdn-api_gamepad_vibrationactuator) [[3]](https://chromestatus.com/feature/5989275208253440)</sup>  | 🌐 International layout [support](#keyboard-layout---detection) |
-| 🍃 Zero dependencies, tree-shakeable | ✨ Supports PixiJS v8, v7, v6.3+ |
+| 🎮 [Keyboard](#keyboard), [gamepads](#gamepaddevice), [and more](#custom-devices) | ✨ Configurable [binds](#named-binds) |
+| 🔮 Completely customizable | 🧭 Navigate [pointer-based UIs](#uinavigation-api) |
+| 🎼 Haptic-feedback support<sup>[[1]](https://caniuse.com/mdn-api_gamepad_vibrationactuator)  | 🌐 Fully [international](#keyboard-layout---detection) |
+| 🍃 Lightweight, zero dependencies | ✨ Supports PixiJS v8, v7.4+ |
 
 
-#### Configure binds
+#### Set default binds
 
 ```ts
-import { InputDevice, GamepadDevice } from "pixijs-input-devices";
+import { KeyboardDevice, GamepadDevice } from "pixijs-input-devices";
 
-// ⌨️ keyboard
-InputDevice.keyboard.configureBinds({
-    jump:   ["Space"],
-    left:   ["KeyA", "ArrowLeft"],
-    right:  ["KeyD", "ArrowRight"]
+KeyboardDevice.configureBinds({
+    Jump  : [ "Space" ],
+    Left  : [ "KeyA", "ArrowLeft" ],
+    Right : [ "KeyD", "ArrowRight" ],
 });
 
-// 🎮 all gamepads
 GamepadDevice.configureDefaultBinds({
-    left:   ["DpadLeft"],
-    right:  ["DpadRight"],
-    jump:   ["Face1"]
-});
-
-// 🎮 individual gamepad
-InputDevice.gamepads[0].configurBinds({
-    left:   ["LeftStickLeft"],
-    right:  ["LeftStickRight"]
+    Jump:   [ "Face1" ],
+    Left:   [ "LeftStickLeft",  "DpadLeft" ],
+    Right:  [ "LeftStickRight", "DpadRight" ],
 });
 ```
-
-> [!TIP]
-> See [**Named binds**](#named-binds) for more information on configuring devices.
 
 ## Basic Usage
 
@@ -48,14 +40,14 @@ let moveX = 0;
 
 for (let device of InputDevice.devices)
 {
-    if (device.bindDown("jump")) jump = true;
-    if (device.bindDown("left")) moveX = -1;
-    if (device.bindDown("right")) moveX = 1;
+    if (device.bindDown("Jump")) jump = true;
+    if (device.bindDown("Left")) moveX = -1;
+    if (device.bindDown("Right")) moveX = 1;
 
-    // 🎮 analog
-    if (device.type === "gamepad" && device.leftJoystick.x)
+    if (device.type === "gamepad")
     {
-        moveX = device.leftJoystick.x;
+        // 🎮 dual analog
+        if (device.leftJoystick.x) moveX = device.leftJoystick.x;
     }
 }
 ```
@@ -64,10 +56,33 @@ for (let device of InputDevice.devices)
 
 ```ts
 // targeted
-device.onBindDown("menu", ({ device }) => { });
+device.onBindDown("Menu", ({ device }) => { });
 
 // global
-InputDevice.onBindDown("menu", ({ device }) => { });
+InputDevice.onBindDown("Menu", ({ device }) => { });
+```
+
+#### Setup bind names
+
+Add the following snippet to set your bind names. Interface keys are ignored, but may be
+used for grouping.
+
+```ts
+// my-binds.ts
+
+export {};
+declare module "pixijs-input-devices" {
+
+    interface Binds
+    {
+        gameplay:
+            "Jump" | "Left" | "Right" | "Crouch";
+
+        general:
+            "Menu" | "Pause";
+    }
+
+}
 ```
 
 ## 💿 Install
@@ -117,15 +132,13 @@ Ticker.shared.add(() => InputDevice.update())
 **3.** (Optional) enable the UINavigation API
 
 ```ts
-import * as PIXI from 'pixi.js'
-import { UINavigation, registerPixiJSNavigationMixin } from 'pixijs-input-devices'
+const app = new PIXI.Application({ /* … */ });
 
+// Register navigation mixin
+registerPixiJSNavigationMixin(PIXI.Container);
 
-const app = new PIXI.Application(/*…*/)
-
-// enable the navigation API
-UINavigation.enable(app.stage)
-registerPixiJSNavigationMixin(PIXI.Container)
+// Configure the navigation API on the root container
+UINavigation.enable(app.stage);
 ```
 
 ✨ You are now ready to use inputs!
@@ -188,14 +201,15 @@ InputDevice.off("deviceadded") // stop listening
 | `"lastdevicechanged"` | `{device}` | The _last interacted device_ has changed. |
 
 
-#### InputDevice - onBindDown() Events
+#### InputDevice - onBind*() Events
 
 You may also subscribe globally to **named bind** events:
 
 ```ts
-InputDevice.onBindDown("my_custom_bind", (event) => {
-    // a bound input waas triggered
-})
+InputDevice
+    .onBindDown("MyBind", e => console.debug(e.name + " pressed"))
+    .onBindUp("MyBind", e => console.debug(e.name + " released"))
+    .onBind("MyBind", e => console.debug(e.name + e.pressed ? " pressed" : " released"));
 ```
 
 ### Keyboard
@@ -451,12 +465,11 @@ These can then be used with either the real-time and event-based APIs.
 #### Event-based:
 
 ```ts
-// listen to all devices:
+// listen to ANY device:
 InputDevice.onBindDown("toggleGraphics", (e) => toggleGraphics())
 
 // listen to specific devices:
-InputDevice.keyboard.onBindDown("jump", (e) => doJump())
-InputDevice.gamepads[0].onBindDown("jump", (e) => doJump())
+device.onBindDown("Jump", (e) => doJump())
 ```
 
 #### Real-time:
@@ -465,13 +478,13 @@ InputDevice.gamepads[0].onBindDown("jump", (e) => doJump())
 let jump = false, crouch = false, moveX = 0
 
 const keyboard = InputDevice.keyboard
-if (keyboard.bindDown("jump")) jump = true
+if (keyboard.bindDown("Jump")) jump = true
 if (keyboard.bindDown("crouch")) crouch = true
 if (keyboard.key.ArrowLeft) moveX = -1
 else if (keyboard.key.ArrowRight) moveX = 1
 
 for (const gamepad of InputDevice.gamepads) {
-    if (gamepad.bindDown("jump")) jump = true
+    if (gamepad.bindDown("Jump")) jump = true
     if (gamepad.bindDown("crouch")) crouch = true
 
     // gamepads have additional analog inputs
@@ -496,12 +509,19 @@ registerPixiJSNavigationMixin(PIXI.Container)
 
 Navigation should now work automatically if your buttons handle these events:
 
-- `"pointerdown"` &ndash; i.e. Trigger / show press effect
+- `"pointerdown"`, `"pointerup"` or `"pointertap"` &ndash; i.e. Trigger / show press effect
+- `"pointerenter"` or `"pointerover"` &ndash; i.e. Select / show hover effect
+- `"pointerleave"` or `"pointerout"` &ndash; i.e. Deselect / reset
 
-But in order to really make use, you should also set:
+You can override these mappings manually:
 
-- `"pointerover"` &ndash; i.e. Select / show hover effect
-- `"pointerout"` &ndash; i.e. Deselect / reset
+```ts
+// defaults:
+UINavigation.options.events.focus = [ "pointerenter", "pointerover" ];
+UINavigation.options.events.down  = [ "pointerdown" ];
+UINavigation.options.events.up    = [ "pointerup",    "pointertap" ];
+UINavigation.options.events.blur  = [ "pointerleave", "pointerout" ];
+```
 
 > [!TIP]
 > 🖱️ **Seamless navigation:** Manually set `UINavigation.focusTarget = <target>`
@@ -511,6 +531,19 @@ But in order to really make use, you should also set:
 > [!TIP]
 > **Auto-focus:** Set a container's `navigationPriority` to a value above `0`
 > to become the default selection in a context.
+
+### Spatial navigation
+
+By default the "NavigateUp", "NavigateLeft", "NavigateRight" and "NavigateDown" events
+use global screen space to move to the nearest UI in that direction, using a heuristic.
+
+### Explicit navigation links:
+
+However for tricky UIs you can manually bind navigation links for containers:
+
+```ts
+button1.nav.up = button2;
+```
 
 ### How it works
 
@@ -542,8 +575,8 @@ Containers are extended with a few properties/accessors:
 
 | Container properties | type | default | description
 |---------------------|------|---------|--------------
-| `isNavigatable`      | `readonly boolean` | `false` | returns `true` if `navigationMode` is set to `"pointer"`, |or is `"auto"` and is interactive.
-| `navigationMode`     | `"auto"` \| `"pointer"` | `"none"` \| `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it is int
+| `isNavigatable`      | `readonly boolean` | `false` | returns `true` if `navigationMode` is set to `"always"`, |or is `"auto"` and is interactive.
+| `navigationMode`     | `"auto"` \| `"always"` | `"none"` \| `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it is int
 | `navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
 
 ### Default Binds
@@ -599,30 +632,63 @@ for (const device of InputDevice.devices)
 You can easily map an on-screen input device using the `CustomDevice` interface.
 
 ```ts
-export class OnScreenInputContainer extends Container implements CustomDevice {
-    id = "onscreen"
-    type = "custom" as const
-    meta: Record<string, any> = {}
+import { CustomDevice, NamedBind } from "pixijs-input-devices";
 
-    inputs = {
-        moveX: 0.0
-        jump: false,
-    }
+export class VirtualInputDevice extends Container implements CustomDevice
+{
+    type = "custom" as const;
+    id   = "virtual-gamepad";
+    meta = {};
+
+    // example game input:
+    input = { moveX: 0, jump: false }; 
+
+    // views:
+    joystick = new GameJoystick({ parent: this, x: -200 });
+    button1 = new GameButton({ parent: this, x: 300 });
 
     update(now)
     {
-        this.inputs.moveX = this._virtualJoystick.x
-        this.inputs.jump = this._jumpButton.isTouching()
+        this.input.moveX = this.joystick.x;
+        this.input.jump = this.button1.pressed;
     }
 
-    // e.g. disable named binds for onscreen joysticks:
-    bindDown(name){ return false } 
+    // (Optional) integrate named binds
+    bindDown(name: NamedBind): boolean
+    {
+        switch (name) {
+            case "Jump":
+                return this.button1.pressed;
+
+            case "Left":
+                return this.joystick.x < 0.5;
+
+            case "Right":
+                return this.joystick.x > 0.5;
+
+            default:
+                return false;
+        }
+    }
 }
 
-const onscreen = new OnScreenInputContainer()
+const myDevice = new VirtualInputDevice();
 
-InputDevice.add(onscreen)
-InputDevice.remove(onscreen)
+// enable device
+InputDevice.add(myDevice);
+myDevice.on("destroyed", () => InputDevice.remove(myVirtualDevice))
+
+// (Optional) participate in named binds, including navigation:
+myDevice.joystick
+    .on("pointermove", debounce(50, () => {
+        if (myDevice.joystick.x < 0.5) InputDevice.emitBind("NavigateLeft", myDevice);
+        if (myDevice.joystick.x > 0.5) InputDevice.emitBind("NavigateRight", myDevice);
+        if (myDevice.joystick.y < 0.5) InputDevice.emitBind("NavigateUp", myDevice);
+        if (myDevice.joystick.y > 0.5) InputDevice.emitBind("NavigateDown", myDevice);
+    }));
+
+myDevice.button1
+    .on("pointertap", () => InputDevice.emitBind("NavigateActivate", myDevice));
 ```
 
 ### Two Users; One Keyboard
@@ -631,45 +697,45 @@ You could set up multiple named inputs:
 
 ```ts
 InputDevice.keyboard.configureBinds({
-    jump: [ "ArrowUp", "KeyW" ],
-    defend: [ "ArrowDown", "KeyS" ],
-    left: [ "ArrowLeft", "KeyA" ],
-    right: [ "ArrowRight", "KeyD" ],
+    Jump    : [ "ArrowUp", "KeyW" ],
+    Crouch  : [ "ArrowDown", "KeyS" ],
+    Left    : [ "ArrowLeft", "KeyA" ],
+    Right   : [ "ArrowRight", "KeyD" ],
 
-    p1_jump: [ "KeyW" ],
-    p1_defend: [ "KeyS" ],
-    p1_left: [ "KeyA" ],
-    p1_right: [ "KeyD" ],
+    P1_Jump     : [ "KeyW" ],
+    P1_Crouch   : [ "KeyS" ],
+    P1_Left     : [ "KeyA" ],
+    P1_Right    : [ "KeyD" ],
 
-    p2_jump: [ "ArrowUp" ],
-    p2_defend: [ "ArrowDown" ],
-    p2_left: [ "ArrowLeft" ],
-    p2_right: [ "ArrowRight" ]
+    P2_Jump     : [ "ArrowUp" ],
+    P2_Crouch   : [ "ArrowDown" ],
+    P2_Left     : [ "ArrowLeft" ],
+    P2_Right    : [ "ArrowRight" ]
 })
 ```
 
-and then switch groups depending on the mode:
+and then switch groups depending on the mode/player:
 
 ```ts
-if (gameMode === "multiplayer")
+if (SINGLE_PLAYER_MODE)
 {
-    player1.jump   = device.bindDown("p1_jump")
-    player1.defend = device.bindDown("p1_defend")
-    player1.moveX += device.bindDown("p1_left") ? -1 : 0
-    player1.moveX += device.bindDown("p1_right") ? 1 : 0
-
-    player2.jump   = device.bindDown("p2_jump")
-    player2.defend = device.bindDown("p2_defend")
-    player2.moveX += device.bindDown("p2_left") ? -1 : 0
-    player2.moveX += device.bindDown("p2_right") ? 1 : 0
+    player.jump   = device.bindDown("Jump");
+    player.defend = device.bindDown("Crouch");
+    player.moveX += device.bindDown("Left") ? -1 : 0;
+    player.moveX += device.bindDown("Right") ? 1 : 0;
+}
+else if (player.id === 1)
+{
+    player.jump   = device.bindDown("P1_Jump");
+    player.defend = device.bindDown("P1_Crouch");
+    player.moveX += device.bindDown("P1_Left") ? -1 : 0;
+    player.moveX += device.bindDown("P1_Right") ? 1 : 0;
 }
 else
 {
-    player1.jump   = device.bindDown("jump")
-    player1.defend = device.bindDown("defend")
-    player1.moveX += device.bindDown("left") ? -1 : 0
-    player1.moveX += device.bindDown("right") ? 1 : 0
-
-    updateComputerPlayerInput(player2)
+    player.jump   = device.bindDown("P2_Jump");
+    player.defend = device.bindDown("P2_Crouch");
+    player.moveX += device.bindDown("P2_Left") ? -1 : 0;
+    player.moveX += device.bindDown("P2_Right") ? 1 : 0;
 }
 ```

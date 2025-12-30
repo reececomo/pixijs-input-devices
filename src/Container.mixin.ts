@@ -1,4 +1,5 @@
 import { Container } from 'pixi.js';
+import { NavigateLinks } from './globals';
 
 let _registered = false;
 
@@ -14,18 +15,20 @@ export function registerPixiJSNavigationMixin<T = Container>(container: T): void
 
     const prototype: Container = (container as any).prototype;
 
+    const navLinks = new WeakMap<Container, NavigateLinks>();
+
     // - Properties:
     prototype.navigationPriority = 0;
     prototype.navigationMode = "auto";
 
     // - Getters:
-    Object.defineProperty(prototype, "isNavigatable", {
+    Object.defineProperty(prototype, "navigatable", {
         get: function(this: Container): boolean
         {
             if (this.destroyed) return false;
 
             if (
-                this.navigationMode === "pointer"
+                this.navigationMode === "always"
                 || this.navigationMode === "target" // legacy
             )
             {
@@ -40,6 +43,23 @@ export function registerPixiJSNavigationMixin<T = Container>(container: T): void
             }
 
             return !!this.interactive;
+        },
+        configurable: true,
+        enumerable: false,
+    });
+
+    Object.defineProperty(prototype, "nav", {
+        get: function(this: Container): NavigateLinks
+        {
+            let nav = navLinks.get(this);
+
+            if (!nav)
+            {
+                nav = {};
+                navLinks.set(this, nav);
+            }
+
+            return nav;
         },
         configurable: true,
         enumerable: false,

@@ -1,12 +1,13 @@
+export {};
+
 declare module "../../../"
 {
-  export interface Binds
+  interface Binds
   {
     /** @internal */
     Jump: "Jump";
+
     /** @internal */
     Crouch: "Crouch";
   }
 }
-
-export {};

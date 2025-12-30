@@ -14,7 +14,7 @@ export function getAllNavigatables(
 {
     for (const child of target.children ?? [])
     {
-        if ((child as any).isNavigatable)
+        if ((child as any).navigatable)
         {
             navigatables.push(child as any);
         }
@@ -74,7 +74,7 @@ function chooseFirstNavigatableInDirection(
 {
     const elements = navigatables
         .filter((el) =>
-            el.isNavigatable
+            el.navigatable
     && el.parent != null
       && isVisible(el)
         );

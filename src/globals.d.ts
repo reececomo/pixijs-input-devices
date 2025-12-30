@@ -1,8 +1,3 @@
-import type { Container } from "pixi.js";
-
-export type NavigationMode = "auto" | "none" | "pointer";
-type DeprecatedNavigationMode = "target" | "disabled";
-
 /**
  * Allow Containers to set explicit shortcuts for navigation to
  * override the default spatial navigation.
@@ -32,35 +27,46 @@ declare module "pixi.js"
 {
   export interface Container
   {
-    /**
-     * @returns true when navigationMode is explictly "pointer", or
-     * navigationMode is "auto" and the container is set to interactive.
-     */
-    readonly isNavigatable: boolean;
+    //
+    // ----- Properties: -----
+    //
 
     /**
-     * Whether this container is device navigatable or not.
+     * @returns true when navigationMode is set to "always", or
+     * when "auto" and the container is interactive.
+     */
+    readonly navigatable: boolean;
+
+    /**
+     * Device navigation mode.
      *
-     * Set to "none" to exclude an interactive container and its children.
+     * - "auto" - Navigatable when the container is interactive.
+     * - "always" - Always navigatable even when interactivity is disabled.
+     * - "none" - Navigation is disabled.
      *
      * @default "auto"
      */
-    navigationMode: NavigationMode | DeprecatedNavigationMode;
+    navigationMode: "auto" | "always" | "none" | /* deprecated: */ ("target" | "disabled");
 
     /**
-     * When selecting a default navigation focus target, the
-     * target with the largest priority is chosen.
+     * (Optional) Container navigation links, to override spatial navigation.
+     *
+     * @example
+     * button1.nav.left = button2;
+     */
+    nav: NavigateLinks;
+
+    /**
+     * Priority used when no container has focus, and navigation is determining
+     * the focus target to choose.
      *
      * @default 0
      */
     navigationPriority: number;
 
-    /**
-     * (Optional) Explicit navigation links for device navigation actions.
-     */
-    nav?: NavigateLinks;
-
+    //
     // ----- (Optional) NavigationResponder handlers: -----
+    //
 
     /**
      * Called when received a navigation intent. The target should handle, and

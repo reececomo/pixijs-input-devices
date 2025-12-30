@@ -270,7 +270,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
-        name: string,
+        name: NamedBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -282,7 +282,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
-        name: string,
+        name: NamedBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -293,7 +293,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindUp(
-        name: string,
+        name: NamedBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -305,7 +305,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindUp(
-        name: string,
+        name: NamedBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -316,7 +316,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBind(
-        name: string,
+        name: NamedBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -326,7 +326,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBind(
-        name: string,
+        name: NamedBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {

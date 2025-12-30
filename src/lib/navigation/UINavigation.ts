@@ -4,11 +4,11 @@ import { Device, InputDevice, NamedBindEvent } from "../InputDevice";
 import { Navigate, type NavigateBinds } from "./NavigateBind";
 import { NavigationResponder } from "./NavigationResponder";
 import { getFirstNavigatable, isChildOf } from "./Navigatable";
-import { emitPointerEvent } from "./simulatePointerEvent";
+import { emitPointerEvent } from "./emitPointerEvent";
 
 
 type NavigateBindHandler = (event: NamedBindEvent<NavigateBinds>) => void;
-type FocusSource = "pointer" | "device";
+type FocusSource = "always" | "device";
 
 const PRESS_BINDS = [ Navigate.Activate, Navigate.Down, Navigate.Right, Navigate.Up, Navigate.Left ];
 const RELEASE_BINDS = [ Navigate.Activate, Navigate.Back ];
@@ -50,7 +50,7 @@ class NavigationManager
     /**
      * Current source of navigation focus.
      */
-    public focusSource: FocusSource = "pointer";
+    public focusSource: FocusSource = "always";
 
     private _responders: NavigationResponder[] = [];
     private _rootContainer?: Container;
@@ -330,7 +330,7 @@ class NavigationManager
         }
         else
         {
-            this.focusSource = "pointer";
+            this.focusSource = "always";
             this.device = undefined;
         }
 
@@ -350,7 +350,7 @@ class NavigationManager
             return;
         }
 
-        if (target && !target.isNavigatable)
+        if (target && !target.navigatable)
         {
             // skip: target is not navigatable
             return;
@@ -452,7 +452,7 @@ class NavigationManager
 
             const linkedContainer = bindLinks[name];
 
-            if (linkedContainer?.isNavigatable)
+            if (linkedContainer?.navigatable)
             {
                 this.setFocus(linkedContainer, event.device);
 
