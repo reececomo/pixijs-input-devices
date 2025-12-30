@@ -40,7 +40,7 @@ describe("UINavigation", () =>
         const button1 = new MockContainer();
         button1.name = "Button 1";
         button1.x = -75;
-        button1.interactive = true;
+        button1.eventMode = "static";
 
         button1.on("pointertap", () =>
         {
