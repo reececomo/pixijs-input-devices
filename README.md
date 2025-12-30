@@ -28,7 +28,7 @@
 </tr>
 <tr>
 <td>🍃 Lightweight, zero dependencies</td>
-<td>✨ Supports PixiJS v8, v7.4+</td>
+<td>✨ Supports PixiJS v8+</td>
 </tr>
 </tbody>
 </table>
@@ -537,10 +537,10 @@ You can override these mappings manually:
 
 ```ts
 // defaults:
-UINavigation.options.events.focus = [ "pointerenter", "pointerover" ];
-UINavigation.options.events.down  = [ "pointerdown" ];
-UINavigation.options.events.up    = [ "pointerup",    "pointertap" ];
-UINavigation.options.events.blur  = [ "pointerleave", "pointerout" ];
+UINavigation.options.events.enter   = [ "pointerenter", "pointerover" ];
+UINavigation.options.events.press   = [ "pointerdown" ];
+UINavigation.options.events.release = [ "pointerup",    "pointertap" ];
+UINavigation.options.events.leave   = [ "pointerleave", "pointerout" ];
 ```
 
 > [!TIP]

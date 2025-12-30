@@ -1,8 +1,8 @@
-import { Container, Rectangle } from "pixi.js";
+import { Bounds, Container } from "pixi.js";
 
 
 type NavigatableContainer = Container;
-type NavigationDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
+type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
 
 /**
  * @returns all navigatable containers in some container
@@ -27,26 +27,24 @@ export function getAllNavigatables(
     return navigatables;
 }
 
+interface NavigatableQueryOptions
+{
+    currentFocus?: Container;
+    direction?: NavigateDirection;
+    minimumDistance?: number;
+}
+
 /**
  * @returns the first navigatable container in the given direction
  */
 export function getFirstNavigatable(
     root: Container,
-    currentFocus?: Container,
-    nearestDirection?: NavigationDirection,
-    {
-        minimumDistance = 0,
-    } = {}
+    options?: NavigatableQueryOptions
 ): NavigatableContainer | undefined
 {
-    const navigatables = getAllNavigatables(root);
+    const containers = getAllNavigatables(root);
 
-    return chooseFirstNavigatableInDirection(
-        navigatables,
-        currentFocus,
-        nearestDirection,
-        minimumDistance,
-    );
+    return chooseFirstNavigatableInDirection(containers, options);
 }
 
 export function isChildOf(
@@ -67,11 +65,15 @@ export function isChildOf(
 /** @returns the first navigatable container in the given direction */
 function chooseFirstNavigatableInDirection(
     navigatables: NavigatableContainer[],
-    currentFocus?: Container,
-    nearestDirection?: NavigationDirection,
-    minimumDistance: number = 0,
+    options: NavigatableQueryOptions = {},
 ): NavigatableContainer | undefined
 {
+    const {
+        currentFocus,
+        direction,
+        minimumDistance = 0,
+    } = options;
+
     const elements = navigatables
         .filter((el) =>
             el.navigatable
@@ -91,7 +93,7 @@ function chooseFirstNavigatableInDirection(
     }
 
     // we already have a focused element, and no direction was specified
-    if (nearestDirection === undefined && focusedElement)
+    if (direction === undefined && focusedElement)
     {
         return focusedElement;
     }
@@ -105,19 +107,17 @@ function chooseFirstNavigatableInDirection(
         return navigatables[0] ?? fallbackElement;
     }
 
-    // const focusedGlobalPos = focusedElement.getGlobalPosition();
     const focusedBounds = focusedElement.getBounds();
     const focusedCenter = {
         x: (focusedBounds.minX + focusedBounds.maxX) / 2,
         y: (focusedBounds.minY + focusedBounds.maxY) / 2,
     };
 
-    const otherElements = elements
-        .filter((el) => el !== focusedElement)
-        .map((el) =>
+    let filtered = elements
+        .filter((element) => element !== focusedElement)
+        .map((element) =>
         {
-            // const globalPos = el.getGlobalPosition();
-            const bounds = el.getBounds();
+            const bounds = element.getBounds();
 
             const center = {
                 x: (bounds.minX + bounds.maxX) / 2,
@@ -125,15 +125,13 @@ function chooseFirstNavigatableInDirection(
             };
 
             return {
-                element: el,
+                element,
                 bounds,
                 center,
             };
         });
 
-    let filtered = otherElements;
-
-    switch (nearestDirection)
+    switch (direction)
     {
         case "NavigateUp": {
             filtered = filtered.filter((el) => el.center.y < focusedCenter.y - minimumDistance);
@@ -163,69 +161,41 @@ function chooseFirstNavigatableInDirection(
     const sorted = filtered
         .map((value) =>
         {
-            const isX = nearestDirection === "NavigateLeft"
-                || nearestDirection === "NavigateRight";
+            const isX = direction === "NavigateLeft"
+                || direction === "NavigateRight";
 
-            const weightX = isX ? 0.33 : 1;
-            const weightY = isX ? 1 : 0.33;
+            const ALIGNED_AXIS_WEIGHT = 1.0;
+            const OTHER_AXIS_WEIGHT = 0.33;
 
             return {
                 ...value,
-                weightedDistance: weightedRectDistance(
-                    value.element.getBounds().rectangle,
-                    focusedBounds.rectangle,
-                    weightX,
-                    weightY
+                score: getDistanceScore(
+                    value.bounds,
+                    focusedBounds,
+                    isX ? OTHER_AXIS_WEIGHT : ALIGNED_AXIS_WEIGHT,
+                    isX ? ALIGNED_AXIS_WEIGHT : OTHER_AXIS_WEIGHT
                 ),
             };
         })
-        .sort((a, b) => a.weightedDistance - b.weightedDistance);
+        .sort((a, b) => a.score - b.score);
 
     return sorted[0]?.element ?? fallbackElement;
 }
 
-export function weightedRectDistance(
-    a: Rectangle,
-    b: Rectangle,
-    weightX: number = 1,
-    weightY: number = 1
+export function getDistanceScore(
+    a: Bounds,
+    b: Bounds,
+    weightX = 1,
+    weightY = 1
 ): number
 {
-    const axMin = a.x;
-    const ayMin = a.y;
-    const axMax = a.x + a.width;
-    const ayMax = a.y + a.height;
+    const dx = Math.max(0, Math.max(b.minX - a.maxX, a.minX - b.maxX));
+    const dy = Math.max(0, Math.max(b.minY - a.maxY, a.minY - b.maxY));
 
-    const bxMin = b.x;
-    const byMin = b.y;
-    const bxMax = b.x + b.width;
-    const byMax = b.y + b.height;
-
-    let dx = 0;
-    if (axMax < bxMin)
-    {
-        dx = bxMin - axMax;
-    }
-    else if (bxMax < axMin)
-    {
-        dx = axMin - bxMax;
-    }
-
-    let dy = 0;
-    if (ayMax < byMin)
-    {
-        dy = byMin - ayMax;
-    }
-    else if (byMax < ayMin)
-    {
-        dy = ayMin - byMax;
-    }
-
-    // Apply axis weights
     const wx = dx * weightX;
     const wy = dy * weightY;
 
-    return Math.sqrt(wx * wx + wy * wy);
+    return wx*wx + wy*wy;
 }
 
 export function isVisible(

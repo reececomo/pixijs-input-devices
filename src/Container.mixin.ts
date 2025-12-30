@@ -1,5 +1,5 @@
 import { Container } from 'pixi.js';
-import { NavigateLinks } from './globals';
+import { ContainerNavigateOptions } from './lib/navigation/ContainerNavigateOptions';
 
 let _registered = false;
 
@@ -14,52 +14,49 @@ export function registerPixiJSNavigationMixin<T = Container>(container: T): void
     _registered = true;
 
     const prototype: Container = (container as any).prototype;
-
-    const navLinks = new WeakMap<Container, NavigateLinks>();
+    const navigationLinks = new WeakMap<Container, ContainerNavigateOptions>();
 
     // - Properties:
-    prototype.navigationPriority = 0;
     prototype.navigationMode = "auto";
+    prototype.navigationPriority = 0;
 
     // - Getters:
     Object.defineProperty(prototype, "navigatable", {
         get: function(this: Container): boolean
         {
-            if (this.destroyed) return false;
-
-            if (
-                this.navigationMode === "always"
-                || this.navigationMode === "target" // legacy
-            )
-            {
-                return true;
-            }
-
-            if (
-                this.navigationMode !== "auto"
-            )
+            if (this.destroyed)
             {
                 return false;
             }
 
-            return !!this.interactive;
+            switch (this.navigationMode)
+            {
+                case "auto"     : return this.isInteractive();
+                case "always"   : return true;
+                case "none"     : return false;
+            }
         },
         configurable: true,
         enumerable: false,
     });
 
-    Object.defineProperty(prototype, "nav", {
-        get: function(this: Container): NavigateLinks
+    Object.defineProperty(prototype, "navigationLinks", {
+        get: function(this: Container): ContainerNavigateOptions
         {
-            let nav = navLinks.get(this);
+            let value = navigationLinks.get(this);
 
-            if (!nav)
+            if (value == null)
             {
-                nav = {};
-                navLinks.set(this, nav);
+                value = this.navigationLinks = {};
             }
 
-            return nav;
+            return value;
+        },
+        set: function(this: Container, value?: ContainerNavigateOptions | null)
+        {
+            navigationLinks.set(this, value);
+
+            this.on("destroyed", () => navigationLinks.delete(this));
         },
         configurable: true,
         enumerable: false,

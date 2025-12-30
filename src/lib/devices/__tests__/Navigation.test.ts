@@ -1,4 +1,4 @@
-import { Bounds, Container } from "pixi.js";
+import { Bounds, Container, ContainerOptions } from "pixi.js";
 
 import { UINavigation } from "../../navigation/UINavigation";
 import { registerPixiJSNavigationMixin } from "../../../Container.mixin";
@@ -8,21 +8,34 @@ beforeAll(() => registerPixiJSNavigationMixin(Container));
 
 class MockContainer extends Container
 {
-    public constructor()
+    public constructor(options?: ContainerOptions)
     {
-        super();
+        super(options);
 
         this.getBounds = (skipUpdate?: boolean, bounds?: Bounds): Bounds =>
         {
             const width = 10, height = 10;
 
+            let target: Container | null = this;
+            let x = 0;
+            let y = 0;
+
+            while (target)
+            {
+                x += target.x;
+                y += target.y;
+                target = target.parent;
+            }
+
             return new Bounds(
-                this.x - width/2,
-                this.y - height/2,
-                this.x + width/2,
-                this.y + height/2
+                x - width/2,
+                y - height/2,
+                x + width/2,
+                y + height/2
             );
         };
+
+        this.isInteractive = () => this.eventMode === "static" || this.eventMode === "dynamic";
     }
 }
 
@@ -32,80 +45,87 @@ describe("UINavigation", () =>
     {
         jest.useFakeTimers();
 
-        const stageContainer = new MockContainer();
-        stageContainer.name = "Stage container";
+        // data
+        let buttonActivated = false;
+        const activateButton = (): any => buttonActivated = true;
 
-        let buttonWasTriggered = false;
-
-        const button1 = new MockContainer();
-        button1.name = "Button 1";
-        button1.x = -75;
-        button1.eventMode = "static";
-
-        button1.on("pointertap", () =>
-        {
-            buttonWasTriggered = true;
+        // cotainers
+        const stageContainer = new MockContainer({
+            label: "Stage container",
         });
 
-        expect(button1.navigatable).toBe(true);
+        const menuContainer = new MockContainer({
+            label: "Menu container",
+            x: 100,
+        });
 
-        const menuContainer = new MockContainer();
-        menuContainer.name = "Menu container";
-        const menuItem1 = new MockContainer();
-        menuItem1.name = "Menu Item 1";
-        const menuItem2 = new MockContainer();
-        menuItem2.name = "Menu Item 2";
+        const menuItem1 = new MockContainer({
+            label: "Menu Item 1",
+            navigationPriority: 1,
+            x: -55,
+            y: -25,
+        });
 
-        menuContainer.addChild(menuItem1, menuItem2);
+        const menuItem2 = new MockContainer({
+            label: "Menu Item 2",
+            navigationMode: "always",
+            x: 50,
+            y: -25,
+        });
+
+        const button1 = new MockContainer({
+            label: "Button 1",
+            eventMode: "static",
+            x: -75,
+            y: -20,
+        }).on("pointertap", activateButton);
+
+        menuContainer.addChild(
+            menuItem1,
+            menuItem2,
+        );
 
         stageContainer.addChild(
             button1,
             menuContainer,
         );
 
-        menuContainer.x = 100;
-        menuItem1.x = -50;
-        menuItem1.y = -25;
-        menuItem2.x = 50;
-        menuItem2.y = 25;
-
+        expect(button1.navigatable).toBe(true);
         expect(menuItem1.navigatable).toBe(false);
-        expect(menuItem2.navigatable).toBe(false);
-
-        menuItem1.navigationMode = "always";
-        menuItem1.navigationPriority = 1;
-
-        menuItem2.navigationMode = "always";
-
-        expect(menuItem1.navigatable).toBe(true);
         expect(menuItem2.navigatable).toBe(true);
 
-        expect(UINavigation.getStageContainer()).toBe(undefined);
+        menuItem1.navigationMode = "always";
+        menuItem1.navigationLinks.left = button1;
+        expect(menuItem1.navigatable).toBe(true);
+
+        // sanity check
         expect(UINavigation.active).toBe(false);
+        expect(UINavigation.getStageContainer()).toBeUndefined();
 
         // configure pixijs-input-devices
         InputDevice.add(InputDevice.keyboard);
         UINavigation.enable(stageContainer);
 
-        expect(UINavigation.getStageContainer().name).toBe(stageContainer.name);
+        expect(UINavigation.getStageContainer().label).toBe(stageContainer.label);
+        expect(UINavigation.focusTarget?.label).toBeUndefined();
 
         UINavigation.autoFocus();
 
-        expect(UINavigation.focusTarget.name).toBe(menuItem1.name);
+        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
 
         InputDevice.emitBind("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.name).toBe(button1.name);
+        expect(UINavigation.focusTarget.label).toBe(button1.label);
 
-        expect(buttonWasTriggered).toBe(false);
+        expect(buttonActivated).toBe(false);
 
         InputDevice.emitBind("NavigateActivate", InputDevice.keyboard);
 
-        expect(buttonWasTriggered).toBe(true);
+        expect(buttonActivated).toBe(true);
 
         InputDevice.emitBind("NavigateRight", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.name).toBe(menuItem1.name);
+        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
 
         // add a responder to set the new top-most interaction target
         UINavigation.pushResponder(menuContainer);
@@ -113,14 +133,14 @@ describe("UINavigation", () =>
         // now try to go back
         InputDevice.emitBind("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.name).toBe(menuItem1.name);
+        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
 
         UINavigation.popResponder();
 
         // now try to go back again
         InputDevice.emitBindDown("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.name).toBe(button1.name);
+        expect(UINavigation.focusTarget.label).toBe(button1.label);
     });
 });
 

@@ -5,13 +5,20 @@ import { Navigate, type NavigateBinds } from "./NavigateBind";
 import { NavigationResponder } from "./NavigationResponder";
 import { getFirstNavigatable, isChildOf } from "./Navigatable";
 import { emitPointerEvent } from "./emitPointerEvent";
+import { ContainerNavigateOptions } from "./ContainerNavigateOptions";
 
 
-type NavigateBindHandler = (event: NamedBindEvent<NavigateBinds>) => void;
-type FocusSource = "always" | "device";
+type FocusSource = "pointer" | "device";
 
-const PRESS_BINDS = [ Navigate.Activate, Navigate.Down, Navigate.Right, Navigate.Up, Navigate.Left ];
-const RELEASE_BINDS = [ Navigate.Activate, Navigate.Back ];
+const navigationLinkKeys: Record<NavigateBinds, keyof ContainerNavigateOptions> = {
+    [Navigate.Activate] : "activate",
+    [Navigate.Back]     : "back",
+    [Navigate.Down]     : "down",
+    [Navigate.Left]     : "left",
+    [Navigate.Right]    : "right",
+    [Navigate.Up]       : "up",
+};
+
 class NavigationManager
 {
     public static global = new NavigationManager();
@@ -30,10 +37,10 @@ class NavigationManager
          * FederatedPointerEvents to fire when navigating containers.
          */
         events: {
-            focus   : [ "pointerenter", "pointerover" ],
-            down    : [ "pointerdown", ],
-            up      : [ "pointerup", "pointertap" ],
-            blur    : [ "pointerleave", "pointerout" ],
+            enter   : [ "pointerenter", "pointerover" ],
+            press   : [ "pointerdown" ],
+            release : [ "pointerup", "pointertap" ],
+            leave   : [ "pointerleave", "pointerout" ],
         },
     };
 
@@ -50,12 +57,12 @@ class NavigationManager
     /**
      * Current source of navigation focus.
      */
-    public focusSource: FocusSource = "always";
+    public focusSource: FocusSource = "pointer";
 
     private _responders: NavigationResponder[] = [];
     private _rootContainer?: Container;
     private _rootFocused?: Container;
-    private _navigateBindsHandler?: NavigateBindHandler;
+    private _clearBinds?: () => void;
 
     private constructor()
     {}
@@ -124,11 +131,37 @@ class NavigationManager
         this._rootContainer = stageRoot;
 
         // setup binds
-        this._navigateBindsHandler = (e) => this._handleNavigateBindEvent(e);
+        const navigateEventHandler = (e: NamedBindEvent<NavigateBinds>): void =>
+            this._handleNavigateBindEvent(e);
+
+        const activatePressEventHandler = (e: NamedBindEvent<NavigateBinds>): void =>
+        {
+            const focusTarget = this.focusTarget;
+            if (focusTarget) this._press(focusTarget);
+        };
+
+        const anyMove = [
+            Navigate.Left,
+            Navigate.Down,
+            Navigate.Right,
+            Navigate.Up,
+        ];
+
+        const anyCommit = [
+            Navigate.Activate,
+            Navigate.Back,
+        ];
 
         InputDevice
-            .onBindDown(PRESS_BINDS, this._navigateBindsHandler)
-            .onBindUp(RELEASE_BINDS, this._navigateBindsHandler);
+            .onBindDown(anyMove, navigateEventHandler)
+            .onBindDown(Navigate.Activate, activatePressEventHandler)
+            .onBindUp(anyCommit, navigateEventHandler);
+
+        this._clearBinds = () =>
+            InputDevice
+                .offBindDown(anyMove, navigateEventHandler)
+                .offBindDown(Navigate.Activate, activatePressEventHandler)
+                .offBindUp(anyCommit, navigateEventHandler);
 
         return this;
     }
@@ -150,7 +183,7 @@ class NavigationManager
         this._responders.unshift(res);
 
         previousResponder?.resignedAsFirstResponder?.();
-        this._invalidateFocusedIfNeeded();
+        this._clearFocusTargetIfRemoved();
 
         res.becameFirstResponder?.();
         if (res.autoFocus ?? true) this.autoFocus();
@@ -172,7 +205,7 @@ class NavigationManager
         const nextFocused = this.focusTarget;
 
         previousResponder?.resignedAsFirstResponder?.();
-        this._invalidateFocusedIfNeeded();
+        this._clearFocusTargetIfRemoved();
 
         if (this.firstResponder)
         {
@@ -212,7 +245,7 @@ class NavigationManager
         this._responders.unshift(res);
 
         previousResponder?.resignedAsFirstResponder?.();
-        this._invalidateFocusedIfNeeded();
+        this._clearFocusTargetIfRemoved();
 
         res.becameFirstResponder?.();
         if (res.autoFocus ?? true) this.autoFocus();
@@ -260,7 +293,7 @@ class NavigationManager
         if (previousFirstResponder !== this.firstResponder)
         {
             previousFirstResponder?.resignedAsFirstResponder?.();
-            this._invalidateFocusedIfNeeded();
+            this._clearFocusTargetIfRemoved();
             this.firstResponder?.becameFirstResponder?.();
         }
 
@@ -330,7 +363,7 @@ class NavigationManager
         }
         else
         {
-            this.focusSource = "always";
+            this.focusSource = "pointer";
             this.device = undefined;
         }
 
@@ -386,137 +419,134 @@ class NavigationManager
 
     private _clearNavigateBindsHandler(): void
     {
-        const handler = this._navigateBindsHandler;
-
-        if (handler)
-        {
-            this._navigateBindsHandler = undefined;
-
-            InputDevice
-                .offBindDown(PRESS_BINDS, handler)
-                .offBindUp(RELEASE_BINDS, handler);
-        }
+        this._clearBinds?.();
+        this._clearBinds = undefined;
     }
 
-    private _handleNavigateBindEvent(event: NamedBindEvent<NavigateBinds>): void
+    private _responderHandleNavigationIntent(bind: NavigateBinds, device: Device): boolean
     {
-        if (!this.active) return;
-
-        // check responders first
-        const { device, name } = event;
-
-        if (event.pressed)
+        if (!this.active)
         {
-            for (const target of this._responders)
+            return false; // navigation is disabled
+        }
+
+        for (const responder of this._responders)
+        {
+            if (responder.handledNavigationIntent?.(bind, device))
             {
-                if (target.handledNavigationIntent?.(name, device))
-                {
-                    // stop on any responder that acknowledges the intent
-                    // as "handled"
-                    return;
-                }
+                // stop on any responder that acknowledges the intent
+                // as "handled"
+                return true;
             }
         }
 
-        // move on to default behavior
-        const stage = this.getStageContainer();
+        return false;
+    }
 
-        this._invalidateFocusedIfNeeded(stage);
+    private _handleNavigateBindEvent(
+        event: NamedBindEvent<NavigateBinds>,
+    ): void
+    {
+        if (!this.active)
+        {
+            // not active
+            return;
+        }
 
+        const bind = event.name;
+        const device = event.device;
+
+        // update nav device
         this.device = device;
         this.focusSource = "device";
 
+        // forward to responders
+        if (this._responderHandleNavigationIntent(bind, device))
+        {
+            // early exit: responder handled the event
+            return;
+        }
+
+        // default behavior:
+        this._clearFocusTargetIfRemoved();
+
         const focusTarget = this.focusTarget;
 
-        // if we currently have no focus target, then find one.
         if (focusTarget === undefined)
         {
             this.autoFocus();
 
+            // early exit: if we currently have no focus target, then find one.
             return;
         }
 
-        // try explicit links first
-        if (focusTarget.nav)
+        // check explicit navigation link
+        const key = navigationLinkKeys[bind];
+        const linkedContainer = focusTarget.navigationLinks[key];
+
+        if (linkedContainer?.navigatable)
         {
-            const links = focusTarget.nav;
+            this.setFocus(linkedContainer, device);
 
-            const bindLinks = {
-                [Navigate.Activate] : links.activate,
-                [Navigate.Back]     : links.back,
-                [Navigate.Down]     : links.down,
-                [Navigate.Left]     : links.left,
-                [Navigate.Right]    : links.right,
-                [Navigate.Up]       : links.up,
-            };
+            return;
+        }
 
-            const linkedContainer = bindLinks[name];
-
-            if (linkedContainer?.navigatable)
-            {
-                this.setFocus(linkedContainer, event.device);
+        switch (bind)
+        {
+            case Navigate.Activate:
+                if (!event.pressed) return; // only accept PRESS
+                this._release(focusTarget);
 
                 return;
+
+            case Navigate.Back:
+                if (!event.pressed) return; // only accept PRESS
+                this._leave(focusTarget);
+
+                return;
+
+            default: {
+                if (event.pressed) return; // only accept RELEASE
+
+                // spatial navigation
+                const stage = this.getStageContainer()!;
+
+                const spatialTarget = getFirstNavigatable(stage, {
+                    direction: bind,
+                    currentFocus: focusTarget,
+                    minimumDistance: this.options.minimumDirectionDistance,
+                });
+
+                if (spatialTarget && spatialTarget !== focusTarget)
+                {
+                    this.setFocus(spatialTarget, event.device);
+                }
             }
         }
-
-        // default actions
-        if (name === Navigate.Back)
-        {
-            this._leave(focusTarget);
-
-            return;
-        }
-
-        if (name === Navigate.Activate)
-        {
-            if (event.pressed) this._press(focusTarget);
-            else this._release(focusTarget);
-
-            return;
-        }
-
-        // spatial navigation
-        const nextTarget = getFirstNavigatable(
-            stage,
-            focusTarget,
-            name,
-            {
-                minimumDistance: this.options.minimumDirectionDistance
-            }
-        ) ?? focusTarget;
-
-        if (nextTarget === focusTarget)
-        {
-            // no change, do nothing
-            return;
-        }
-
-        this.setFocus(nextTarget, event.device);
     }
 
     private _enter(target: Container): void
     {
         if (!this.device || this.focusSource !== "device") return;
-        emitPointerEvent(target, this.device, this.options.events.focus);
+        emitPointerEvent(target, this.device, this.options.events.enter);
     }
 
     private _press(target: Container): void
     {
         if (!this.device || this.focusSource !== "device") return;
-        emitPointerEvent(target, this.device, this.options.events.down);
+        emitPointerEvent(target, this.device, this.options.events.press);
     }
 
     private _release(target: Container): void
     {
         if (!this.device || this.focusSource !== "device") return;
-        emitPointerEvent(target, this.device, this.options.events.up);
+        emitPointerEvent(target, this.device, this.options.events.release);
     }
 
     private _leave(target: Container, clearFocusTarget = true): void
     {
         if (!this.device || this.focusSource !== "device") return;
-        emitPointerEvent(target, this.device, this.options.events.blur);
+        emitPointerEvent(target, this.device, this.options.events.leave);
 
         if (clearFocusTarget)
         {
@@ -524,7 +554,7 @@ class NavigationManager
         }
     }
 
-    private _invalidateFocusedIfNeeded(stage?: Container): void
+    private _clearFocusTargetIfRemoved(stage?: Container): void
     {
         stage ??= this.getStageContainer();
 

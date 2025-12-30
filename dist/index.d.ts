@@ -1,39 +1,28 @@
-/**
- * Allow Containers to set explicit shortcuts for navigation to
- * override the default spatial navigation.
- */
-export interface NavigateLinks
-{
-  /** Container to navigate to on "NavigateLeft". */
-  left?: Container;
-
-  /** Container to navigate to on "NavigateRight". */
-  right?: Container;
-
-  /** Container to navigate to on "NavigateUp". */
-  up?: Container;
-
-  /** Container to navigate to on "NavigateDown". */
-  down?: Container;
-
-  /** Container to navigate to on "NavigateBack". */
-  back?: Container;
-
-  /** Container to navigate to on "NavigateActivate". */
-  activate?: Container;
-}
+import { ContainerNavigateOptions } from "./lib/navigation/ContainerNavigateOptions";
 
 declare module "pixi.js"
 {
+  export interface ContainerOptions
+  {
+    /** @default "auto" */
+    navigationMode?: "auto" | "always" | "none";
+
+    /** @default {} */
+    navigationLinks?: ContainerNavigateOptions;
+
+    /** @default 0 */
+    navigationPriority?: number;
+
+    handledNavigationIntent?(intent: NavigateBinds, device: Device): boolean;
+    becameFirstResponder?(): void;
+    resignedAsFirstResponder?(): void;
+  }
+
   export interface Container
   {
-    //
-    // ----- Properties: -----
-    //
-
     /**
-     * @returns true when navigationMode is set to "always", or
-     * when "auto" and the container is interactive.
+     * Whether the container supports device navigation. Enabled when
+     * navigationMode is "always", or "auto" and container is interactive.
      */
     readonly navigatable: boolean;
 
@@ -41,12 +30,12 @@ declare module "pixi.js"
      * Device navigation mode.
      *
      * - "auto" - Navigatable when the container is interactive.
-     * - "always" - Always navigatable even when interactivity is disabled.
+     * - "always" - Always navigatable even when interactive disabled.
      * - "none" - Navigation is disabled.
      *
      * @default "auto"
      */
-    navigationMode: "auto" | "always" | "none" | /* deprecated: */ ("target" | "disabled");
+    navigationMode: "auto" | "always" | "none";
 
     /**
      * (Optional) Container navigation links, to override spatial navigation.
@@ -54,7 +43,7 @@ declare module "pixi.js"
      * @example
      * button1.nav.left = button2;
      */
-    nav: NavigateLinks;
+    navigationLinks: ContainerNavigateOptions;
 
     /**
      * Priority used when no container has focus, and navigation is determining
@@ -98,7 +87,7 @@ declare module "pixi.js"
 }
 
 export {};
-import { Container, Rectangle } from 'pixi.js';
+import { Bounds, Container } from 'pixi.js';
 
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
@@ -226,10 +215,10 @@ declare class NavigationManager {
 		 * FederatedPointerEvents to fire when navigating containers.
 		 */
 		events: {
-			focus: string[];
-			down: string[];
-			up: string[];
-			blur: string[];
+			enter: string[];
+			press: string[];
+			release: string[];
+			leave: string[];
 		};
 	};
 	/**
@@ -247,7 +236,7 @@ declare class NavigationManager {
 	private _responders;
 	private _rootContainer?;
 	private _rootFocused?;
-	private _navigateBindsHandler?;
+	private _clearBinds?;
 	private constructor();
 	/**
 	 * Whether navigation is enabled and NOT paused.
@@ -306,12 +295,13 @@ declare class NavigationManager {
 	 */
 	setFocus(target: Container | undefined | null, device?: Device): void;
 	private _clearNavigateBindsHandler;
+	private _responderHandleNavigationIntent;
 	private _handleNavigateBindEvent;
 	private _enter;
 	private _press;
 	private _release;
 	private _leave;
-	private _invalidateFocusedIfNeeded;
+	private _clearFocusTargetIfRemoved;
 }
 declare const Axis: {
 	readonly LeftStickX: 0;
@@ -843,12 +833,11 @@ export declare const UINavigation: NavigationManager;
  * @returns all navigatable containers in some container
  */
 export declare function getAllNavigatables(target: Container, navigatables?: NavigatableContainer[]): NavigatableContainer[];
+export declare function getDistanceScore(a: Bounds, b: Bounds, weightX?: number, weightY?: number): number;
 /**
  * @returns the first navigatable container in the given direction
  */
-export declare function getFirstNavigatable(root: Container, currentFocus?: Container, nearestDirection?: NavigationDirection, { minimumDistance, }?: {
-	minimumDistance?: number;
-}): NavigatableContainer | undefined;
+export declare function getFirstNavigatable(root: Container, options?: NavigatableQueryOptions): NavigatableContainer | undefined;
 export declare function isChildOf(child: Container, root: Container): boolean;
 export declare function isVisible(target: Container): boolean;
 /**
@@ -857,7 +846,6 @@ export declare function isVisible(target: Container): boolean;
  * @param container A reference to `PIXI.Container`.
  */
 export declare function registerPixiJSNavigationMixin<T = Container>(container: T): void;
-export declare function weightedRectDistance(a: Rectangle, b: Rectangle, weightX?: number, weightY?: number): number;
 /**
  * Augment this interface with anything. Values become binds.
  *
@@ -878,6 +866,20 @@ export declare function weightedRectDistance(a: Rectangle, b: Rectangle, weightX
  * }
  */
 export interface Binds {
+}
+export interface ContainerNavigateOptions {
+	/** Container to navigate to on "NavigateLeft". */
+	left?: Container | null;
+	/** Container to navigate to on "NavigateRight". */
+	right?: Container | null;
+	/** Container to navigate to on "NavigateUp". */
+	up?: Container | null;
+	/** Container to navigate to on "NavigateDown". */
+	down?: Container | null;
+	/** Container to navigate to on "NavigateBack". */
+	back?: Container | null;
+	/** Container to navigate to on "NavigateActivate". */
+	activate?: Container | null;
 }
 export interface CustomDevice {
 	/**
@@ -988,23 +990,10 @@ export interface NamedBindEvent<BindName extends NamedBind> {
 	 */
 	value: number;
 }
-/**
- * Allow Containers to set explicit shortcuts for navigation to
- * override the default spatial navigation.
- */
-export interface NavigateLinks {
-	/** Container to navigate to on "NavigateLeft". */
-	left?: Container;
-	/** Container to navigate to on "NavigateRight". */
-	right?: Container;
-	/** Container to navigate to on "NavigateUp". */
-	up?: Container;
-	/** Container to navigate to on "NavigateDown". */
-	down?: Container;
-	/** Container to navigate to on "NavigateBack". */
-	back?: Container;
-	/** Container to navigate to on "NavigateActivate". */
-	activate?: Container;
+export interface NavigatableQueryOptions {
+	currentFocus?: Container;
+	direction?: NavigateDirection;
+	minimumDistance?: number;
 }
 /**
  * A target that responds to navigation on the stack.
@@ -1049,7 +1038,7 @@ export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
 export type DeviceMetadata = Record<string, any> | Partial<Metadata>;
-export type FocusSource = "always" | "device";
+export type FocusSource = "pointer" | "device";
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 /**
  * Bindable codes for button and joystick events.
@@ -1099,6 +1088,6 @@ export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
 export type NamedBind = NavigateBinds | Binds[keyof Binds];
 export type NavigatableContainer = Container;
 export type NavigateBinds = typeof Navigate[keyof typeof Navigate];
-export type NavigationDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
+export type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
 
 export {};

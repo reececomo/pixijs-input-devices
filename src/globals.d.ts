@@ -1,39 +1,28 @@
-/**
- * Allow Containers to set explicit shortcuts for navigation to
- * override the default spatial navigation.
- */
-export interface NavigateLinks
-{
-  /** Container to navigate to on "NavigateLeft". */
-  left?: Container;
-
-  /** Container to navigate to on "NavigateRight". */
-  right?: Container;
-
-  /** Container to navigate to on "NavigateUp". */
-  up?: Container;
-
-  /** Container to navigate to on "NavigateDown". */
-  down?: Container;
-
-  /** Container to navigate to on "NavigateBack". */
-  back?: Container;
-
-  /** Container to navigate to on "NavigateActivate". */
-  activate?: Container;
-}
+import { ContainerNavigateOptions } from "./lib/navigation/ContainerNavigateOptions";
 
 declare module "pixi.js"
 {
+  export interface ContainerOptions
+  {
+    /** @default "auto" */
+    navigationMode?: "auto" | "always" | "none";
+
+    /** @default {} */
+    navigationLinks?: ContainerNavigateOptions;
+
+    /** @default 0 */
+    navigationPriority?: number;
+
+    handledNavigationIntent?(intent: NavigateBinds, device: Device): boolean;
+    becameFirstResponder?(): void;
+    resignedAsFirstResponder?(): void;
+  }
+
   export interface Container
   {
-    //
-    // ----- Properties: -----
-    //
-
     /**
-     * @returns true when navigationMode is set to "always", or
-     * when "auto" and the container is interactive.
+     * Whether the container supports device navigation. Enabled when
+     * navigationMode is "always", or "auto" and container is interactive.
      */
     readonly navigatable: boolean;
 
@@ -41,12 +30,12 @@ declare module "pixi.js"
      * Device navigation mode.
      *
      * - "auto" - Navigatable when the container is interactive.
-     * - "always" - Always navigatable even when interactivity is disabled.
+     * - "always" - Always navigatable even when interactive disabled.
      * - "none" - Navigation is disabled.
      *
      * @default "auto"
      */
-    navigationMode: "auto" | "always" | "none" | /* deprecated: */ ("target" | "disabled");
+    navigationMode: "auto" | "always" | "none";
 
     /**
      * (Optional) Container navigation links, to override spatial navigation.
@@ -54,7 +43,7 @@ declare module "pixi.js"
      * @example
      * button1.nav.left = button2;
      */
-    nav: NavigateLinks;
+    navigationLinks: ContainerNavigateOptions;
 
     /**
      * Priority used when no container has focus, and navigation is determining
