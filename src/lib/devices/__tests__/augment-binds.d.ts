@@ -2,7 +2,7 @@ export {};
 
 declare module "../../../"
 {
-  interface Binds
+  interface BindValues
   {
     /** @internal */
     Jump: "Jump";

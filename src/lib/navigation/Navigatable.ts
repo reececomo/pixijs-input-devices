@@ -1,8 +1,22 @@
-import { Bounds, Container } from "pixi.js";
+import { Container } from "pixi.js";
 
 
 type NavigatableContainer = Container;
 type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
+
+
+export interface SpatialNavigationOptions
+{
+    minimumDistance: number;
+    directionAxisWeight: number;
+}
+
+interface NavigatableQueryOptions
+{
+    currentFocus?: Container;
+    direction?: NavigateDirection;
+    spatial?: SpatialNavigationOptions;
+}
 
 /**
  * @returns all navigatable containers in some container
@@ -25,13 +39,6 @@ export function getAllNavigatables(
     }
 
     return navigatables;
-}
-
-interface NavigatableQueryOptions
-{
-    currentFocus?: Container;
-    direction?: NavigateDirection;
-    minimumDistance?: number;
 }
 
 /**
@@ -71,7 +78,7 @@ function chooseFirstNavigatableInDirection(
     const {
         currentFocus,
         direction,
-        minimumDistance = 0,
+        spatial,
     } = options;
 
     const elements = navigatables
@@ -107,49 +114,42 @@ function chooseFirstNavigatableInDirection(
         return navigatables[0] ?? fallbackElement;
     }
 
-    const focusedBounds = focusedElement.getBounds();
-    const focusedCenter = {
-        x: (focusedBounds.minX + focusedBounds.maxX) / 2,
-        y: (focusedBounds.minY + focusedBounds.maxY) / 2,
-    };
+    const focus = focusedElement.getGlobalPosition();
 
     let filtered = elements
         .filter((element) => element !== focusedElement)
         .map((element) =>
         {
-            const bounds = element.getBounds();
-
-            const center = {
-                x: (bounds.minX + bounds.maxX) / 2,
-                y: (bounds.minY + bounds.maxY) / 2,
-            };
+            const { x, y } = element.getGlobalPosition();
 
             return {
                 element,
-                bounds,
-                center,
+                x,
+                y,
             };
         });
+
+    const { minimumDistance, directionAxisWeight } = spatial;
 
     switch (direction)
     {
         case "NavigateUp": {
-            filtered = filtered.filter((el) => el.center.y < focusedCenter.y - minimumDistance);
+            filtered = filtered.filter((el) => el.y < focus.y - minimumDistance);
             break;
         }
 
         case "NavigateLeft": {
-            filtered = filtered.filter((el) => el.center.x < focusedCenter.x - minimumDistance);
+            filtered = filtered.filter((el) => el.x < focus.x - minimumDistance);
             break;
         }
 
         case "NavigateRight": {
-            filtered = filtered.filter((el) => el.center.x > focusedCenter.x + minimumDistance);
+            filtered = filtered.filter((el) => el.x > focus.x + minimumDistance);
             break;
         }
 
         case "NavigateDown": {
-            filtered = filtered.filter((el) => el.center.y > focusedCenter.y + minimumDistance);
+            filtered = filtered.filter((el) => el.y > focus.y + minimumDistance);
             break;
         }
 
@@ -164,38 +164,20 @@ function chooseFirstNavigatableInDirection(
             const isX = direction === "NavigateLeft"
                 || direction === "NavigateRight";
 
-            const ALIGNED_AXIS_WEIGHT = 1.0;
-            const OTHER_AXIS_WEIGHT = 0.33;
+            const xWeight = isX ? 1/directionAxisWeight : 1;
+            const yWeight = !isX ? 1/directionAxisWeight : 1;
+
+            const dx = (focus.x - value.x) * xWeight;
+            const dy = (focus.y - value.y) * yWeight;
 
             return {
                 ...value,
-                score: getDistanceScore(
-                    value.bounds,
-                    focusedBounds,
-                    isX ? OTHER_AXIS_WEIGHT : ALIGNED_AXIS_WEIGHT,
-                    isX ? ALIGNED_AXIS_WEIGHT : OTHER_AXIS_WEIGHT
-                ),
+                score: dx*dx + dy*dy,
             };
         })
         .sort((a, b) => a.score - b.score);
 
     return sorted[0]?.element ?? fallbackElement;
-}
-
-export function getDistanceScore(
-    a: Bounds,
-    b: Bounds,
-    weightX = 1,
-    weightY = 1
-): number
-{
-    const dx = Math.max(0, Math.max(b.minX - a.maxX, a.minX - b.maxX));
-    const dy = Math.max(0, Math.max(b.minY - a.maxY, a.minY - b.maxY));
-
-    const wx = dx * weightX;
-    const wy = dy * weightY;
-
-    return wx*wx + wy*wy;
 }
 
 export function isVisible(

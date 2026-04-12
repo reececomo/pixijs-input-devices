@@ -1,5 +1,5 @@
 import { HapticEffect } from "./HapticEffect";
-import { DeviceMetadata } from "./metadata";
+import { IDeviceMetadata } from "../config/DeviceMetadata";
 
 export interface CustomDevice
 {
@@ -18,7 +18,7 @@ export interface CustomDevice
   /**
    * Arbitrary metadata stored against this device.
    */
-  readonly meta: DeviceMetadata;
+  readonly meta: IDeviceMetadata;
 
   /**
     * Timestamp when input was last modified.

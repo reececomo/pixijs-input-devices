@@ -91,17 +91,26 @@ used for grouping.
 // my-binds.ts
 
 export {};
-declare module "pixijs-input-devices" {
 
-    interface Binds
+declare module "pixijs-input-devices"
+{
+    interface BindValues
     {
-        gameplay:
-            "Jump" | "Left" | "Right" | "Crouch";
+        inGame:
+            | "Jump"
+            | "Left"
+            | "Right"
+            | "Crouch";
 
-        general:
-            "Menu" | "Pause";
+        menu:
+            | "Mute"
+            | "Pause";
     }
 
+    interface DeviceMetadata
+    {
+        playerID?: number;
+    }
 }
 ```
 
@@ -537,10 +546,10 @@ You can override these mappings manually:
 
 ```ts
 // defaults:
-UINavigation.options.events.enter   = [ "pointerenter", "pointerover" ];
+UINavigation.options.events.focus   = [ "pointerenter", "pointerover" ];
+UINavigation.options.events.blur    = [ "pointerleave", "pointerout" ];
 UINavigation.options.events.press   = [ "pointerdown" ];
-UINavigation.options.events.release = [ "pointerup",    "pointertap" ];
-UINavigation.options.events.leave   = [ "pointerleave", "pointerout" ];
+UINavigation.options.events.release = [ "pointerup", "pointertap" ];
 ```
 
 > [!TIP]
@@ -562,7 +571,7 @@ use global screen space to move to the nearest UI in that direction, using a heu
 However for tricky UIs you can manually bind navigation links for containers:
 
 ```ts
-button1.nav.up = button2;
+button1.navigationLinks.up = button2;
 ```
 
 ### How it works
@@ -579,23 +588,13 @@ responsible for asking the **first responder** whether it can handle the intent.
 If it returns `false`, any other responders are checked (if they exist),
 otherwise the default global navigation behavior kicks in.
 
-### Default Global Navigation Behaviors
-
-When a navigation action is **not** handled manually by a responder, it is handled in one of the following ways:
-
-| Action | Behavior |
-|---|---|
-|`"NavigateBack"`|<ul><li>No action.</li></ul>|
-|`"NavigateLeft"`, `"NavigateRight"`, `"NavigateUp"`, `"NavigateDown"`|<ul><li>Looks for the nearest `Container` where `container.isNavigatable` in the direction given, and if found, receives a `"pointerover"` event.</li><li>Additionally, if the newly focused container has registered an event handler for either `"pointerover"`, it will fire that too.</li><li>If we were previously focused on a container, that previous container receives a `"pointerout"` event.</li></ul>|
-|`"NavigateActivate"`|<ul><li>Checks if we are currently focused on a container, and then issue a `"pointerdown"` and `"pointerup"` event.</li><li>If the focused container has registered an event handler for either `"pointerdown"`, that event handler will be fired too.</li></ul>|
-
 ### Container Navigatability
 
 Containers are extended with a few properties/accessors:
 
 | Container properties | type | default | description
 |---------------------|------|---------|--------------
-| `isNavigatable`      | `readonly boolean` | `false` | returns `true` if `navigationMode` is set to `"always"`, |or is `"auto"` and is interactive.
+| `navigatable`      | `readonly boolean` | `false` | returns `true` if `navigationMode` is set to `"always"`, |or is `"auto"` and is interactive with at least one of "pointertap", "pointerup" or "pointerdown".
 | `navigationMode`     | `"auto"` \| `"always"` | `"none"` \| `"auto"` | When set to `"auto"`, a `Container` can be navigated to if it is int
 | `navigationPriority` | `number` | `0` | The priority relative to other navigation items in this group.
 

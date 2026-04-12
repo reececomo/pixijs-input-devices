@@ -3,6 +3,12 @@ import { ContainerNavigateOptions } from './lib/navigation/ContainerNavigateOpti
 
 let _registered = false;
 
+const AUTO_EVENTS = new Set<string>([
+    "pointerdown",
+    "pointerup",
+    "pointertap",
+]);
+
 /**
  * Register the mixin for PIXI.Container.
  *
@@ -31,9 +37,11 @@ export function registerPixiJSNavigationMixin<T = Container>(container: T): void
 
             switch (this.navigationMode)
             {
-                case "auto"     : return this.isInteractive();
-                case "always"   : return true;
-                case "none"     : return false;
+                case "always": return true;
+                case "none": return false;
+
+                default:
+                    return this.isInteractive() && this.eventNames().some((name: string) => AUTO_EVENTS.has(name));
             }
         },
         configurable: true,

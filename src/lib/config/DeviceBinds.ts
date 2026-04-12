@@ -1,4 +1,4 @@
-import { NavigateBinds } from "../navigation/NavigateBind";
+import { NavigateBind } from "../navigation/NavigateBind";
 
 /**
  * Augment this interface with anything. Values become binds.
@@ -7,7 +7,7 @@ import { NavigateBinds } from "../navigation/NavigateBind";
  *
  * @example
  * declare module "pixijs-input-devices" {
- *     interface Binds {
+ *     interface BindValues {
  *         Gameplay:
  *             | "Crouch"
  *             | "Jump"
@@ -19,11 +19,10 @@ import { NavigateBinds } from "../navigation/NavigateBind";
  *     }
  * }
  */
-export interface Binds
+export interface BindValues
 {
-  //
 }
 
-export type NamedBind =
-  | NavigateBinds
-  | Binds[keyof Binds];
+export type IBind =
+  | NavigateBind
+  | BindValues[keyof BindValues];

@@ -9,8 +9,8 @@ import {
     detectKeyboardLayoutFromKeydown,
     getNavigatorKeyLabel
 } from "./layouts";
-import { NamedBind } from "../../binds/Binds";
-import { DeviceMetadata } from "../metadata";
+import { IBind } from "../../config/DeviceBinds";
+import { IDeviceMetadata } from "../../config/DeviceMetadata";
 
 
 export { KeyCode, KeyboardLayout };
@@ -31,7 +31,7 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 
 export interface KeyboardDeviceNamedBindKeyEvent extends KeyboardDeviceKeyEvent
 {
-  name: NamedBind;
+  name: IBind;
   pressed: boolean;
   value: 0 | 1;
   repeat: boolean;
@@ -55,7 +55,7 @@ export class KeyboardDeviceInstance
     /**
      * Associate custom meta data with a device.
      */
-    public readonly meta: DeviceMetadata = {};
+    public readonly meta: IDeviceMetadata = {};
 
     /** Timestamp of when the keyboard was last interacted with. */
     public lastInteraction = performance.now();
@@ -100,7 +100,7 @@ export class KeyboardDeviceInstance
             "NavigateRight"     :  [ "ArrowRight", "KeyD" ],
             "NavigateActivate"  :  [ "Enter", "Space" ],
             "NavigateUp"        :  [ "ArrowUp", "KeyW" ],
-        } as Partial<Record<NamedBind, KeyCode[]>>,
+        } as Partial<Record<IBind, KeyCode[]>>,
 
         /**
      * These are the binds that are allowed to repeat when a key
@@ -197,7 +197,7 @@ export class KeyboardDeviceInstance
     // ----- Methods: -----
 
     /** @returns true if any KeyCode from the named bind is pressed. */
-    public bindDown(name: NamedBind): boolean
+    public bindDown(name: IBind): boolean
     {
         if (this.options.binds[name] === undefined) return false;
 
@@ -227,7 +227,7 @@ export class KeyboardDeviceInstance
     }
 
     /** Set custom binds */
-    public configureBinds<B extends NamedBind>(
+    public configureBinds<B extends IBind>(
         binds: Partial<Record<B, KeyCode[]>>
     ): void
     {
@@ -270,7 +270,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -282,7 +282,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -293,7 +293,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindUp(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -305,7 +305,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindUp(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -316,7 +316,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBind(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -326,7 +326,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBind(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -472,7 +472,7 @@ export class KeyboardDeviceInstance
                     keyCode,
                     keyLabel: this.getKeyLabel(keyCode),
                     event: e,
-                    name: name as NamedBind,
+                    name: name as IBind,
                     repeat: e.repeat,
                     value: 1 as const,
                     pressed: true,
@@ -498,7 +498,7 @@ export class KeyboardDeviceInstance
                 keyCode,
                 keyLabel: this.getKeyLabel(keyCode),
                 event: e,
-                name: name as NamedBind,
+                name: name as IBind,
                 repeat: e.repeat,
                 value: 0 as const,
                 pressed: false,

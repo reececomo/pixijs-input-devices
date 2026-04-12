@@ -5,7 +5,7 @@ export * from "./lib/devices/CustomDevice";
 export * from "./lib/InputDevice";
 
 // binds
-export * from "./lib/binds/Binds";
+export * from "./lib/config/DeviceBinds";
 
 // navigation
 export * from "./lib/navigation/Navigatable";

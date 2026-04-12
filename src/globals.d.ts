@@ -1,4 +1,23 @@
-import { ContainerNavigateOptions } from "./lib/navigation/ContainerNavigateOptions";
+export interface ContainerNavigateOptions
+{
+    /** Container to navigate to on "NavigateLeft". */
+    left?: Container | null;
+
+    /** Container to navigate to on "NavigateRight". */
+    right?: Container | null;
+
+    /** Container to navigate to on "NavigateUp". */
+    up?: Container | null;
+
+    /** Container to navigate to on "NavigateDown". */
+    down?: Container | null;
+
+    /** Container to navigate to on "NavigateBack". */
+    back?: Container | null;
+
+    /** Container to navigate to on "NavigateActivate". */
+    activate?: Container | null;
+}
 
 declare module "pixi.js"
 {
@@ -12,24 +31,22 @@ declare module "pixi.js"
 
     /** @default 0 */
     navigationPriority?: number;
-
-    handledNavigationIntent?(intent: NavigateBinds, device: Device): boolean;
-    becameFirstResponder?(): void;
-    resignedAsFirstResponder?(): void;
   }
 
   export interface Container
   {
     /**
      * Whether the container supports device navigation. Enabled when
-     * navigationMode is "always", or "auto" and container is interactive.
+     * navigationMode is "always", or "auto" and container is interactive and
+		 * has at least one of "pointertap", "pointerup", or "pointerdown".
      */
     readonly navigatable: boolean;
 
     /**
      * Device navigation mode.
      *
-     * - "auto" - Navigatable when the container is interactive.
+     * - "auto" - Navigatable when the container is interactive and
+		 *   has at least one of "pointertap", "pointerup", or "pointerdown".
      * - "always" - Always navigatable even when interactive disabled.
      * - "none" - Navigation is disabled.
      *
@@ -41,7 +58,7 @@ declare module "pixi.js"
      * (Optional) Container navigation links, to override spatial navigation.
      *
      * @example
-     * button1.nav.left = button2;
+     * button1.navigationLinks.left = button2;
      */
     navigationLinks: ContainerNavigateOptions;
 
@@ -52,37 +69,6 @@ declare module "pixi.js"
      * @default 0
      */
     navigationPriority: number;
-
-    //
-    // ----- (Optional) NavigationResponder handlers: -----
-    //
-
-    /**
-     * Called when received a navigation intent. The target should handle, and
-     * respond with a boolean indicating whether or not the intent was handled.
-     *
-     * Unhandled interaction intents will be bubbled up to the next target. You
-     * might return `true` here to prevent any intent from being propagated.
-     */
-    handledNavigationIntent?(
-      intent: NavigateBinds,
-      device: Device,
-    ): boolean;
-
-    /**
-     * This method is triggered when the target became the first responder.
-     *
-     * Either when pushed, or when another target stopped being the first
-     * responder.
-     */
-    becameFirstResponder?(): void;
-
-    /**
-     * This method is triggered when the target stopped being first responder.
-     *
-     * Either popped, or another target was pushed on top of the stack.
-     */
-    resignedAsFirstResponder?(): void;
   }
 }
 

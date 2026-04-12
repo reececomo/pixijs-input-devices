@@ -1,4 +1,23 @@
-import { ContainerNavigateOptions } from "./lib/navigation/ContainerNavigateOptions";
+export interface ContainerNavigateOptions
+{
+    /** Container to navigate to on "NavigateLeft". */
+    left?: Container | null;
+
+    /** Container to navigate to on "NavigateRight". */
+    right?: Container | null;
+
+    /** Container to navigate to on "NavigateUp". */
+    up?: Container | null;
+
+    /** Container to navigate to on "NavigateDown". */
+    down?: Container | null;
+
+    /** Container to navigate to on "NavigateBack". */
+    back?: Container | null;
+
+    /** Container to navigate to on "NavigateActivate". */
+    activate?: Container | null;
+}
 
 declare module "pixi.js"
 {
@@ -12,24 +31,22 @@ declare module "pixi.js"
 
     /** @default 0 */
     navigationPriority?: number;
-
-    handledNavigationIntent?(intent: NavigateBinds, device: Device): boolean;
-    becameFirstResponder?(): void;
-    resignedAsFirstResponder?(): void;
   }
 
   export interface Container
   {
     /**
      * Whether the container supports device navigation. Enabled when
-     * navigationMode is "always", or "auto" and container is interactive.
+     * navigationMode is "always", or "auto" and container is interactive and
+		 * has at least one of "pointertap", "pointerup", or "pointerdown".
      */
     readonly navigatable: boolean;
 
     /**
      * Device navigation mode.
      *
-     * - "auto" - Navigatable when the container is interactive.
+     * - "auto" - Navigatable when the container is interactive and
+		 *   has at least one of "pointertap", "pointerup", or "pointerdown".
      * - "always" - Always navigatable even when interactive disabled.
      * - "none" - Navigation is disabled.
      *
@@ -41,7 +58,7 @@ declare module "pixi.js"
      * (Optional) Container navigation links, to override spatial navigation.
      *
      * @example
-     * button1.nav.left = button2;
+     * button1.navigationLinks.left = button2;
      */
     navigationLinks: ContainerNavigateOptions;
 
@@ -52,42 +69,11 @@ declare module "pixi.js"
      * @default 0
      */
     navigationPriority: number;
-
-    //
-    // ----- (Optional) NavigationResponder handlers: -----
-    //
-
-    /**
-     * Called when received a navigation intent. The target should handle, and
-     * respond with a boolean indicating whether or not the intent was handled.
-     *
-     * Unhandled interaction intents will be bubbled up to the next target. You
-     * might return `true` here to prevent any intent from being propagated.
-     */
-    handledNavigationIntent?(
-      intent: NavigateBinds,
-      device: Device,
-    ): boolean;
-
-    /**
-     * This method is triggered when the target became the first responder.
-     *
-     * Either when pushed, or when another target stopped being the first
-     * responder.
-     */
-    becameFirstResponder?(): void;
-
-    /**
-     * This method is triggered when the target stopped being first responder.
-     *
-     * Either popped, or another target was pushed on top of the stack.
-     */
-    resignedAsFirstResponder?(): void;
   }
 }
 
 export {};
-import { Bounds, Container } from 'pixi.js';
+import { Container } from 'pixi.js';
 
 declare class InputDeviceManager {
 	static global: InputDeviceManager;
@@ -150,41 +136,41 @@ declare class InputDeviceManager {
 	/**
 	 * Adds a named bind event listener.
 	 */
-	onBindDown<B extends NamedBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
+	onBindDown<B extends IBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
 	/**
 	 * Adds a named bind event listener.
 	 */
-	onBindUp<B extends NamedBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
+	onBindUp<B extends IBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
 	/**
 	 * Adds a named bind event listener.
 	 */
-	onBind<B extends NamedBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
+	onBindDownUp<B extends IBind>(name: B | readonly B[], listener: (event: NamedBindEvent<B>) => void, options?: EventOptions): this;
 	/**
 	 * Remove a named bind event listener (or ALL event listeners if none provided).
 	 */
-	offBindDown<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
+	offBindDown<B extends IBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
 	/**
 	 * Remove a named bind event listener (or ALL event listeners if none provided).
 	 */
-	offBindUp<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
+	offBindUp<B extends IBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
 	/**
 	 * Remove a named bind event listener (or ALL event listeners if none provided).
 	 */
-	offBind<B extends NamedBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
+	offBindDownUp<B extends IBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
 	/**
 	 * Report a named bind event (i.e. from UI or a CustomDevice).
 	 */
-	emitBindDown<B extends NamedBind>(name: B, device: Device, value?: number): this;
+	emitBindDown<B extends IBind>(name: B, device: Device, value?: number): this;
 	/**
 	 * Report a named bind event (i.e. from UI or a CustomDevice).
 	 */
-	emitBindUp<B extends NamedBind>(name: B, device: Device): this;
+	emitBindUp<B extends IBind>(name: B, device: Device): this;
 	/**
 	 * Report a named bind event (i.e. from UI or a CustomDevice).
 	 *
 	 * Emits a "down" and "up" immediately.
 	 */
-	emitBind<B extends NamedBind>(name: B, device: Device): void;
+	emitBindDownUp<B extends IBind>(name: B, device: Device): void;
 	/**
 	 * Add a device.
 	 */
@@ -207,18 +193,57 @@ declare class NavigationManager {
 	 */
 	options: {
 		/**
-		 * Minimum distance in a direction that a container has to be to
-		 * appear as selectable in that direction.
+		 * Spatial navigation options.
 		 */
-		minimumDirectionDistance: number;
+		spatial: {
+			/**
+			 * Minimum distance in a direction that a container has to be
+			 * from the global position of the container to appear as the
+			 * next option.
+			 *
+			 * @default 10
+			 */
+			minimumDistance: number;
+			/**
+			 * Search preference given to containers along the same axis
+			 * as the navigation intent.
+			 *
+			 * @default 2.5
+			 */
+			directionAxisWeight: number;
+		};
 		/**
 		 * FederatedPointerEvents to fire when navigating containers.
 		 */
 		events: {
-			enter: string[];
+			/**
+			 * FederatedPointerEvents to fire when a Container becomes the
+			 * UINavigation focus target.
+			 *
+			 * @default [ "pointerenter", "pointerover" ]
+			 */
+			focus: string[];
+			/**
+			 * FederatedPointerEvents to fire when a Container stops being
+			 * the UINavigation focus target.
+			 *
+			 * @default [ "pointerleave", "pointerout" ]
+			 */
+			blur: string[];
+			/**
+			 * FederatedPointerEvents to fire on the UINavigation focus target
+			 * when a press ("NavigateActivate") starts.
+			 *
+			 * @default [ "pointerdown" ]
+			 */
 			press: string[];
+			/**
+			 * FederatedPointerEvents to fire on the UINavigation focus target
+			 * when a press ("NavigateActivate") is released.
+			 *
+			 * @default [ "pointerup", "pointertap" ]
+			 */
 			release: string[];
-			leave: string[];
 		};
 	};
 	/**
@@ -295,12 +320,11 @@ declare class NavigationManager {
 	 */
 	setFocus(target: Container | undefined | null, device?: Device): void;
 	private _clearNavigateBindsHandler;
-	private _responderHandleNavigationIntent;
 	private _handleNavigateBindEvent;
-	private _enter;
+	private _focus;
 	private _press;
 	private _release;
-	private _leave;
+	private _blur;
 	private _clearFocusTargetIfRemoved;
 }
 declare const Axis: {
@@ -351,7 +375,7 @@ export declare class GamepadDevice {
 	/**
 	 * Setup named binds for all newly connecting gamepads.
 	 */
-	static configureDefaultBinds<BindName extends NamedBind = NamedBind>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
+	static configureDefaultBinds<BindName extends IBind = IBind>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	static defaultOptions: {
 		/**
 		 * When set to false, events are not emitted.
@@ -433,7 +457,7 @@ export declare class GamepadDevice {
 		 *
 		 * @readonly
 		 */
-		binds: Partial<Record<NamedBind, GamepadCode[]>>;
+		binds: Partial<Record<IBind, GamepadCode[]>>;
 	};
 	/**
 	 * Globally unique identifier for this gamepad slot.
@@ -444,7 +468,7 @@ export declare class GamepadDevice {
 	/**
 	 * Associate custom meta data with a device.
 	 */
-	readonly meta: DeviceMetadata;
+	readonly meta: IDeviceMetadata;
 	/**
 	 * When the gamepad was last interacted with.
 	 */
@@ -488,7 +512,7 @@ export declare class GamepadDevice {
 	private readonly _debounces;
 	constructor(source: Gamepad);
 	/** @returns true if any button from the named bind is pressed. */
-	bindDown(name: NamedBind): boolean;
+	bindDown(name: IBind): boolean;
 	/** @returns true if any of the given buttons are pressed. */
 	pressedAny(btns: GamepadCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
@@ -500,17 +524,17 @@ export declare class GamepadDevice {
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof GamepadDeviceEvent>(event: K, listener?: (event: GamepadDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBindDown(name: NamedBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
+	onBindDown(name: IBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBindDown(name: NamedBind, listener?: (event: GamepadNamedBindEvent) => void): this;
+	offBindDown(name: IBind, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBindUp(name: NamedBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
+	onBindUp(name: IBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBindUp(name: NamedBind, listener?: (event: GamepadNamedBindEvent) => void): this;
+	offBindUp(name: IBind, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: NamedBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
+	onBind(name: IBind, listener: (event: GamepadNamedBindEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: NamedBind, listener?: (event: GamepadNamedBindEvent) => void): this;
+	offBind(name: IBind, listener?: (event: GamepadNamedBindEvent) => void): this;
 	/**
 	 * Play a haptic effect (when supported).
 	 */
@@ -535,7 +559,7 @@ export declare class KeyboardDeviceInstance {
 	/**
 	 * Associate custom meta data with a device.
 	 */
-	readonly meta: DeviceMetadata;
+	readonly meta: IDeviceMetadata;
 	/** Timestamp of when the keyboard was last interacted with. */
 	lastInteraction: number;
 	/**
@@ -568,7 +592,7 @@ export declare class KeyboardDeviceInstance {
 		 *
 		 * @readonly
 		 */
-		binds: Partial<Record<NamedBind, KeyCode[]>>;
+		binds: Partial<Record<IBind, KeyCode[]>>;
 		/**
 	 * These are the binds that are allowed to repeat when a key
 	 * is held down.
@@ -610,13 +634,13 @@ export declare class KeyboardDeviceInstance {
 	/** How the keyboard layout was determined. */
 	get layoutSource(): KeyboardLayoutSource;
 	/** @returns true if any KeyCode from the named bind is pressed. */
-	bindDown(name: NamedBind): boolean;
+	bindDown(name: IBind): boolean;
 	/** @returns true if any of the given keys are pressed. */
 	pressedAny(keys: KeyCode[]): boolean;
 	/** @returns true if all of the given keys are pressed. */
 	pressedAll(keys: KeyCode[]): boolean;
 	/** Set custom binds */
-	configureBinds<B extends NamedBind>(binds: Partial<Record<B, KeyCode[]>>): void;
+	configureBinds<B extends IBind>(binds: Partial<Record<B, KeyCode[]>>): void;
 	/** Haptics not supported on default keyboard. */
 	playHaptic(): void;
 	/** Add an event listener. */
@@ -624,17 +648,17 @@ export declare class KeyboardDeviceInstance {
 	/** Remove an event listener (or all if none provided). */
 	off<K extends keyof KeyboardDeviceEvent>(event: K, listener?: (event: KeyboardDeviceEvent[K]) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBindDown(name: NamedBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
+	onBindDown(name: IBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBindDown(name: NamedBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
+	offBindDown(name: IBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBindUp(name: NamedBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
+	onBindUp(name: IBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBindUp(name: NamedBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
+	offBindUp(name: IBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
 	/** Add a named bind event listener (or all if none provided). */
-	onBind(name: NamedBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
+	onBind(name: IBind, listener: (event: KeyboardDeviceNamedBindKeyEvent) => void, options?: EventOptions): this;
 	/** Remove a named bind event listener (or all if none provided). */
-	offBind(name: NamedBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
+	offBind(name: IBind, listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void): this;
 	/**
 	 * Get the label for the given key code in the current keyboard
 	 * layout. Attempts to use the Navigator KeyboardLayoutMap API
@@ -833,7 +857,6 @@ export declare const UINavigation: NavigationManager;
  * @returns all navigatable containers in some container
  */
 export declare function getAllNavigatables(target: Container, navigatables?: NavigatableContainer[]): NavigatableContainer[];
-export declare function getDistanceScore(a: Bounds, b: Bounds, weightX?: number, weightY?: number): number;
 /**
  * @returns the first navigatable container in the given direction
  */
@@ -853,7 +876,7 @@ export declare function registerPixiJSNavigationMixin<T = Container>(container: 
  *
  * @example
  * declare module "pixijs-input-devices" {
- *     interface Binds {
+ *     interface BindValues {
  *         Gameplay:
  *             | "Crouch"
  *             | "Jump"
@@ -865,7 +888,7 @@ export declare function registerPixiJSNavigationMixin<T = Container>(container: 
  *     }
  * }
  */
-export interface Binds {
+export interface BindValues {
 }
 export interface ContainerNavigateOptions {
 	/** Container to navigate to on "NavigateLeft". */
@@ -895,7 +918,7 @@ export interface CustomDevice {
 	/**
 	 * Arbitrary metadata stored against this device.
 	 */
-	readonly meta: DeviceMetadata;
+	readonly meta: IDeviceMetadata;
 	/**
 	  * Timestamp when input was last modified.
 	  *
@@ -917,6 +940,8 @@ export interface CustomDevice {
 	 * This method is triggered when the window is moved to background.
 	 */
 	clear?(): void;
+}
+export interface DeviceMetadata {
 }
 export interface EventOptions {
 	once?: boolean;
@@ -973,14 +998,12 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 	layoutSource: KeyboardLayoutSource;
 }
 export interface KeyboardDeviceNamedBindKeyEvent extends KeyboardDeviceKeyEvent {
-	name: NamedBind;
+	name: IBind;
 	pressed: boolean;
 	value: 0 | 1;
 	repeat: boolean;
 }
-export interface Metadata {
-}
-export interface NamedBindEvent<BindName extends NamedBind> {
+export interface NamedBindEvent<BindName extends IBind> {
 	device: Device;
 	name: BindName;
 	pressed: boolean;
@@ -993,10 +1016,21 @@ export interface NamedBindEvent<BindName extends NamedBind> {
 export interface NavigatableQueryOptions {
 	currentFocus?: Container;
 	direction?: NavigateDirection;
-	minimumDistance?: number;
+	spatial?: SpatialNavigationOptions;
 }
 /**
- * A target that responds to navigation on the stack.
+ * An event passed to a responder when any of: NavigateLeft,
+ * NavigateDown, NavigateRight, NavigateUp, NavigateActivate,
+ * or NavigateBack are issued (i.e. pressed or released).
+ */
+export interface NavigateEvent {
+	readonly name: NavigateBinds;
+	readonly device: Device;
+	/** `true` on press, `false` on release */
+	readonly pressed: boolean;
+}
+/**
+ * A target that may control navigation.
  */
 export interface NavigationResponder {
 	/**
@@ -1011,13 +1045,11 @@ export interface NavigationResponder {
 	 */
 	focusTarget?: Container;
 	/**
-	 * Called when received a navigation intent. The target should handle, and
-	 * respond with a boolean indicating whether or not the intent was handled.
+	 * Called when any navigation bind is pressed or released.
 	 *
-	 * Unhandled interaction intents will be bubbled up to the next target. You
-	 * might return `true` here to prevent any intent from being propagated.
+	 * @return `false` to go up to the next responder, or `true` to end here.
 	 */
-	handledNavigationIntent?(intent: NavigateBinds, device: Device): boolean;
+	handledNavigateEvent?(event: NavigateEvent): boolean;
 	/**
 	 * This method is triggered when the target became the first responder.
 	 *
@@ -1032,12 +1064,15 @@ export interface NavigationResponder {
 	 */
 	resignedAsFirstResponder?(): void;
 }
+export interface SpatialNavigationOptions {
+	minimumDistance: number;
+	directionAxisWeight: number;
+}
 export type Axis = (typeof Axis)[keyof typeof Axis];
 export type AxisCode = typeof AxisCode[number];
 export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
-export type DeviceMetadata = Record<string, any> | Partial<Metadata>;
 export type FocusSource = "pointer" | "device";
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 /**
@@ -1061,7 +1096,7 @@ export type GamepadLayout = "amazon_luna" | "logitech_g" | "nintendo_joycon_l" |
 export type GamepadNamedBindEvent = {
 	type: "button";
 	device: GamepadDevice;
-	name: NamedBind;
+	name: IBind;
 	pressed: boolean;
 	value: 0 | 1;
 	button: Button;
@@ -1069,12 +1104,14 @@ export type GamepadNamedBindEvent = {
 } | {
 	type: "axis";
 	device: GamepadDevice;
-	name: NamedBind;
+	name: IBind;
 	pressed: boolean;
 	value: number;
 	axis: Axis;
 	axisCode: AxisCode;
 };
+export type IBind = NavigateBinds | BindValues[keyof BindValues];
+export type IDeviceMetadata = keyof DeviceMetadata extends never ? Record<string, any> : Partial<DeviceMetadata>;
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
@@ -1085,7 +1122,6 @@ export type KeyboardDeviceEvent = {
 };
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
-export type NamedBind = NavigateBinds | Binds[keyof Binds];
 export type NavigatableContainer = Container;
 export type NavigateBinds = typeof Navigate[keyof typeof Navigate];
 export type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";

@@ -1,4 +1,4 @@
-import { NamedBind } from "./binds/Binds";
+import { IBind } from "./config/DeviceBinds";
 import { CustomDevice } from "./devices/CustomDevice";
 import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
 import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
@@ -16,7 +16,7 @@ export interface InputDeviceEvent
 
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
 
-export interface NamedBindEvent<BindName extends NamedBind>
+export interface NamedBindEvent<BindName extends IBind>
 {
   device: Device;
   name: BindName;
@@ -73,8 +73,8 @@ class InputDeviceManager
 
     // events:
     private readonly _emitter = new EventEmitter<InputDeviceEvent>();
-    private readonly _bindDownEmitter = new EventEmitter<Record<NamedBind, NamedBindEvent<any>>>();
-    private readonly _bindUpEmitter = new EventEmitter<Record<NamedBind, NamedBindEvent<any>>>();
+    private readonly _bindDownEmitter = new EventEmitter<Record<IBind, NamedBindEvent<any>>>();
+    private readonly _bindUpEmitter = new EventEmitter<Record<IBind, NamedBindEvent<any>>>();
 
     // state:
     private _hasFocus: boolean = false;
@@ -178,7 +178,7 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBindDown<B extends NamedBind>(
+    public onBindDown<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
@@ -193,7 +193,7 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBindUp<B extends NamedBind>(
+    public onBindUp<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
@@ -208,21 +208,21 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBind<B extends NamedBind>(
+    public onBindDownUp<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
     ): this
     {
         return this
-            .onBindUp(name, listener, options)
-            .offBindDown(name, listener);
+            .onBindDown(name, listener, options)
+            .onBindUp(name, listener, options);
     }
 
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBindDown<B extends NamedBind>(
+    public offBindDown<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
@@ -236,7 +236,7 @@ class InputDeviceManager
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBindUp<B extends NamedBind>(
+    public offBindUp<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
@@ -250,19 +250,20 @@ class InputDeviceManager
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBind<B extends NamedBind>(
+    public offBindDownUp<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
     {
-        return this.offBindDown(name, listener)
+        return this
+            .offBindDown(name, listener)
             .offBindUp(name, listener);
     }
 
     /**
      * Report a named bind event (i.e. from UI or a CustomDevice).
      */
-    public emitBindDown<B extends NamedBind>(name: B, device: Device, value = 1): this
+    public emitBindDown<B extends IBind>(name: B, device: Device, value = 1): this
     {
         this._bindDownEmitter.emit(name, { name, device, pressed: true, value });
 
@@ -272,7 +273,7 @@ class InputDeviceManager
     /**
      * Report a named bind event (i.e. from UI or a CustomDevice).
      */
-    public emitBindUp<B extends NamedBind>(name: B, device: Device): this
+    public emitBindUp<B extends IBind>(name: B, device: Device): this
     {
         this._bindUpEmitter.emit(name, { name, device, pressed: false, value: 0 });
 
@@ -284,7 +285,7 @@ class InputDeviceManager
      *
      * Emits a "down" and "up" immediately.
      */
-    public emitBind<B extends NamedBind>(name: B, device: Device): void
+    public emitBindDownUp<B extends IBind>(name: B, device: Device): void
     {
         this.emitBindDown(name, device)
             .emitBindUp(name, device);
