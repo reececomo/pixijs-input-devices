@@ -1,6 +1,6 @@
 import { InputDevice } from "../../InputDevice";
 import { CustomDevice } from "../CustomDevice";
-import { DeviceMetadata } from "../metadata";
+import { IDeviceMetadata } from "../../config/DeviceMetadata";
 
 describe("lastInteractedDevice", () =>
 {
@@ -42,7 +42,7 @@ describe("lastInteractedDevice", () =>
 class MockDevice implements CustomDevice
 {
     public type = "custom" as const;
-    public meta: DeviceMetadata = {};
+    public meta: IDeviceMetadata = {};
     public lastInteraction: number = 0;
 
     public input = 0;

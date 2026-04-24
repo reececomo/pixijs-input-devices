@@ -9,8 +9,8 @@ import {
     detectKeyboardLayoutFromKeydown,
     getNavigatorKeyLabel
 } from "./layouts";
-import { NamedBind } from "../../binds/Binds";
-import { DeviceMetadata } from "../metadata";
+import { IBind } from "../../config/DeviceBinds";
+import { IDeviceMetadata } from "../../config/DeviceMetadata";
 
 
 export { KeyCode, KeyboardLayout };
@@ -31,16 +31,29 @@ export interface KeyboardDeviceLayoutUpdatedEvent {
 
 export interface KeyboardDeviceNamedBindKeyEvent extends KeyboardDeviceKeyEvent
 {
-  name: NamedBind;
+  name: IBind;
   pressed: boolean;
   value: 0 | 1;
   repeat: boolean;
+}
+
+/** Symmetric short-name alias. */
+export type KeyboardKeyEvent = KeyboardDeviceKeyEvent;
+/** Symmetric short-name alias. */
+export type KeyboardBindEvent = KeyboardDeviceNamedBindKeyEvent;
+
+type KeyboardBinds = Partial<Record<IBind, KeyCode[]>>;
+
+export interface KeyboardDeviceBindsChangedEvent
+{
+  device: KeyboardDeviceInstance;
 }
 
 export type KeyboardDeviceEvent = {
   layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
   binddown: KeyboardDeviceNamedBindKeyEvent;
   bindup: KeyboardDeviceNamedBindKeyEvent;
+  bindschanged: KeyboardDeviceBindsChangedEvent;
 } & {
   [key in KeyCode]: KeyboardDeviceKeyEvent;
 };
@@ -49,13 +62,24 @@ export class KeyboardDeviceInstance
 {
     public static global = new KeyboardDeviceInstance();
 
+    /**
+     * Setup named binds on the global keyboard device.
+     * Mirrors `GamepadDevice.configureDefaultBinds()` for API symmetry.
+     */
+    public static configureDefaultBinds<B extends IBind>(
+        binds: Partial<Record<B, KeyCode[]>>
+    ): void
+    {
+        KeyboardDeviceInstance.global.configureBinds(binds);
+    }
+
     public readonly type = "keyboard";
     public readonly id = "keyboard";
 
     /**
      * Associate custom meta data with a device.
      */
-    public readonly meta: DeviceMetadata = {};
+    public readonly meta: IDeviceMetadata = {};
 
     /** Timestamp of when the keyboard was last interacted with. */
     public lastInteraction = performance.now();
@@ -100,7 +124,7 @@ export class KeyboardDeviceInstance
             "NavigateRight"     :  [ "ArrowRight", "KeyD" ],
             "NavigateActivate"  :  [ "Enter", "Space" ],
             "NavigateUp"        :  [ "ArrowUp", "KeyW" ],
-        } as Partial<Record<NamedBind, KeyCode[]>>,
+        } as KeyboardBinds,
 
         /**
      * These are the binds that are allowed to repeat when a key
@@ -134,10 +158,22 @@ export class KeyboardDeviceInstance
     private _deferredKeydown: KeyboardEvent[] = [];
     private _deferredKeyup: KeyboardEvent[] = [];
 
+    /**
+     * Reverse index: KeyCode -> list of bind names using that code.
+     * Rebuilt on configureBinds/importBinds so dispatch is O(1).
+     */
+    private _bindIndex: Map<KeyCode, string[]> = new Map();
+
+    // Edge-detection snapshots for bindPressed/bindReleased.
+    // Two Sets swapped each update() to avoid per-frame allocation.
+    private _bindsDownCurr: Set<string> = new Set();
+    private _bindsDownPrev: Set<string> = new Set();
+
     private constructor()
     {
         this._layout = inferKeyboardLayoutFromLang();
         this._layoutSource = "lang";
+        this._rebuildBindIndex();
 
         // auto-detect layout
         requestKeyboardLayout().then(layout =>
@@ -197,11 +233,29 @@ export class KeyboardDeviceInstance
     // ----- Methods: -----
 
     /** @returns true if any KeyCode from the named bind is pressed. */
-    public bindDown(name: NamedBind): boolean
+    public bindDown(name: IBind): boolean
     {
         if (this.options.binds[name] === undefined) return false;
 
         return this.pressedAny(this.options.binds[name]);
+    }
+
+    /**
+     * @returns true if the named bind transitioned from up to down since the
+     * last `update()` call (i.e. "just pressed this frame").
+     */
+    public bindPressed(name: IBind): boolean
+    {
+        return this._bindsDownCurr.has(name) && !this._bindsDownPrev.has(name);
+    }
+
+    /**
+     * @returns true if the named bind transitioned from down to up since the
+     * last `update()` call (i.e. "just released this frame").
+     */
+    public bindReleased(name: IBind): boolean
+    {
+        return !this._bindsDownCurr.has(name) && this._bindsDownPrev.has(name);
     }
 
     /** @returns true if any of the given keys are pressed. */
@@ -226,8 +280,8 @@ export class KeyboardDeviceInstance
         return true;
     }
 
-    /** Set custom binds */
-    public configureBinds<B extends NamedBind>(
+    /** Set custom binds (merges with existing binds). */
+    public configureBinds<B extends IBind>(
         binds: Partial<Record<B, KeyCode[]>>
     ): void
     {
@@ -235,6 +289,45 @@ export class KeyboardDeviceInstance
             ...this.options.binds,
             ...binds,
         };
+        this._rebuildBindIndex();
+    }
+
+    /**
+     * Export current binds as a plain JSON-serializable object.
+     * Useful for saving/restoring custom control schemes.
+     */
+    public exportBinds(): Record<string, KeyCode[]>
+    {
+        const out: Record<string, KeyCode[]> = {};
+
+        for (const name in this.options.binds)
+        {
+            const keys = this.options.binds[name as IBind];
+            if (keys) out[name] = [...keys];
+        }
+
+        return out;
+    }
+
+    /**
+     * Import binds from a plain object (e.g. parsed from JSON).
+     *
+     * @param binds  - The bind map to import.
+     * @param mode   - `"replace"` (default) discards current binds first;
+     *                 `"merge"` keeps existing binds, overwriting only the
+     *                  keys present in the supplied map.
+     */
+    public importBinds(
+        binds: KeyboardBinds,
+        mode: "merge" | "replace" = "replace"
+    ): void
+    {
+        this.options.binds = mode === "replace"
+            ? { ...binds }
+            : { ...this.options.binds, ...binds };
+
+        this._rebuildBindIndex();
+        this._emitter.emit("bindschanged", { device: this });
     }
 
     /** Haptics not supported on default keyboard. */
@@ -270,7 +363,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindDown(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -282,7 +375,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindDown(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -293,7 +386,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBindUp(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -305,7 +398,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBindUp(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -316,7 +409,7 @@ export class KeyboardDeviceInstance
 
     /** Add a named bind event listener (or all if none provided). */
     public onBind(
-        name: NamedBind,
+        name: IBind,
         listener: (event: KeyboardDeviceNamedBindKeyEvent) => void,
         options?: EventOptions,
     ): this
@@ -326,7 +419,7 @@ export class KeyboardDeviceInstance
 
     /** Remove a named bind event listener (or all if none provided). */
     public offBind(
-        name: NamedBind,
+        name: IBind,
         listener?: (event: KeyboardDeviceNamedBindKeyEvent) => void
     ): this
     {
@@ -372,6 +465,24 @@ export class KeyboardDeviceInstance
             this._deferredKeyup.forEach((event) => this._emitDeferredKeyupEvent(event));
             this._deferredKeyup.length = 0;
             this.lastInteraction = now;
+        }
+
+        // Snapshot bind state for bindPressed()/bindReleased() edge detection.
+        // Swap the two Sets so prev becomes curr's backing storage (no alloc).
+        const tmp = this._bindsDownPrev;
+        this._bindsDownPrev = this._bindsDownCurr;
+        this._bindsDownCurr = tmp;
+        this._bindsDownCurr.clear();
+
+        for (const [code, names] of this._bindIndex)
+        {
+            if (this.key[code])
+            {
+                for (let i = 0; i < names.length; i++)
+                {
+                    this._bindsDownCurr.add(names[i]!);
+                }
+            }
         }
     }
 
@@ -458,29 +569,37 @@ export class KeyboardDeviceInstance
 
         if (this.options.emitEvents)
         {
-            // check named binds
-            Object.entries(this.options.binds).forEach(([ name, keys ]) =>
+            // Use pre-built index for O(1) bind lookup (no Object.entries scan).
+            const names = this._bindIndex.get(keyCode);
+
+            if (names)
             {
-                if (!keys.includes(keyCode)) return;
-                if (e.repeat && !this.options.repeatableBinds.includes(name))
+                const keyLabel = this.getKeyLabel(keyCode);
+
+                for (let i = 0; i < names.length; i++)
                 {
-                    return;
+                    const name = names[i]!;
+
+                    if (e.repeat && !this.options.repeatableBinds.includes(name))
+                    {
+                        continue;
+                    }
+
+                    const event = {
+                        device: this,
+                        keyCode,
+                        keyLabel,
+                        event: e,
+                        name: name as IBind,
+                        repeat: e.repeat,
+                        value: 1 as const,
+                        pressed: true,
+                    };
+
+                    this._bindDownEmitter.emit(name, event);
+                    this._emitter.emit("binddown", event);
                 }
-
-                const event = {
-                    device: this,
-                    keyCode,
-                    keyLabel: this.getKeyLabel(keyCode),
-                    event: e,
-                    name: name as NamedBind,
-                    repeat: e.repeat,
-                    value: 1 as const,
-                    pressed: true,
-                };
-
-                this._bindDownEmitter.emit(name, event);
-                this._emitter.emit("binddown", event);
-            });
+            }
         }
     }
 
@@ -488,26 +607,63 @@ export class KeyboardDeviceInstance
     {
         const keyCode = e.code as KeyCode;
 
-        // check named binds
-        Object.entries(this.options.binds).forEach(([ name, keys ]) =>
+        // Use pre-built index for O(1) bind lookup.
+        const names = this._bindIndex.get(keyCode);
+
+        if (names)
         {
-            if (!keys.includes(keyCode)) return;
+            const keyLabel = this.getKeyLabel(keyCode);
 
-            const event = {
-                device: this,
-                keyCode,
-                keyLabel: this.getKeyLabel(keyCode),
-                event: e,
-                name: name as NamedBind,
-                repeat: e.repeat,
-                value: 0 as const,
-                pressed: false,
-            };
+            for (let i = 0; i < names.length; i++)
+            {
+                const name = names[i]!;
+                const event = {
+                    device: this,
+                    keyCode,
+                    keyLabel,
+                    event: e,
+                    name: name as IBind,
+                    repeat: e.repeat,
+                    value: 0 as const,
+                    pressed: false,
+                };
 
-            this._bindUpEmitter.emit(name, event);
-            this._emitter.emit("bindup", event);
-        });
+                this._bindUpEmitter.emit(name, event);
+                this._emitter.emit("bindup", event);
+            }
+        }
+    }
+
+    /**
+     * Rebuild the reverse index: KeyCode -> bind names[].
+     * Called on init and whenever binds change.
+     */
+    private _rebuildBindIndex(): void
+    {
+        this._bindIndex.clear();
+
+        for (const name in this.options.binds)
+        {
+            const keys = this.options.binds[name as IBind];
+            if (!keys) continue;
+
+            for (const key of keys)
+            {
+                let list = this._bindIndex.get(key);
+
+                if (!list)
+                {
+                    list = [];
+                    this._bindIndex.set(key, list);
+                }
+
+                list.push(name);
+            }
+        }
     }
 }
 
 export const KeyboardDevice = KeyboardDeviceInstance.global;
+
+/** Serialized bind snapshot used by exportBinds/importBinds. */
+export type SerializedKeyboardBinds = Record<string, KeyCode[]>;

@@ -1,7 +1,7 @@
-import { NamedBind } from "./binds/Binds";
+import { IBind } from "./config/DeviceBinds";
 import { CustomDevice } from "./devices/CustomDevice";
-import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
-import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
+import { GamepadDevice, SerializedGamepadBinds } from "./devices/gamepads/GamepadDevice";
+import { KeyboardDevice, SerializedKeyboardBinds } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 import { Options } from "./utils/Options";
@@ -16,7 +16,15 @@ export interface InputDeviceEvent
 
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
 
-export interface NamedBindEvent<BindName extends NamedBind>
+/** Full bind snapshot for save/load via `InputDevice.exportBinds()` / `importBinds()`. */
+export interface DeviceBindsSnapshot
+{
+  keyboard: SerializedKeyboardBinds;
+  /** Keyed by device id, e.g. `"gamepad0"`. */
+  gamepads: Record<string, SerializedGamepadBinds>;
+}
+
+export interface NamedBindEvent<BindName extends IBind>
 {
   device: Device;
   name: BindName;
@@ -73,8 +81,8 @@ class InputDeviceManager
 
     // events:
     private readonly _emitter = new EventEmitter<InputDeviceEvent>();
-    private readonly _bindDownEmitter = new EventEmitter<Record<NamedBind, NamedBindEvent<any>>>();
-    private readonly _bindUpEmitter = new EventEmitter<Record<NamedBind, NamedBindEvent<any>>>();
+    private readonly _bindDownEmitter = new EventEmitter<Record<IBind, NamedBindEvent<any>>>();
+    private readonly _bindUpEmitter = new EventEmitter<Record<IBind, NamedBindEvent<any>>>();
 
     // state:
     private _hasFocus: boolean = false;
@@ -178,7 +186,7 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBindDown<B extends NamedBind>(
+    public onBindDown<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
@@ -193,7 +201,7 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBindUp<B extends NamedBind>(
+    public onBindUp<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
@@ -208,21 +216,21 @@ class InputDeviceManager
     /**
      * Adds a named bind event listener.
      */
-    public onBind<B extends NamedBind>(
+    public onBindDownUp<B extends IBind>(
         name: B | readonly B[],
         listener: (event: NamedBindEvent<B>) => void,
         options?: EventOptions,
     ): this
     {
         return this
-            .onBindUp(name, listener, options)
-            .offBindDown(name, listener);
+            .onBindDown(name, listener, options)
+            .onBindUp(name, listener, options);
     }
 
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBindDown<B extends NamedBind>(
+    public offBindDown<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
@@ -236,7 +244,7 @@ class InputDeviceManager
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBindUp<B extends NamedBind>(
+    public offBindUp<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
@@ -250,19 +258,64 @@ class InputDeviceManager
     /**
      * Remove a named bind event listener (or ALL event listeners if none provided).
      */
-    public offBind<B extends NamedBind>(
+    public offBindDownUp<B extends IBind>(
         name: B | readonly B[],
         listener?: (event: NamedBindEvent<B>) => void
     ): this
     {
-        return this.offBindDown(name, listener)
+        return this
+            .offBindDown(name, listener)
             .offBindUp(name, listener);
+    }
+
+    /**
+     * Export binds from the keyboard and all connected gamepads as a
+     * JSON-serializable snapshot.  Round-trip with `importBinds()`.
+     */
+    public exportBinds(): DeviceBindsSnapshot
+    {
+        const gamepads: Record<string, SerializedGamepadBinds> = {};
+
+        for (const pad of this._gamepads)
+        {
+            gamepads[pad.id] = pad.exportBinds();
+        }
+
+        return {
+            keyboard: this.keyboard.exportBinds(),
+            gamepads,
+        };
+    }
+
+    /**
+     * Import a bind snapshot produced by `exportBinds()`.
+     *
+     * Keyboard binds are applied immediately.  Gamepad binds are applied to
+     * already-connected gamepads whose `id` matches a key in the snapshot;
+     * newly connecting gamepads are unaffected (use
+     * `GamepadDevice.configureDefaultBinds()` for those).
+     *
+     * @param snapshot - The snapshot to restore.
+     * @param mode     - `"replace"` (default) or `"merge"`.
+     */
+    public importBinds(
+        snapshot: DeviceBindsSnapshot,
+        mode: "merge" | "replace" = "replace"
+    ): void
+    {
+        this.keyboard.importBinds(snapshot.keyboard, mode);
+
+        for (const pad of this._gamepads)
+        {
+            const binds = snapshot.gamepads[pad.id];
+            if (binds) pad.importBinds(binds, mode);
+        }
     }
 
     /**
      * Report a named bind event (i.e. from UI or a CustomDevice).
      */
-    public emitBindDown<B extends NamedBind>(name: B, device: Device, value = 1): this
+    public emitBindDown<B extends IBind>(name: B, device: Device, value = 1): this
     {
         this._bindDownEmitter.emit(name, { name, device, pressed: true, value });
 
@@ -272,7 +325,7 @@ class InputDeviceManager
     /**
      * Report a named bind event (i.e. from UI or a CustomDevice).
      */
-    public emitBindUp<B extends NamedBind>(name: B, device: Device): this
+    public emitBindUp<B extends IBind>(name: B, device: Device): this
     {
         this._bindUpEmitter.emit(name, { name, device, pressed: false, value: 0 });
 
@@ -284,7 +337,7 @@ class InputDeviceManager
      *
      * Emits a "down" and "up" immediately.
      */
-    public emitBind<B extends NamedBind>(name: B, device: Device): void
+    public emitBindDownUp<B extends IBind>(name: B, device: Device): void
     {
         this.emitBindDown(name, device)
             .emitBindUp(name, device);
@@ -402,9 +455,29 @@ class InputDeviceManager
         return this._devices;
     }
 
+    // Tracks the max lastInteraction seen at the end of the previous update().
+    // When no device has a newer timestamp, the full scan can be skipped.
+    private _lastInteractionWatermark = 0;
+
     private _updateLastInteracted(): void
     {
         if (this._devices.length === 0) return;
+
+        // Early exit: if no device's lastInteraction has advanced, the result
+        // is the same as last frame (the watermark is the previous maximum).
+        let maxSeen = 0;
+
+        for (const device of this._devices)
+        {
+            if (device.lastInteraction > maxSeen) maxSeen = device.lastInteraction;
+        }
+
+        if (maxSeen <= this._lastInteractionWatermark && this._lastInteractedDevice !== undefined)
+        {
+            return; // nothing changed
+        }
+
+        this._lastInteractionWatermark = maxSeen;
 
         let last: Device;
         if (this._devices.length === 1)

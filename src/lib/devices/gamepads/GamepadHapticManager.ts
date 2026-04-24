@@ -132,8 +132,18 @@ export class GamepadHapticManager
 
         if (anyHapticHasEnded)
         {
-            // Clear when done
-            this.activeEffects = this.activeEffects.filter((haptic) => haptic.end >= now);
+            // Compact in-place (swap-remove style) — no new array allocation.
+            let write = 0;
+
+            for (let read = 0; read < this.activeEffects.length; read++)
+            {
+                if (this.activeEffects[read]!.end >= now)
+                {
+                    this.activeEffects[write++] = this.activeEffects[read]!;
+                }
+            }
+
+            this.activeEffects.length = write;
         }
 
         // Only send effect if intensity changed (to reduce spam)
