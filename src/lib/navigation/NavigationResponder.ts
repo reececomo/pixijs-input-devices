@@ -1,11 +1,30 @@
 import { Container } from "pixi.js";
 import { Device } from "../InputDevice";
-import { type NavigationIntent } from "./NavigationIntent";
+import { type NavigateBind } from "./NavigateBind";
+
 
 /**
- * A target that responds to navigation on the stack.
+ * An event passed to a responder when any of:
+ *  - "NavigateLeft"
+ *  - "NavigateDown"
+ *  - "NavigateRight"
+ *  - "NavigateUp"
+ *  - "NavigateActivate"
+ *  - "NavigateBack"
+ * or NavigateBack are issued (i.e. pressed or released).
  */
-export interface NavigationResponder {
+export interface NavigateEvent
+{
+    readonly name: NavigateBind;
+    readonly device: Device;
+    readonly pressed: boolean;
+}
+
+/**
+ * A target that may control navigation.
+ */
+export interface NavigationResponder
+{
   /**
    * Whether to auto-focus on the element with the highest priority when
    * pushed onto the responder stack.
@@ -20,16 +39,11 @@ export interface NavigationResponder {
   focusTarget?: Container,
 
   /**
-   * Called when received a navigation intent. The target should handle, and
-   * respond with a boolean indicating whether or not the intent was handled.
+   * Called when any navigation bind is pressed or released.
    *
-   * Unhandled interaction intents will be bubbled up to the next target. You
-   * might return `true` here to prevent any intent from being propagated.
+   * @return `false` to go up to the next responder, or `true` to end here.
    */
-  handledNavigationIntent?(
-    intent: NavigationIntent,
-    device: Device,
- ): boolean;
+  handledNavigateEvent?(event: NavigateEvent): boolean;
 
   /**
    * This method is triggered when the target became the first responder.

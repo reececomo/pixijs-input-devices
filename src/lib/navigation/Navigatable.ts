@@ -2,25 +2,98 @@ import { Container } from "pixi.js";
 
 
 type NavigatableContainer = Container;
-type NavigationDirection = "navigate.left" | "navigate.right" | "navigate.up" | "navigate.down";
+type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
+
+
+export interface SpatialNavigationOptions
+{
+    minimumDistance: number;
+    directionAxisWeight: number;
+}
+
+interface NavigatableQueryOptions
+{
+    currentFocus?: Container;
+    direction?: NavigateDirection;
+    spatial?: SpatialNavigationOptions;
+}
+
+// ----- Navigatable cache -----
 
 /**
- * @returns all navigatable containers in some container
+ * WeakMap cache: root Container -> flat list of navigatable descendants.
+ *
+ * The cache is invalidated by `invalidateNavigatablesCache()`.  Call it
+ * whenever your UI hierarchy changes (children added/removed, visibility
+ * toggled) so that the next spatial-navigation query reflects the new state.
+ *
+ * UINavigation calls this automatically on `enable`, `disable`,
+ * `pushResponder` and `popResponder`.
+ */
+let _navCache = new WeakMap<Container, NavigatableContainer[]>();
+
+/**
+ * Invalidate the navigatable-list cache for a specific root (or the entire
+ * cache when no argument is given).
+ *
+ * Call this after adding/removing navigatable children or changing their
+ * `visible` property so the next directional-navigation query stays correct.
+ */
+export function invalidateNavigatablesCache(root?: Container): void
+{
+    if (root !== undefined)
+    {
+        _navCache.delete(root);
+    }
+    else
+    {
+        _navCache = new WeakMap();
+    }
+}
+
+// ----- Core functions -----
+
+/**
+ * @returns all navigatable containers in some container.
+ *
+ * Results are cached per-root; call `invalidateNavigatablesCache(root)` after
+ * structural or visibility changes.
  */
 export function getAllNavigatables(
     target: Container,
-    navigatables: NavigatableContainer[] = []
+    navigatables?: NavigatableContainer[]
+): NavigatableContainer[]
+{
+    // When an accumulator is passed explicitly (e.g. recursive self-call)
+    // we bypass the cache so the caller controls the buffer.
+    if (navigatables !== undefined)
+    {
+        return _collectNavigatables(target, navigatables);
+    }
+
+    const cached = _navCache.get(target);
+    if (cached !== undefined) return cached;
+
+    const fresh = _collectNavigatables(target, []);
+    _navCache.set(target, fresh);
+
+    return fresh;
+}
+
+function _collectNavigatables(
+    target: Container,
+    navigatables: NavigatableContainer[]
 ): NavigatableContainer[]
 {
     for (const child of target.children ?? [])
     {
-        if ((child as any).isNavigatable)
+        if ((child as any).navigatable)
         {
             navigatables.push(child as any);
         }
         else
         {
-            getAllNavigatables(child as any, navigatables);
+            _collectNavigatables(child as any, navigatables);
         }
     }
 
@@ -32,21 +105,12 @@ export function getAllNavigatables(
  */
 export function getFirstNavigatable(
     root: Container,
-    currentFocus?: Container,
-    nearestDirection?: NavigationDirection,
-    {
-        minimumDistance = 0,
-    } = {}
+    options?: NavigatableQueryOptions
 ): NavigatableContainer | undefined
 {
-    const navigatables = getAllNavigatables(root);
+    const containers = getAllNavigatables(root);
 
-    return chooseFirstNavigatableInDirection(
-        navigatables,
-        currentFocus,
-        nearestDirection,
-        minimumDistance,
-    );
+    return chooseFirstNavigatableInDirection(containers, options);
 }
 
 export function isChildOf(
@@ -67,14 +131,18 @@ export function isChildOf(
 /** @returns the first navigatable container in the given direction */
 function chooseFirstNavigatableInDirection(
     navigatables: NavigatableContainer[],
-    currentFocus?: Container,
-    nearestDirection?: NavigationDirection,
-    minimumDistance: number = 0,
+    options: NavigatableQueryOptions = {},
 ): NavigatableContainer | undefined
 {
+    const {
+        currentFocus,
+        direction,
+        spatial,
+    } = options;
+
     const elements = navigatables
         .filter((el) =>
-            el.isNavigatable
+            el.navigatable
     && el.parent != null
       && isVisible(el)
         );
@@ -91,98 +159,84 @@ function chooseFirstNavigatableInDirection(
     }
 
     // we already have a focused element, and no direction was specified
-    if (nearestDirection === undefined && focusedElement)
+    if (direction === undefined && focusedElement)
     {
         return focusedElement;
     }
 
     const fallbackElement =
-    focusedElement ?? elements[Math.floor(Math.random() * elements.length)];
+        focusedElement ?? elements[Math.floor(Math.random() * elements.length)];
 
+    // we still dont have a focused element, just choose the first the list
     if (focusedElement === undefined)
     {
         return navigatables[0] ?? fallbackElement;
     }
 
-    const focusedGlobalPos = focusedElement.getGlobalPosition();
-    const focusedBounds = focusedElement.getBounds();
-    const focusedCenter = {
-        x: focusedGlobalPos.x + focusedBounds.left + focusedBounds.width / 2,
-        y: focusedGlobalPos.y + focusedBounds.top + focusedBounds.height / 2,
-    };
+    const focus = focusedElement.getGlobalPosition();
 
-    const otherElements = elements
-        .filter((el) => el !== focusedElement)
-        .map((el) =>
+    let filtered = elements
+        .filter((element) => element !== focusedElement)
+        .map((element) =>
         {
-            const globalPos = el.getGlobalPosition();
-            const bounds = el.getBounds();
-
-            const center = {
-                x: globalPos.x + bounds.left + bounds.width / 2,
-                y: globalPos.y + bounds.top + bounds.height / 2,
-            };
+            const { x, y } = element.getGlobalPosition();
 
             return {
-                element: el,
-                bounds: bounds,
-                center: center,
-                xDistSqrd: weightedDistSquared(center, focusedCenter, 1, 3),
-                yDistSqrd: weightedDistSquared(center, focusedCenter, 3, 1),
+                element,
+                x,
+                y,
             };
         });
 
-    switch (nearestDirection)
+    const { minimumDistance, directionAxisWeight } = spatial;
+
+    switch (direction)
     {
-        case "navigate.up": {
-            const sortedUp = otherElements
-                .filter((el) => el.center.y < focusedCenter.y - minimumDistance)
-                .sort((a, b) => a.yDistSqrd - b.yDistSqrd);
-
-            return sortedUp[0]?.element ?? fallbackElement;
+        case "NavigateUp": {
+            filtered = filtered.filter((el) => el.y < focus.y - minimumDistance);
+            break;
         }
 
-        case "navigate.left": {
-            const sortedLeft = otherElements
-                .filter((el) => el.center.x < focusedCenter.x - minimumDistance)
-                .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
-
-            return sortedLeft[0]?.element ?? fallbackElement;
+        case "NavigateLeft": {
+            filtered = filtered.filter((el) => el.x < focus.x - minimumDistance);
+            break;
         }
 
-        case "navigate.right": {
-            const sortedRight = otherElements
-                .filter((el) => el.center.x > focusedCenter.x + minimumDistance)
-                .sort((a, b) => a.xDistSqrd - b.xDistSqrd);
-
-            return sortedRight[0]?.element ?? fallbackElement;
+        case "NavigateRight": {
+            filtered = filtered.filter((el) => el.x > focus.x + minimumDistance);
+            break;
         }
 
-        case "navigate.down": {
-            const sortedDown = otherElements
-                .filter((el) => el.center.y > focusedCenter.y + minimumDistance)
-                .sort((a, b) => a.yDistSqrd - b.yDistSqrd);
-
-            return sortedDown[0]?.element ?? fallbackElement;
+        case "NavigateDown": {
+            filtered = filtered.filter((el) => el.y > focus.y + minimumDistance);
+            break;
         }
 
         default: {
             return focusedElement;
         }
     }
-}
 
-function weightedDistSquared(
-    a: { x: number, y : number },
-    b: { x: number, y : number },
-    xw: number,
-    yw: number
-): number
-{
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
+    const sorted = filtered
+        .map((value) =>
+        {
+            const isX = direction === "NavigateLeft"
+                || direction === "NavigateRight";
 
-    return dx * dx * xw + dy * dy * yw;
+            const xWeight = isX ? 1/directionAxisWeight : 1;
+            const yWeight = !isX ? 1/directionAxisWeight : 1;
+
+            const dx = (focus.x - value.x) * xWeight;
+            const dy = (focus.y - value.y) * yWeight;
+
+            return {
+                ...value,
+                score: dx*dx + dy*dy,
+            };
+        })
+        .sort((a, b) => a.score - b.score);
+
+    return sorted[0]?.element ?? fallbackElement;
 }
 
 export function isVisible(

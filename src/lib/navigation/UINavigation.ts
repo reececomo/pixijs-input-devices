@@ -1,69 +1,137 @@
 import { Container } from "pixi.js";
 
-import { InputDevice, NamedBindEvent } from "../InputDevice";
-import { navigationIntents, type NavigationIntent } from "./NavigationIntent";
+import { Device, InputDevice, NamedBindEvent } from "../InputDevice";
+import { Navigate, type NavigateBind } from "./NavigateBind";
 import { NavigationResponder } from "./NavigationResponder";
-import { getFirstNavigatable, isChildOf } from "./Navigatable";
+import { getFirstNavigatable, invalidateNavigatablesCache, isChildOf, SpatialNavigationOptions } from "./Navigatable";
+import { emitPointerEvent } from "./emitPointerEvent";
+import { ContainerNavigateOptions } from "./ContainerNavigateOptions";
 
+
+type FocusSource = "pointer" | "device";
+
+const navigationLinkKeys: Record<NavigateBind, keyof ContainerNavigateOptions> = {
+    [Navigate.Activate] : "activate",
+    [Navigate.Back]     : "back",
+    [Navigate.Down]     : "down",
+    [Navigate.Left]     : "left",
+    [Navigate.Right]    : "right",
+    [Navigate.Up]       : "up",
+};
 
 class NavigationManager
 {
     public static global = new NavigationManager();
 
+    /**
+     * Navigation options
+     */
     public options = {
         /**
-         * When enabled, if no "pointover"/"mouseover" listeners
-         * exist, a default alpha effect will be used instead.
+         * Spatial navigation options.
          */
-        enableFallbackOverEffect: true,
+        spatial: {
+            /**
+             * Minimum distance in a direction that a container has to be
+             * from the global position of the container to appear as the
+             * next option.
+             *
+             * @default 10
+             */
+            minimumDistance: 10,
+
+            /**
+             * Search preference given to containers along the same axis
+             * as the navigation intent.
+             *
+             * @default 2.5
+             */
+            directionAxisWeight: 2.5,
+        } satisfies SpatialNavigationOptions,
 
         /**
-         * Minimum distance in a direction that a container has to be to
-         * appear as selectable in that direction.
+         * FederatedPointerEvents to fire when navigating containers.
          */
-        minimumDirectionDistance: 10,
+        events: {
+            /**
+             * FederatedPointerEvents to fire when a Container becomes the
+             * UINavigation focus target.
+             *
+             * @default [ "pointerenter", "pointerover" ]
+             */
+            focus: [ "pointerenter", "pointerover" ],
+
+            /**
+             * FederatedPointerEvents to fire when a Container stops being
+             * the UINavigation focus target.
+             *
+             * @default [ "pointerleave", "pointerout" ]
+             */
+            blur: [ "pointerleave", "pointerout" ],
+
+            /**
+             * FederatedPointerEvents to fire on the UINavigation focus target
+             * when a press ("NavigateActivate") starts.
+             *
+             * @default [ "pointerdown" ]
+             */
+            press: [ "pointerdown" ],
+
+            /**
+             * FederatedPointerEvents to fire on the UINavigation focus target
+             * when a press ("NavigateActivate") is released.
+             *
+             * @default [ "pointerup", "pointertap" ]
+             */
+            release: [ "pointerup", "pointertap" ],
+        },
     };
 
     /**
-     * Whether navigation is enabled globally.
+     * Current source of navigation device
      */
-    public enabled = false;
+    public device?: Device;
+
+    /**
+     * Pauses all navigation.
+     */
+    public paused = false;
+
+    /**
+     * Current source of navigation focus.
+     */
+    public focusSource: FocusSource = "pointer";
 
     private _responders: NavigationResponder[] = [];
-    private _root?: Container;
+    private _rootContainer?: Container;
     private _rootFocused?: Container;
+    private _clearBinds?: () => void;
 
     private constructor()
     {}
+
+    /**
+     * Whether navigation is enabled and NOT paused.
+     */
+    public get active(): boolean
+    {
+        return this._rootContainer != null && !this.paused;
+    }
 
     /**
      * Current navigation target.
      */
     public get focusTarget(): Container | undefined
     {
-        return this.responders.find(res => res.focusTarget != null)?.focusTarget
-      ?? this._rootFocused;
+        const responder = this.responders.find($0 => !$0.focusTarget?.destroyed);
+
+        return responder?.focusTarget ?? this._rootFocused;
     }
 
     public set focusTarget(target: Container | undefined)
     {
-        const previous = this.focusTarget;
-        if (previous === target) return;
-
-        const responderStage = this.getResponderStage();
-        if (!responderStage) return;
-
-        if (target)
-        {
-            if (!target.isNavigatable) return;
-            if (!isChildOf(target, responderStage)) return;
-        }
-
-        if (this.firstResponder != null) this.firstResponder.focusTarget = target;
-        else this._rootFocused = target;
-
-        if (previous) this._emitBlur(previous);
-        if (target) this._emitFocus(target);
+        // resets to pointer
+        this.setFocus(target, undefined);
     }
 
     /**
@@ -82,55 +150,60 @@ class NavigationManager
         return this._responders;
     }
 
-    /**
-     * Initialize navigation and set the root navigation responder.
-     *
-     * @param stage - Root navigation responder container, where navigatable
-     * containers can live.
-     */
-    public configureWithRoot(stage: Container): void
+    /** @deprecated Use `UINavigation.enable(stageRoot)` instead. */
+    public configureWithRoot(stageRoot: Container): void
     {
-        if (this._root == null)
-        {
-            // TODO: auto-register mixin?
-
-            // listen to intents
-            InputDevice.onBindDown(navigationIntents, (e) => this._propagate(e));
-        }
-
-        this._root = stage;
-        this.enabled = true;
+        this.enable(stageRoot);
     }
 
     /**
-     * Remove the top-most global interaction target
+     * Initialize navigation and set the root navigation responder.
+     *
+     * @param stageRoot - Root navigation responder container, where navigatable
+     * containers can live.
      */
-    public popResponder(): NavigationResponder | undefined
+    /**
+     * Manually invalidate the navigatable-list cache for the current stage.
+     *
+     * Call this after any structural change to the UI tree (adding/removing
+     * children, toggling visibility) so the next navigation query is accurate.
+     */
+    public invalidateNavCache(): void
     {
-        const previousFocused = this.focusTarget;
+        const stage = this.getStageContainer();
+        if (stage) invalidateNavigatablesCache(stage);
+        else invalidateNavigatablesCache();
+    }
 
-        const responder = this._responders.shift();
-        responder.focusTarget = undefined;
-
-        const nextFocused = this.focusTarget;
-
-        responder?.resignedAsFirstResponder?.();
-        this._invalidateFocusedIfNeeded();
-
-        if (this.firstResponder)
+    public enable(stageRoot: Container): this
+    {
+        if (this.active)
         {
-            this.firstResponder.becameFirstResponder?.();
+            // clear existing config
+            this.disable();
         }
 
-        if (
-            previousFocused !== nextFocused
-      && (
-          this.firstResponder?.autoFocus
-          ?? nextFocused === undefined
-      )
-        ) this.autoFocus();
+        // enable stage
+        this._rootContainer = stageRoot;
+        invalidateNavigatablesCache(stageRoot);
 
-        return responder;
+        // setup binds
+        const handler = (e: NamedBindEvent<NavigateBind>): void =>
+            this._handleNavigateBindEvent(e);
+
+        const navigateBinds = [
+            Navigate.Left,
+            Navigate.Down,
+            Navigate.Right,
+            Navigate.Up,
+            Navigate.Activate,
+            Navigate.Back,
+        ];
+
+        InputDevice.onBindDownUp(navigateBinds, handler);
+        this._clearBinds = () => InputDevice.offBindDownUp(navigateBinds, handler);
+
+        return this;
     }
 
     /**
@@ -148,186 +221,372 @@ class NavigationManager
         const previousResponder = this.firstResponder;
 
         this._responders.unshift(res);
+        invalidateNavigatablesCache();
 
         previousResponder?.resignedAsFirstResponder?.();
-        this._invalidateFocusedIfNeeded();
+        this._clearFocusTargetIfRemoved();
 
         res.becameFirstResponder?.();
         if (res.autoFocus ?? true) this.autoFocus();
     }
 
     /**
+     * Remove the top-most global interaction target
+     */
+    public popResponder(): NavigationResponder | undefined
+    {
+        const previousFocused = this.focusTarget;
+        const previousResponder = this._responders.shift();
+
+        if (previousResponder)
+        {
+            previousResponder.focusTarget = undefined;
+        }
+
+        invalidateNavigatablesCache();
+
+        const nextFocused = this.focusTarget;
+
+        previousResponder?.resignedAsFirstResponder?.();
+        this._clearFocusTargetIfRemoved();
+
+        if (this.firstResponder)
+        {
+            this.firstResponder.becameFirstResponder?.();
+        }
+
+        if (
+            previousFocused !== nextFocused
+            && (this.firstResponder?.autoFocus ?? !nextFocused)
+        )
+        {
+            this.autoFocus();
+        }
+
+        return previousResponder;
+    }
+
+    /**
+     * Set the new top-most global interaction target.
+     */
+    public setTopMostResponder(responder: Container | NavigationResponder): void
+    {
+        const res = responder as NavigationResponder;
+        const previousResponder = this.firstResponder;
+
+        // If it's already the top responder, do nothing
+        if (previousResponder === res) return;
+
+        // Remove responder if it already exists in the stack
+        const index = this._responders.indexOf(res);
+        if (index !== -1)
+        {
+            this._responders.splice(index, 1);
+        }
+
+        // Promote to top
+        this._responders.unshift(res);
+
+        previousResponder?.resignedAsFirstResponder?.();
+        this._clearFocusTargetIfRemoved();
+
+        res.becameFirstResponder?.();
+        if (res.autoFocus ?? true) this.autoFocus();
+    }
+
+    /**
+     * Removes the responder if in the responders list.
+     */
+    public removeResponder<T extends Container | NavigationResponder>(
+        responder: T,
+        popAllAbove: boolean = false
+    ): T | undefined
+    {
+        const res = responder as NavigationResponder;
+        const index = this._responders.indexOf(res);
+
+        if (index === -1) return undefined;
+
+        const previousFocused = this.focusTarget;
+        const previousFirstResponder = this.firstResponder;
+
+        let removed: NavigationResponder | undefined;
+
+        if (popAllAbove)
+        {
+            // Remove responder and everything above it
+            const removedResponders = this._responders.splice(0, index + 1);
+            removed = removedResponders[removedResponders.length - 1];
+
+            for (const r of removedResponders)
+            {
+                r.focusTarget = undefined;
+            }
+        }
+        else
+        {
+            // Remove only the specified responder
+            removed = this._responders.splice(index, 1)[0];
+            removed.focusTarget = undefined;
+        }
+
+        const nextFocused = this.focusTarget;
+
+        // Only trigger lifecycle changes if first responder changed
+        if (previousFirstResponder !== this.firstResponder)
+        {
+            previousFirstResponder?.resignedAsFirstResponder?.();
+            this._clearFocusTargetIfRemoved();
+            this.firstResponder?.becameFirstResponder?.();
+        }
+
+        if (
+            previousFocused !== nextFocused
+            && (this.firstResponder?.autoFocus ?? !nextFocused)
+        )
+        {
+            this.autoFocus();
+        }
+
+        return removed as T;
+    }
+
+
+    /**
      * Focus on the first navigatable element.
      */
     public autoFocus(): void
     {
-        if (!UINavigation.enabled) return;
+        if (!UINavigation.active) return;
 
-        const responderStage = this.getResponderStage();
-        if (!responderStage) return;
+        const stage = this.getStageContainer();
+        if (!stage) return;
 
-        const navigatable = getFirstNavigatable(responderStage);
+        const navigatable = getFirstNavigatable(stage);
 
         if (navigatable === undefined)
         {
             // early exit: no containers found
-            console.debug("navigation: no navigatable containers found");
-
             return;
         }
 
-        if (navigatable === this.focusTarget) return;
+        if (navigatable === this.focusTarget)
+        {
+            return;
+        }
 
-        this.focusTarget = navigatable;
+        this.setFocus(navigatable, this.device);
     }
 
     /**
      * Current root container for navigation.
      */
-    public getResponderStage(): Container
+    public getStageContainer(): Container
     {
-        return this.responders.find(isContainer) ?? this._root;
+        return this.responders.find(isContainer) ?? this._rootContainer;
+    }
+
+    public disable(): void
+    {
+        invalidateNavigatablesCache();
+        this._clearNavigateBindsHandler();
+        this._rootContainer = undefined;
+        this._rootFocused = undefined;
+    }
+
+    /**
+     * @param target - Container to focus on.
+     * @param device - The device setting focus. When omitted, assumes pointer.
+     */
+    public setFocus(target: Container | undefined | null, device?: Device): void
+    {
+        if (device)
+        {
+            this.focusSource = "device";
+            this.device = device;
+        }
+        else
+        {
+            this.focusSource = "pointer";
+            this.device = undefined;
+        }
+
+        const previous = this.focusTarget;
+
+        if (previous == target)
+        {
+            // skip: no change
+            return;
+        }
+
+        const stage = this.getStageContainer();
+
+        if (!stage)
+        {
+            // skip: no stage
+            return;
+        }
+
+        if (target && !target.navigatable)
+        {
+            // skip: target is not navigatable
+            return;
+        }
+
+        if (target && !isChildOf(target, stage))
+        {
+            // skip: target is not on stage
+            return;
+        }
+
+        if (this.firstResponder)
+        {
+            this.firstResponder.focusTarget = target;
+        }
+        else
+        {
+            this._rootFocused = target;
+        }
+
+        if (previous) this._blur(previous, false);
+        if (target) this._focus(target);
     }
 
     // ----- Implementation: -----
 
-    private _propagate({ device, name }: NamedBindEvent<NavigationIntent>): void
+    private _clearNavigateBindsHandler(): void
     {
-        if (!this.enabled) return;
-
-        for (const target of this._responders)
-        {
-            if (target.handledNavigationIntent?.(name, device))
-            {
-                // stop on the first responder that acknowledges the intent
-                // has been handled
-                return;
-            }
-        }
-
-        // no custom navigation responders were triggered.
-        // move on to the default behavior:
-        if (this._root == null)
-        {
-            this.enabled = false;
-            throw new Error("Navigation requires root responder to be configured");
-        }
-        else
-        {
-            const responderStage = this.getResponderStage();
-            this._handleGlobalIntent(responderStage, name);
-        }
+        this._clearBinds?.();
+        this._clearBinds = undefined;
     }
 
-    private _handleGlobalIntent(
-        responderStage: Container,
-        intent: NavigationIntent
-    ): void
+    private _handleNavigateBindEvent(event: NamedBindEvent<NavigateBind>): void
     {
-        this._invalidateFocusedIfNeeded(responderStage);
+        if (!this.active) return;
+
+        const bind = event.name;
+        const device = event.device;
+
+        // update nav device
+        this.device = device;
+        this.focusSource = "device";
+
+        // check responders first
+        if (this._responders.some(r => r.handledNavigateEvent?.(event)))
+        {
+            return;
+        }
+
+        // default behavior:
+        this._clearFocusTargetIfRemoved();
 
         const focusTarget = this.focusTarget;
 
-        // if we currently have no focus target, then find one.
         if (focusTarget === undefined)
         {
-            this.autoFocus();
-
-            return;
-        }
-
-        if (intent === "navigate.back")
-        {
-            this._emitBlur(focusTarget);
-            this.focusTarget = undefined;
-
-            return;
-        }
-
-        if (intent === "navigate.trigger")
-        {
-            this._emitTrigger(focusTarget);
-
-            return;
-        }
-
-        const nextTarget = getFirstNavigatable(
-            responderStage,
-            focusTarget,
-            intent,
+            if (!event.pressed)
             {
-                minimumDistance: this.options.minimumDirectionDistance
+                // autofocus on release
+                this.autoFocus();
             }
-        ) ?? focusTarget;
 
-        if (nextTarget === focusTarget)
-        {
-            // no change, do nothing
+            // early exit: if we currently have no focus target, then find one.
             return;
         }
 
-        this.focusTarget = nextTarget;
-    }
+        // check explicit navigation link
+        const key = navigationLinkKeys[bind];
+        const linkedContainer = focusTarget.navigationLinks[key];
 
-    private _emitBlur(target: Container): void
-    {
-        const eventNames = target.eventNames();
-
-        // dispatch default events
-        if (eventNames.includes("pointerout")) target.emit("pointerout");
-        else if (eventNames.includes("mouseout")) target.emit("mouseout");
-        else if (this.options.enableFallbackOverEffect)
+        if (linkedContainer?.navigatable)
         {
-            target.alpha = 1.0;
+            if (event.pressed)
+            {
+                this.setFocus(linkedContainer, device);
+            }
+
+            return;
         }
 
-        // always dispatch the blur event
-        target.emit("deviceout");
+        switch (bind)
+        {
+            case Navigate.Activate:
+                if (event.pressed) this._press(focusTarget);
+                else this._release(focusTarget);
+
+                return;
+
+            case Navigate.Back:
+                if (event.pressed) return; // issue on releases only
+
+                this._blur(focusTarget);
+
+                return;
+
+            default: {
+                if (!event.pressed) return; // issue on presses only
+
+                // spatial navigation
+                const stage = this.getStageContainer()!;
+
+                const spatialTarget = getFirstNavigatable(stage, {
+                    direction: bind,
+                    currentFocus: focusTarget,
+                    spatial: this.options.spatial,
+                });
+
+                if (spatialTarget && spatialTarget !== focusTarget)
+                {
+                    this.setFocus(spatialTarget, event.device);
+                }
+            }
+        }
     }
 
-    private _emitFocus(target: Container): void
+    private _focus(target: Container): void
     {
-        const eventNames = target.eventNames();
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.focus);
+    }
 
-        // dispatch default events
-        if (eventNames.includes("pointerover")) target.emit("pointerover");
-        else if (eventNames.includes("mouseover")) target.emit("mouseover");
-        else if (this.options.enableFallbackOverEffect)
+    private _press(target: Container): void
+    {
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.press);
+    }
+
+    private _release(target: Container): void
+    {
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.release);
+    }
+
+    private _blur(target: Container, clearFocusTarget = true): void
+    {
+        if (!this.device || this.focusSource !== "device") return;
+        emitPointerEvent(target, this.device, this.options.events.blur);
+
+        if (clearFocusTarget)
         {
-            target.alpha = 0.5;
+            this.setFocus(undefined, undefined);
+        }
+    }
+
+    private _clearFocusTargetIfRemoved(stage?: Container): void
+    {
+        stage ??= this.getStageContainer();
+
+        if (!stage)
+        {
+            // skip: no stage
+            return;
         }
 
-        // always dispatch the focus event
-        target.emit("deviceover");
-    }
-
-    private _emitTrigger(target: Container): void
-    {
-        const eventNames = target.eventNames();
-
-        // dispatch default events
-        if (eventNames.includes("pointerdown")) target.emit("pointerdown");
-        else if (eventNames.includes("mousedown")) target.emit("mousedown");
-        else if (this.options.enableFallbackOverEffect)
-        {
-            target.alpha = 0.75;
-        }
-
-        // always dispatch the trigger event
-        target.emit("devicedown");
-    }
-
-    private _invalidateFocusedIfNeeded(
-        responderStage = this.getResponderStage(),
-    ): void
-    {
-        if (!responderStage) return;
         const focusTarget = this.focusTarget;
 
-        if (focusTarget && !isChildOf(focusTarget, responderStage))
+        if (focusTarget && !isChildOf(focusTarget, stage))
         {
-            this._emitBlur(focusTarget);
-            this.focusTarget = undefined;
+            this._blur(focusTarget);
         }
     }
 }

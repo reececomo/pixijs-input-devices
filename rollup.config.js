@@ -11,11 +11,13 @@ export default [
         file: 'dist/index.cjs',
         format: 'cjs',
         sourcemap: true,
+        inlineDynamicImports: true,
       },
       {
         file: 'dist/index.mjs',
         format: 'es',
         sourcemap: true,
+        inlineDynamicImports: true,
       }
     ],
     plugins: [

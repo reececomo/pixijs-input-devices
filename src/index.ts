@@ -1,14 +1,17 @@
-export * from "./lib/devices/CustomDevice";
-export * from "./lib/devices/gamepads/GamepadDevice";
-export * from "./lib/InputDevice";
+// devices
 export * from "./lib/devices/keyboard/KeyboardDevice";
+export * from "./lib/devices/gamepads/GamepadDevice";
+export * from "./lib/devices/CustomDevice";
+export * from "./lib/InputDevice";
 
-// Navigation
+// binds
+export * from "./lib/config/DeviceBinds";
+
+// navigation
 export * from "./lib/navigation/Navigatable";
 export * from "./lib/navigation/UINavigation";
-export * from "./lib/navigation/NavigationIntent";
+export * from "./lib/navigation/NavigateBind";
 export * from "./lib/navigation/NavigationResponder";
-export * from "./lib/navigation/NavigationTargetEvent";
 
-// Mixin
+// PIXI mixin
 export * from "./Container.mixin";
