@@ -158,6 +158,23 @@ declare class InputDeviceManager {
 	 */
 	offBindDownUp<B extends IBind>(name: B | readonly B[], listener?: (event: NamedBindEvent<B>) => void): this;
 	/**
+	 * Export binds from the keyboard and all connected gamepads as a
+	 * JSON-serializable snapshot.  Round-trip with `importBinds()`.
+	 */
+	exportBinds(): DeviceBindsSnapshot;
+	/**
+	 * Import a bind snapshot produced by `exportBinds()`.
+	 *
+	 * Keyboard binds are applied immediately.  Gamepad binds are applied to
+	 * already-connected gamepads whose `id` matches a key in the snapshot;
+	 * newly connecting gamepads are unaffected (use
+	 * `GamepadDevice.configureDefaultBinds()` for those).
+	 *
+	 * @param snapshot - The snapshot to restore.
+	 * @param mode     - `"replace"` (default) or `"merge"`.
+	 */
+	importBinds(snapshot: DeviceBindsSnapshot, mode?: "merge" | "replace"): void;
+	/**
 	 * Report a named bind event (i.e. from UI or a CustomDevice).
 	 */
 	emitBindDown<B extends IBind>(name: B, device: Device, value?: number): this;
@@ -183,6 +200,7 @@ declare class InputDeviceManager {
 	 * Performs a poll of latest input from all devices
 	 */
 	update(): ReadonlyArray<Device>;
+	private _lastInteractionWatermark;
 	private _updateLastInteracted;
 	private _pollGamepads;
 }
@@ -288,6 +306,13 @@ declare class NavigationManager {
 	 * @param stageRoot - Root navigation responder container, where navigatable
 	 * containers can live.
 	 */
+	/**
+	 * Manually invalidate the navigatable-list cache for the current stage.
+	 *
+	 * Call this after any structural change to the UI tree (adding/removing
+	 * children, toggling visibility) so the next navigation query is accurate.
+	 */
+	invalidateNavCache(): void;
 	enable(stageRoot: Container): this;
 	/**
 	 * Set the new top-most global interaction target.
@@ -374,6 +399,8 @@ export declare class GamepadDevice {
 	source: Gamepad;
 	/**
 	 * Setup named binds for all newly connecting gamepads.
+	 * Already-connected gamepads are not affected; call `configureBinds()`
+	 * on individual instances to update them.
 	 */
 	static configureDefaultBinds<BindName extends IBind = IBind>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
 	static defaultOptions: {
@@ -510,15 +537,46 @@ export declare class GamepadDevice {
 	private readonly _bindDownEmitter;
 	private readonly _bindUpEmitter;
 	private readonly _debounces;
+	/**
+	 * Reverse index: GamepadCode -> list of bind names using that code.
+	 * Rebuilt on configureBinds/importBinds so dispatch is O(1).
+	 */
+	private _bindIndex;
+	private _bindsDownCurr;
+	private _bindsDownPrev;
 	constructor(source: Gamepad);
 	/** @returns true if any button from the named bind is pressed. */
 	bindDown(name: IBind): boolean;
+	/**
+	 * @returns true if the named bind transitioned from up to down since the
+	 * last `update()` call (i.e. "just pressed this frame").
+	 */
+	bindPressed(name: IBind): boolean;
+	/**
+	 * @returns true if the named bind transitioned from down to up since the
+	 * last `update()` call (i.e. "just released this frame").
+	 */
+	bindReleased(name: IBind): boolean;
 	/** @returns true if any of the given buttons are pressed. */
 	pressedAny(btns: GamepadCode[]): boolean;
 	/** @returns true if all of the given buttons are pressed. */
 	pressedAll(btns: GamepadCode[]): boolean;
-	/** Set named binds for this gamepad */
-	configureBinds<BindName extends string = string | NavigateBinds>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
+	/** Set named binds for this gamepad (merges with existing binds). */
+	configureBinds<BindName extends string = string | NavigateBind>(binds: Partial<Record<BindName, GamepadCode[]>>): void;
+	/**
+	 * Export current binds as a plain JSON-serializable object.
+	 * Useful for saving/restoring custom control schemes.
+	 */
+	exportBinds(): Record<string, GamepadCode[]>;
+	/**
+	 * Import binds from a plain object (e.g. parsed from JSON).
+	 *
+	 * @param binds  - The bind map to import.
+	 * @param mode   - `"replace"` (default) discards current binds first;
+	 *                 `"merge"` keeps existing binds, overwriting only the
+	 *                  keys present in the supplied map.
+	 */
+	importBinds(binds: Record<string, GamepadCode[]>, mode?: "merge" | "replace"): void;
 	/** Add an event listener */
 	on<K extends keyof GamepadDeviceEvent>(event: K, listener: (event: GamepadDeviceEvent[K]) => void, options?: EventOptions): this;
 	/** Remove an event listener (or all if none provided). */
@@ -551,9 +609,24 @@ export declare class GamepadDevice {
 	 * @returns true when already in progress and the operation should be skipped
 	 */
 	private _debounce;
+	/**
+	 * Snapshot bind state for bindPressed()/bindReleased() edge detection.
+	 * Called at the end of each update(). Swaps two Sets to avoid allocation.
+	 */
+	private _snapshotBindState;
+	/**
+	 * Rebuild the reverse index: GamepadCode -> bind names[].
+	 * Called on construction and whenever binds change.
+	 */
+	private _rebuildBindIndex;
 }
 export declare class KeyboardDeviceInstance {
 	static global: KeyboardDeviceInstance;
+	/**
+	 * Setup named binds on the global keyboard device.
+	 * Mirrors `GamepadDevice.configureDefaultBinds()` for API symmetry.
+	 */
+	static configureDefaultBinds<B extends IBind>(binds: Partial<Record<B, KeyCode[]>>): void;
 	readonly type = "keyboard";
 	readonly id = "keyboard";
 	/**
@@ -610,6 +683,13 @@ export declare class KeyboardDeviceInstance {
 	private _layoutSource;
 	private _deferredKeydown;
 	private _deferredKeyup;
+	/**
+	 * Reverse index: KeyCode -> list of bind names using that code.
+	 * Rebuilt on configureBinds/importBinds so dispatch is O(1).
+	 */
+	private _bindIndex;
+	private _bindsDownCurr;
+	private _bindsDownPrev;
 	private constructor();
 	/**
 	 * Keyboard Layout
@@ -635,12 +715,36 @@ export declare class KeyboardDeviceInstance {
 	get layoutSource(): KeyboardLayoutSource;
 	/** @returns true if any KeyCode from the named bind is pressed. */
 	bindDown(name: IBind): boolean;
+	/**
+	 * @returns true if the named bind transitioned from up to down since the
+	 * last `update()` call (i.e. "just pressed this frame").
+	 */
+	bindPressed(name: IBind): boolean;
+	/**
+	 * @returns true if the named bind transitioned from down to up since the
+	 * last `update()` call (i.e. "just released this frame").
+	 */
+	bindReleased(name: IBind): boolean;
 	/** @returns true if any of the given keys are pressed. */
 	pressedAny(keys: KeyCode[]): boolean;
 	/** @returns true if all of the given keys are pressed. */
 	pressedAll(keys: KeyCode[]): boolean;
-	/** Set custom binds */
+	/** Set custom binds (merges with existing binds). */
 	configureBinds<B extends IBind>(binds: Partial<Record<B, KeyCode[]>>): void;
+	/**
+	 * Export current binds as a plain JSON-serializable object.
+	 * Useful for saving/restoring custom control schemes.
+	 */
+	exportBinds(): Record<string, KeyCode[]>;
+	/**
+	 * Import binds from a plain object (e.g. parsed from JSON).
+	 *
+	 * @param binds  - The bind map to import.
+	 * @param mode   - `"replace"` (default) discards current binds first;
+	 *                 `"merge"` keeps existing binds, overwriting only the
+	 *                  keys present in the supplied map.
+	 */
+	importBinds(binds: Record<string, KeyCode[]>, mode?: "merge" | "replace"): void;
 	/** Haptics not supported on default keyboard. */
 	playHaptic(): void;
 	/** Add an event listener. */
@@ -684,6 +788,11 @@ export declare class KeyboardDeviceInstance {
 	private _configureEventListeners;
 	private _processDeferredKeydownEvent;
 	private _emitDeferredKeyupEvent;
+	/**
+	 * Rebuild the reverse index: KeyCode -> bind names[].
+	 * Called on init and whenever binds change.
+	 */
+	private _rebuildBindIndex;
 }
 export declare const Button: {
 	readonly Face1: 0;
@@ -854,13 +963,24 @@ export declare const Navigate: Readonly<{
  */
 export declare const UINavigation: NavigationManager;
 /**
- * @returns all navigatable containers in some container
+ * @returns all navigatable containers in some container.
+ *
+ * Results are cached per-root; call `invalidateNavigatablesCache(root)` after
+ * structural or visibility changes.
  */
 export declare function getAllNavigatables(target: Container, navigatables?: NavigatableContainer[]): NavigatableContainer[];
 /**
  * @returns the first navigatable container in the given direction
  */
 export declare function getFirstNavigatable(root: Container, options?: NavigatableQueryOptions): NavigatableContainer | undefined;
+/**
+ * Invalidate the navigatable-list cache for a specific root (or the entire
+ * cache when no argument is given).
+ *
+ * Call this after adding/removing navigatable children or changing their
+ * `visible` property so the next directional-navigation query stays correct.
+ */
+export declare function invalidateNavigatablesCache(root?: Container): void;
 export declare function isChildOf(child: Container, root: Container): boolean;
 export declare function isVisible(target: Container): boolean;
 /**
@@ -904,7 +1024,7 @@ export interface ContainerNavigateOptions {
 	/** Container to navigate to on "NavigateActivate". */
 	activate?: Container | null;
 }
-export interface CustomDevice {
+export interface CustomDevice extends InputDeviceLike {
 	/**
 	 * Device type.
 	 *
@@ -931,6 +1051,16 @@ export interface CustomDevice {
 	/** @returns true when a bind was activated in the previous update(). */
 	bindDown(name: string): boolean;
 	/**
+	 * (Optional) @returns true if the named bind went down this frame.
+	 * Implement alongside `bindDown` to support edge-detection polling.
+	 */
+	bindPressed?(name: string): boolean;
+	/**
+	 * (Optional) @returns true if the named bind went up this frame.
+	 * Implement alongside `bindDown` to support edge-detection polling.
+	 */
+	bindReleased?(name: string): boolean;
+	/**
 	 * Play a vibration effect (if device supports it).
 	 */
 	playHaptic(hapticEffect: HapticEffect): void;
@@ -940,6 +1070,12 @@ export interface CustomDevice {
 	 * This method is triggered when the window is moved to background.
 	 */
 	clear?(): void;
+}
+/** Full bind snapshot for save/load via `InputDevice.exportBinds()` / `importBinds()`. */
+export interface DeviceBindsSnapshot {
+	keyboard: SerializedKeyboardBinds;
+	/** Keyed by device id, e.g. `"gamepad0"`. */
+	gamepads: Record<string, SerializedGamepadBinds>;
 }
 export interface DeviceMetadata {
 }
@@ -959,6 +1095,9 @@ export interface GamepadButtonEvent {
 	buttonCode: ButtonCode;
 	pressed: boolean;
 	value: 0 | 1;
+}
+export interface GamepadDeviceBindsChangedEvent {
+	device: GamepadDevice;
 }
 export interface HapticEffect {
 	/** How long the vibration lasts (in milliseconds) */
@@ -984,6 +1123,44 @@ export interface InputDeviceEvent {
 	lastdevicechanged: {
 		device: Device;
 	};
+}
+/**
+ * Shared structural interface implemented by KeyboardDevice, GamepadDevice,
+ * and any CustomDevice. Prefer this over the `Device` union type when you
+ * want genuinely type-safe iteration over `InputDevice.devices`.
+ */
+export interface InputDeviceLike<BindName extends string = string> {
+	/** Device type discriminant. */
+	readonly type: string;
+	/** Unique identifier for this device. */
+	readonly id: string;
+	/** Arbitrary metadata stored against this device. */
+	readonly meta: IDeviceMetadata;
+	/** Timestamp when input was last modified. */
+	readonly lastInteraction: number;
+	/** @returns true when any code mapped to the named bind is active. */
+	bindDown(name: BindName): boolean;
+	/**
+	 * @returns true if the named bind transitioned from up to down since the
+	 * last `update()` call (i.e. "just pressed this frame").
+	 * Not all device types support this — check before calling.
+	 */
+	bindPressed?(name: BindName): boolean;
+	/**
+	 * @returns true if the named bind transitioned from down to up since the
+	 * last `update()` call (i.e. "just released this frame").
+	 * Not all device types support this — check before calling.
+	 */
+	bindReleased?(name: BindName): boolean;
+	/** Play a vibration effect (if the device supports it). */
+	playHaptic(...effects: HapticEffect[]): void;
+	/** Triggered during the polling function. */
+	update(now: number, ...args: any[]): void;
+	/** (Optional) Clear input, e.g. when the window loses focus. */
+	clear?(): void;
+}
+export interface KeyboardDeviceBindsChangedEvent {
+	device: KeyboardDeviceInstance;
 }
 export interface KeyboardDeviceKeyEvent {
 	event: KeyboardEvent;
@@ -1019,14 +1196,18 @@ export interface NavigatableQueryOptions {
 	spatial?: SpatialNavigationOptions;
 }
 /**
- * An event passed to a responder when any of: NavigateLeft,
- * NavigateDown, NavigateRight, NavigateUp, NavigateActivate,
+ * An event passed to a responder when any of:
+ *  - "NavigateLeft"
+ *  - "NavigateDown"
+ *  - "NavigateRight"
+ *  - "NavigateUp"
+ *  - "NavigateActivate"
+ *  - "NavigateBack"
  * or NavigateBack are issued (i.e. pressed or released).
  */
 export interface NavigateEvent {
-	readonly name: NavigateBinds;
+	readonly name: NavigateBind;
 	readonly device: Device;
-	/** `true` on press, `false` on release */
 	readonly pressed: boolean;
 }
 /**
@@ -1074,6 +1255,8 @@ export type Button = (typeof Button)[keyof typeof Button];
 export type ButtonCode = typeof ButtonCode[number];
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
 export type FocusSource = "pointer" | "device";
+/** Symmetric short-name alias. */
+export type GamepadBindEvent = GamepadNamedBindEvent;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 /**
  * Bindable codes for button and joystick events.
@@ -1082,6 +1265,7 @@ export type GamepadCode = ButtonCode | AxisCode;
 export type GamepadDeviceEvent = {
 	binddown: GamepadNamedBindEvent;
 	bindup: GamepadNamedBindEvent;
+	bindschanged: GamepadDeviceBindsChangedEvent;
 } & {
 	[axis in AxisCode]: GamepadAxisEvent;
 } & {
@@ -1110,20 +1294,29 @@ export type GamepadNamedBindEvent = {
 	axis: Axis;
 	axisCode: AxisCode;
 };
-export type IBind = NavigateBinds | BindValues[keyof BindValues];
+export type IBind = NavigateBind | BindValues[keyof BindValues];
 export type IDeviceMetadata = keyof DeviceMetadata extends never ? Record<string, any> : Partial<DeviceMetadata>;
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
+/** Symmetric short-name alias. */
+export type KeyboardBindEvent = KeyboardDeviceNamedBindKeyEvent;
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
 	binddown: KeyboardDeviceNamedBindKeyEvent;
 	bindup: KeyboardDeviceNamedBindKeyEvent;
+	bindschanged: KeyboardDeviceBindsChangedEvent;
 } & {
 	[key in KeyCode]: KeyboardDeviceKeyEvent;
 };
+/** Symmetric short-name alias. */
+export type KeyboardKeyEvent = KeyboardDeviceKeyEvent;
 export type KeyboardLayout = "QWERTY" | "AZERTY" | "JCUKEN" | "QWERTZ";
 export type KeyboardLayoutSource = "browser" | "lang" | "keypress" | "manual";
 export type NavigatableContainer = Container;
-export type NavigateBinds = typeof Navigate[keyof typeof Navigate];
+export type NavigateBind = typeof Navigate[keyof typeof Navigate];
 export type NavigateDirection = "NavigateLeft" | "NavigateRight" | "NavigateUp" | "NavigateDown";
+/** Serialized bind snapshot used by exportBinds/importBinds. */
+export type SerializedGamepadBinds = Record<string, GamepadCode[]>;
+/** Serialized bind snapshot used by exportBinds/importBinds. */
+export type SerializedKeyboardBinds = Record<string, KeyCode[]>;
 
 export {};

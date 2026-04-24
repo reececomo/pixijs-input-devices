@@ -1,6 +1,6 @@
 {
   "name": "pixijs-input-devices",
-  "version": "0.8.0-beta.11",
+  "version": "0.8.0-beta.12",
   "author": "Reece Como <reece.como@gmail.com>",
   "authors": [
     "Reece Como <reece.como@gmail.com>"
@@ -24,7 +24,8 @@
     "coverage": "jest --runInBand --collectCoverage",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "prepublishOnly": "npm run lint:fix && npm run build && npm run test"
   },
   "peerDependencies": {
     "pixi.js": "^8.0.0"

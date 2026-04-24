@@ -1,7 +1,7 @@
 import { IBind } from "./config/DeviceBinds";
 import { CustomDevice } from "./devices/CustomDevice";
-import { GamepadDevice } from "./devices/gamepads/GamepadDevice";
-import { KeyboardDevice } from "./devices/keyboard/KeyboardDevice";
+import { GamepadDevice, GamepadCode, SerializedGamepadBinds } from "./devices/gamepads/GamepadDevice";
+import { KeyboardDevice, KeyCode, SerializedKeyboardBinds } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 import { Options } from "./utils/Options";
@@ -15,6 +15,14 @@ export interface InputDeviceEvent
 }
 
 export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
+
+/** Full bind snapshot for save/load via `InputDevice.exportBinds()` / `importBinds()`. */
+export interface DeviceBindsSnapshot
+{
+  keyboard: SerializedKeyboardBinds;
+  /** Keyed by device id, e.g. `"gamepad0"`. */
+  gamepads: Record<string, SerializedGamepadBinds>;
+}
 
 export interface NamedBindEvent<BindName extends IBind>
 {
@@ -261,6 +269,50 @@ class InputDeviceManager
     }
 
     /**
+     * Export binds from the keyboard and all connected gamepads as a
+     * JSON-serializable snapshot.  Round-trip with `importBinds()`.
+     */
+    public exportBinds(): DeviceBindsSnapshot
+    {
+        const gamepads: Record<string, SerializedGamepadBinds> = {};
+
+        for (const pad of this._gamepads)
+        {
+            gamepads[pad.id] = pad.exportBinds();
+        }
+
+        return {
+            keyboard: this.keyboard.exportBinds(),
+            gamepads,
+        };
+    }
+
+    /**
+     * Import a bind snapshot produced by `exportBinds()`.
+     *
+     * Keyboard binds are applied immediately.  Gamepad binds are applied to
+     * already-connected gamepads whose `id` matches a key in the snapshot;
+     * newly connecting gamepads are unaffected (use
+     * `GamepadDevice.configureDefaultBinds()` for those).
+     *
+     * @param snapshot - The snapshot to restore.
+     * @param mode     - `"replace"` (default) or `"merge"`.
+     */
+    public importBinds(
+        snapshot: DeviceBindsSnapshot,
+        mode: "merge" | "replace" = "replace"
+    ): void
+    {
+        this.keyboard.importBinds(snapshot.keyboard, mode);
+
+        for (const pad of this._gamepads)
+        {
+            const binds = snapshot.gamepads[pad.id];
+            if (binds) pad.importBinds(binds, mode);
+        }
+    }
+
+    /**
      * Report a named bind event (i.e. from UI or a CustomDevice).
      */
     public emitBindDown<B extends IBind>(name: B, device: Device, value = 1): this
@@ -403,9 +455,29 @@ class InputDeviceManager
         return this._devices;
     }
 
+    // Tracks the max lastInteraction seen at the end of the previous update().
+    // When no device has a newer timestamp, the full scan can be skipped.
+    private _lastInteractionWatermark = 0;
+
     private _updateLastInteracted(): void
     {
         if (this._devices.length === 0) return;
+
+        // Early exit: if no device's lastInteraction has advanced, the result
+        // is the same as last frame (the watermark is the previous maximum).
+        let maxSeen = 0;
+
+        for (const device of this._devices)
+        {
+            if (device.lastInteraction > maxSeen) maxSeen = device.lastInteraction;
+        }
+
+        if (maxSeen <= this._lastInteractionWatermark && this._lastInteractedDevice !== undefined)
+        {
+            return; // nothing changed
+        }
+
+        this._lastInteractionWatermark = maxSeen;
 
         let last: Device;
         if (this._devices.length === 1)

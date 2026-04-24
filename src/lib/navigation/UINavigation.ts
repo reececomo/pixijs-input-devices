@@ -3,7 +3,7 @@ import { Container } from "pixi.js";
 import { Device, InputDevice, NamedBindEvent } from "../InputDevice";
 import { Navigate, type NavigateBind } from "./NavigateBind";
 import { NavigationResponder } from "./NavigationResponder";
-import { getFirstNavigatable, isChildOf, SpatialNavigationOptions } from "./Navigatable";
+import { getFirstNavigatable, invalidateNavigatablesCache, isChildOf, SpatialNavigationOptions } from "./Navigatable";
 import { emitPointerEvent } from "./emitPointerEvent";
 import { ContainerNavigateOptions } from "./ContainerNavigateOptions";
 
@@ -162,6 +162,19 @@ class NavigationManager
      * @param stageRoot - Root navigation responder container, where navigatable
      * containers can live.
      */
+    /**
+     * Manually invalidate the navigatable-list cache for the current stage.
+     *
+     * Call this after any structural change to the UI tree (adding/removing
+     * children, toggling visibility) so the next navigation query is accurate.
+     */
+    public invalidateNavCache(): void
+    {
+        const stage = this.getStageContainer();
+        if (stage) invalidateNavigatablesCache(stage);
+        else invalidateNavigatablesCache();
+    }
+
     public enable(stageRoot: Container): this
     {
         if (this.active)
@@ -172,6 +185,7 @@ class NavigationManager
 
         // enable stage
         this._rootContainer = stageRoot;
+        invalidateNavigatablesCache(stageRoot);
 
         // setup binds
         const handler = (e: NamedBindEvent<NavigateBind>): void =>
@@ -207,6 +221,7 @@ class NavigationManager
         const previousResponder = this.firstResponder;
 
         this._responders.unshift(res);
+        invalidateNavigatablesCache();
 
         previousResponder?.resignedAsFirstResponder?.();
         this._clearFocusTargetIfRemoved();
@@ -227,6 +242,8 @@ class NavigationManager
         {
             previousResponder.focusTarget = undefined;
         }
+
+        invalidateNavigatablesCache();
 
         const nextFocused = this.focusTarget;
 
@@ -371,6 +388,7 @@ class NavigationManager
 
     public disable(): void
     {
+        invalidateNavigatablesCache();
         this._clearNavigateBindsHandler();
         this._rootContainer = undefined;
         this._rootFocused = undefined;

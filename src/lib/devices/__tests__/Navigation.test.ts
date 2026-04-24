@@ -3,6 +3,7 @@ import { Bounds, Container, ContainerOptions } from "pixi.js";
 import { UINavigation } from "../../navigation/UINavigation";
 import { registerPixiJSNavigationMixin } from "../../../Container.mixin";
 import { InputDevice } from "../../InputDevice";
+import { getAllNavigatables, invalidateNavigatablesCache } from "../../navigation/Navigatable";
 
 beforeAll(() => registerPixiJSNavigationMixin(Container));
 
@@ -154,4 +155,98 @@ describe("UINavigation", () =>
 afterEach(() =>
 {
     jest.useRealTimers();
+});
+
+// -------------------------------------------------------------------
+// Navigation cache tests
+// -------------------------------------------------------------------
+
+describe("getAllNavigatables cache", () =>
+{
+    beforeAll(() => registerPixiJSNavigationMixin(Container));
+
+    it("returns cached result for the same root on repeated calls", () =>
+    {
+        const root = new MockContainer();
+        const child = new MockContainer({ navigationMode: "always" });
+        root.addChild(child);
+
+        invalidateNavigatablesCache(root);
+
+        const first = getAllNavigatables(root);
+        const second = getAllNavigatables(root);
+
+        // Same array reference — no rebuild
+        expect(first).toBe(second);
+        expect(first).toContain(child);
+    });
+
+    it("invalidateNavigatablesCache(root) forces a fresh walk", () =>
+    {
+        const root = new MockContainer();
+        const child1 = new MockContainer({ navigationMode: "always" });
+        root.addChild(child1);
+
+        invalidateNavigatablesCache(root);
+        const before = getAllNavigatables(root);
+        expect(before.length).toBe(1);
+
+        // Add a new child — cache is stale until invalidated
+        const child2 = new MockContainer({ navigationMode: "always" });
+        root.addChild(child2);
+
+        invalidateNavigatablesCache(root);
+        const after = getAllNavigatables(root);
+
+        expect(after.length).toBe(2);
+        expect(after).not.toBe(before); // new array
+    });
+
+    it("invalidateNavigatablesCache() with no arg clears all roots", () =>
+    {
+        const rootA = new MockContainer();
+        const rootB = new MockContainer();
+        const child = new MockContainer({ navigationMode: "always" });
+
+        rootA.addChild(new MockContainer({ navigationMode: "always" }));
+        rootB.addChild(child);
+
+        invalidateNavigatablesCache();
+        getAllNavigatables(rootA);
+        getAllNavigatables(rootB);
+
+        // Now invalidate everything
+        invalidateNavigatablesCache();
+
+        // Both should rebuild on next call (no stale reference)
+        const a2 = getAllNavigatables(rootA);
+        const b2 = getAllNavigatables(rootB);
+
+        expect(a2.length).toBe(1);
+        expect(b2.length).toBe(1);
+    });
+
+    it("UINavigation.invalidateNavCache() invalidates the stage root", () =>
+    {
+        const stage = new MockContainer();
+        const nav1 = new MockContainer({ navigationMode: "always" });
+        stage.addChild(nav1);
+
+        UINavigation.enable(stage); // calls invalidateNavigatablesCache internally
+
+        const first = getAllNavigatables(stage);
+        expect(first).toContain(nav1);
+
+        // Add another child — cache is stale
+        const nav2 = new MockContainer({ navigationMode: "always" });
+        stage.addChild(nav2);
+
+        UINavigation.invalidateNavCache();
+
+        const second = getAllNavigatables(stage);
+        expect(second.length).toBe(2);
+        expect(second).toContain(nav2);
+
+        UINavigation.disable();
+    });
 });

@@ -31,6 +31,14 @@ export interface GamepadAxisEvent {
   value: number;
 }
 
+/** Symmetric short-name alias. */
+export type GamepadBindEvent = GamepadNamedBindEvent;
+
+export interface GamepadDeviceBindsChangedEvent
+{
+  device: GamepadDevice;
+}
+
 export type GamepadNamedBindEvent = {
   type: "button";
   device: GamepadDevice;
@@ -53,6 +61,7 @@ export type GamepadNamedBindEvent = {
 export type GamepadDeviceEvent = {
   binddown: GamepadNamedBindEvent;
   bindup: GamepadNamedBindEvent;
+  bindschanged: GamepadDeviceBindsChangedEvent;
 } & {
   [axis in AxisCode]: GamepadAxisEvent;
 } & {
@@ -77,6 +86,8 @@ export class GamepadDevice
 {
     /**
      * Setup named binds for all newly connecting gamepads.
+     * Already-connected gamepads are not affected; call `configureBinds()`
+     * on individual instances to update them.
      */
     public static configureDefaultBinds<BindName extends IBind = IBind>(
         binds: Partial<Record<BindName, GamepadCode[]>>,
@@ -250,12 +261,24 @@ export class GamepadDevice
     private readonly _bindUpEmitter = new EventEmitter<Record<IBind, GamepadNamedBindEvent>>();
     private readonly _debounces = new Map<GamepadCode, number>();
 
+    /**
+     * Reverse index: GamepadCode -> list of bind names using that code.
+     * Rebuilt on configureBinds/importBinds so dispatch is O(1).
+     */
+    private _bindIndex: Map<GamepadCode, string[]> = new Map();
+
+    // Edge-detection snapshots for bindPressed/bindReleased.
+    // Two Sets swapped each update() to avoid per-frame allocation.
+    private _bindsDownCurr: Set<string> = new Set();
+    private _bindsDownPrev: Set<string> = new Set();
+
     public constructor(public source: Gamepad)
     {
         this.id = "gamepad" + source.index;
         this.layout = detectLayout(source?.id) ?? "unknown";
         this._haptics = new GamepadHapticManager(source);
         this.supportsTriggerRumble = this._haptics.hapticEvent === "trigger-rumble";
+        this._rebuildBindIndex();
     }
 
     // ----- Button helpers: -----
@@ -266,6 +289,24 @@ export class GamepadDevice
         if (this.options.binds[name] === undefined) return false;
 
         return this.pressedAny(this.options.binds[name]);
+    }
+
+    /**
+     * @returns true if the named bind transitioned from up to down since the
+     * last `update()` call (i.e. "just pressed this frame").
+     */
+    public bindPressed(name: IBind): boolean
+    {
+        return this._bindsDownCurr.has(name) && !this._bindsDownPrev.has(name);
+    }
+
+    /**
+     * @returns true if the named bind transitioned from down to up since the
+     * last `update()` call (i.e. "just released this frame").
+     */
+    public bindReleased(name: IBind): boolean
+    {
+        return !this._bindsDownCurr.has(name) && this._bindsDownPrev.has(name);
     }
 
     /** @returns true if any of the given buttons are pressed. */
@@ -290,7 +331,7 @@ export class GamepadDevice
         return true;
     }
 
-    /** Set named binds for this gamepad */
+    /** Set named binds for this gamepad (merges with existing binds). */
     public configureBinds<BindName extends string = string | NavigateBind>(
         binds: Partial<Record<BindName, GamepadCode[]>>
     ): void
@@ -299,6 +340,45 @@ export class GamepadDevice
             ...this.options.binds,
             ...binds,
         };
+        this._rebuildBindIndex();
+    }
+
+    /**
+     * Export current binds as a plain JSON-serializable object.
+     * Useful for saving/restoring custom control schemes.
+     */
+    public exportBinds(): Record<string, GamepadCode[]>
+    {
+        const out: Record<string, GamepadCode[]> = {};
+
+        for (const name in this.options.binds)
+        {
+            const codes = this.options.binds[name as IBind];
+            if (codes) out[name] = [...codes];
+        }
+
+        return out;
+    }
+
+    /**
+     * Import binds from a plain object (e.g. parsed from JSON).
+     *
+     * @param binds  - The bind map to import.
+     * @param mode   - `"replace"` (default) discards current binds first;
+     *                 `"merge"` keeps existing binds, overwriting only the
+     *                  keys present in the supplied map.
+     */
+    public importBinds(
+        binds: Record<string, GamepadCode[]>,
+        mode: "merge" | "replace" = "replace"
+    ): void
+    {
+        this.options.binds = mode === "replace"
+            ? { ...binds } as Partial<Record<IBind, GamepadCode[]>>
+            : { ...this.options.binds, ...binds };
+
+        this._rebuildBindIndex();
+        this._emitter.emit("bindschanged", { device: this });
     }
 
     // ----- Events: -----
@@ -426,6 +506,7 @@ export class GamepadDevice
         this.source = source;
         this._poll(source, now);
         this._haptics.update();
+        this._snapshotBindState();
     }
 
     public clear(): void
@@ -459,24 +540,28 @@ export class GamepadDevice
                     // emit events
                     if (this.options.emitEvents)
                     {
-                        // check named bind events
-                        Object.entries(this.options.binds).forEach(([ name, values ]) =>
+                        // check named bind events (O(1) via precomputed index)
+                        const upNames = this._bindIndex.get(axisCode);
+
+                        if (upNames)
                         {
-                            if (!values.includes(axisCode)) return;
+                            for (let n = 0; n < upNames.length; n++)
+                            {
+                                const bindName = upNames[n]! as IBind;
+                                const event: GamepadNamedBindEvent = {
+                                    device: this,
+                                    type: "axis",
+                                    axis: a as Axis,
+                                    axisCode,
+                                    name: bindName,
+                                    pressed: false,
+                                    value,
+                                };
 
-                            const event: GamepadNamedBindEvent = {
-                                device: this,
-                                type: "axis",
-                                axis: a as Axis,
-                                axisCode,
-                                name: name as IBind,
-                                pressed: false,
-                                value,
-                            };
-
-                            this._bindUpEmitter.emit(name as IBind, event);
-                            this._emitter.emit("bindup", event);
-                        });
+                                this._bindUpEmitter.emit(bindName, event);
+                                this._emitter.emit("bindup", event);
+                            }
+                        }
                     }
                 }
                 else
@@ -512,24 +597,28 @@ export class GamepadDevice
                         });
                     }
 
-                    // check named bind events
-                    Object.entries(this.options.binds).forEach(([ name, values ]) =>
+                    // check named bind events (O(1) via precomputed index)
+                    const downNames = this._bindIndex.get(axisCode);
+
+                    if (downNames)
                     {
-                        if (!values.includes(axisCode)) return;
+                        for (let n = 0; n < downNames.length; n++)
+                        {
+                            const bindName = downNames[n]! as IBind;
+                            const event: GamepadNamedBindEvent = {
+                                device: this,
+                                type: "axis",
+                                axis: a as Axis,
+                                axisCode,
+                                name: bindName,
+                                pressed: true,
+                                value,
+                            };
 
-                        const event: GamepadNamedBindEvent = {
-                            device: this,
-                            type: "axis",
-                            axis: a as Axis,
-                            axisCode,
-                            name: name as IBind,
-                            pressed: true,
-                            value,
-                        };
-
-                        this._bindDownEmitter.emit(name as IBind, event);
-                        this._emitter.emit("binddown", event);
-                    });
+                            this._bindDownEmitter.emit(bindName, event);
+                            this._emitter.emit("binddown", event);
+                        }
+                    }
                 }
             }
         }
@@ -566,27 +655,31 @@ export class GamepadDevice
                     });
                 }
 
-                // check named bind events
-                Object.entries(this.options.binds).forEach(([ name, buttons ]) =>
+                // check named bind events (O(1) via precomputed index)
+                const btnNames = this._bindIndex.get(buttonCode);
+
+                if (btnNames)
                 {
-                    if (!buttons.includes(buttonCode)) return;
+                    for (let n = 0; n < btnNames.length; n++)
+                    {
+                        const bindName = btnNames[n]! as IBind;
+                        const event: GamepadNamedBindEvent = {
+                            device: this,
+                            type: "button",
+                            button: b,
+                            buttonCode,
+                            name: bindName,
+                            pressed: isPressed,
+                            value: isPressed ? 1 : 0,
+                        };
 
-                    const event: GamepadNamedBindEvent = {
-                        device: this,
-                        type: "button",
-                        button: b,
-                        buttonCode,
-                        name: name as IBind,
-                        pressed: isPressed,
-                        value: isPressed ? 1 : 0,
-                    };
+                        (isPressed ? this._bindDownEmitter : this._bindUpEmitter)
+                            .emit(bindName, event);
 
-                    (isPressed ? this._bindDownEmitter : this._bindUpEmitter)
-                        .emit(name as IBind, event);
-
-                    this._emitter
-                        .emit(isPressed ? "binddown" : "bindup", event);
-                });
+                        this._emitter
+                            .emit(isPressed ? "binddown" : "bindup", event);
+                    }
+                }
             }
         }
 
@@ -621,7 +714,61 @@ export class GamepadDevice
 
         return false;
     }
+
+    /**
+     * Snapshot bind state for bindPressed()/bindReleased() edge detection.
+     * Called at the end of each update(). Swaps two Sets to avoid allocation.
+     */
+    private _snapshotBindState(): void
+    {
+        const tmp = this._bindsDownPrev;
+        this._bindsDownPrev = this._bindsDownCurr;
+        this._bindsDownCurr = tmp;
+        this._bindsDownCurr.clear();
+
+        for (const [code, names] of this._bindIndex)
+        {
+            if (this.button[code])
+            {
+                for (let i = 0; i < names.length; i++)
+                {
+                    this._bindsDownCurr.add(names[i]!);
+                }
+            }
+        }
+    }
+
+    /**
+     * Rebuild the reverse index: GamepadCode -> bind names[].
+     * Called on construction and whenever binds change.
+     */
+    private _rebuildBindIndex(): void
+    {
+        this._bindIndex.clear();
+
+        for (const name in this.options.binds)
+        {
+            const codes = this.options.binds[name as IBind];
+            if (!codes) continue;
+
+            for (const code of codes)
+            {
+                let list = this._bindIndex.get(code);
+
+                if (!list)
+                {
+                    list = [];
+                    this._bindIndex.set(code, list);
+                }
+
+                list.push(name);
+            }
+        }
+    }
 }
+
+/** Serialized bind snapshot used by exportBinds/importBinds. */
+export type SerializedGamepadBinds = Record<string, GamepadCode[]>;
 
 function _scale(value: number, range: [ min: number, max: number ]): number
 {
