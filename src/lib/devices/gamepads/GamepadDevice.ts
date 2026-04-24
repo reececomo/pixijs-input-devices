@@ -533,45 +533,49 @@ export class GamepadDevice
         for (let a = 0; a < axisCount; a++)
         {
             const value = _scale(source.axes[a], joy.deadzone);
-            const axisCode = AxisCode[a * 2 + (value > 0 ? 1 : 0)];
+            const negativeAxisCode = AxisCode[a * 2];
+            const positiveAxisCode = AxisCode[a * 2 + 1];
+            const axisCode = value > 0 ? positiveAxisCode : negativeAxisCode;
+            const oppositeAxisCode = value > 0 ? negativeAxisCode : positiveAxisCode;
 
             if (Math.abs(value) < joy.pressThreshold)
             {
-                if (this.button[axisCode])
+                for (const releasedAxisCode of [negativeAxisCode, positiveAxisCode])
                 {
-                    // emit events
-                    if (this.options.emitEvents)
+                    if (this.button[releasedAxisCode])
                     {
-                        // check named bind events (O(1) via precomputed index)
-                        const upNames = this._bindIndex.get(axisCode);
-
-                        if (upNames)
+                        // emit events
+                        if (this.options.emitEvents)
                         {
-                            for (let n = 0; n < upNames.length; n++)
-                            {
-                                const bindName = upNames[n]! as IBind;
-                                const event: GamepadNamedBindEvent = {
-                                    device: this,
-                                    type: "axis",
-                                    axis: a as Axis,
-                                    axisCode,
-                                    name: bindName,
-                                    pressed: false,
-                                    value,
-                                };
+                            // check named bind events (O(1) via precomputed index)
+                            const upNames = this._bindIndex.get(releasedAxisCode);
 
-                                this._bindUpEmitter.emit(bindName, event);
-                                this._emitter.emit("bindup", event);
+                            if (upNames)
+                            {
+                                for (let n = 0; n < upNames.length; n++)
+                                {
+                                    const bindName = upNames[n]! as IBind;
+                                    const event: GamepadNamedBindEvent = {
+                                        device: this,
+                                        type: "axis",
+                                        axis: a as Axis,
+                                        axisCode: releasedAxisCode,
+                                        name: bindName,
+                                        pressed: false,
+                                        value,
+                                    };
+
+                                    this._bindUpEmitter.emit(bindName, event);
+                                    this._emitter.emit("bindup", event);
+                                }
                             }
                         }
-                    }
-                }
-                else
-                {
-                    this._debounces.delete(axisCode);
-                }
 
-                this.button[axisCode] = false;
+                        this.button[releasedAxisCode] = false;
+                    }
+
+                    this._debounces.delete(releasedAxisCode);
+                }
             }
             else
             {
@@ -583,6 +587,7 @@ export class GamepadDevice
                 }
 
                 this.button[axisCode] = true;
+                this.button[oppositeAxisCode] = false;
                 this.lastInteraction = now;
 
                 // emit events
