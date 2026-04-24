@@ -15,6 +15,8 @@ export { Button, GamepadLayout };
 
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 
+type GamepadBinds = Partial<Record<IBind, GamepadCode[]>>;
+
 export interface GamepadButtonEvent {
   device: GamepadDevice;
   button: Button;
@@ -185,7 +187,7 @@ export class GamepadDevice
             "NavigateLeft"      : [ "DpadLeft", "LeftStickLeft" ],
             "NavigateDown"      : [ "DpadDown", "LeftStickDown" ],
             "NavigateRight"     : [ "DpadRight", "LeftStickRight" ],
-        } as Partial<Record<IBind, GamepadCode[]>>,
+        } as GamepadBinds,
     };
 
     /**
@@ -347,14 +349,14 @@ export class GamepadDevice
      * Export current binds as a plain JSON-serializable object.
      * Useful for saving/restoring custom control schemes.
      */
-    public exportBinds(): Record<string, GamepadCode[]>
+    public exportBinds(): GamepadBinds
     {
-        const out: Record<string, GamepadCode[]> = {};
+        const out: GamepadBinds = {};
 
         for (const name in this.options.binds)
         {
             const codes = this.options.binds[name as IBind];
-            if (codes) out[name] = [...codes];
+            if (codes) out[name as IBind] = [...codes];
         }
 
         return out;

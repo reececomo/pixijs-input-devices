@@ -484,7 +484,7 @@ export declare class GamepadDevice {
 		 *
 		 * @readonly
 		 */
-		binds: Partial<Record<IBind, GamepadCode[]>>;
+		binds: GamepadBinds;
 	};
 	/**
 	 * Globally unique identifier for this gamepad slot.
@@ -567,7 +567,7 @@ export declare class GamepadDevice {
 	 * Export current binds as a plain JSON-serializable object.
 	 * Useful for saving/restoring custom control schemes.
 	 */
-	exportBinds(): Record<string, GamepadCode[]>;
+	exportBinds(): GamepadBinds;
 	/**
 	 * Import binds from a plain object (e.g. parsed from JSON).
 	 *
@@ -665,7 +665,7 @@ export declare class KeyboardDeviceInstance {
 		 *
 		 * @readonly
 		 */
-		binds: Partial<Record<IBind, KeyCode[]>>;
+		binds: KeyboardBinds;
 		/**
 	 * These are the binds that are allowed to repeat when a key
 	 * is held down.
@@ -744,7 +744,7 @@ export declare class KeyboardDeviceInstance {
 	 *                 `"merge"` keeps existing binds, overwriting only the
 	 *                  keys present in the supplied map.
 	 */
-	importBinds(binds: Record<string, KeyCode[]>, mode?: "merge" | "replace"): void;
+	importBinds(binds: KeyboardBinds, mode?: "merge" | "replace"): void;
 	/** Haptics not supported on default keyboard. */
 	playHaptic(): void;
 	/** Add an event listener. */
@@ -1257,6 +1257,7 @@ export type Device = GamepadDevice | typeof KeyboardDevice | CustomDevice;
 export type FocusSource = "pointer" | "device";
 /** Symmetric short-name alias. */
 export type GamepadBindEvent = GamepadNamedBindEvent;
+export type GamepadBinds = Partial<Record<IBind, GamepadCode[]>>;
 export type GamepadButtonDownEvent = (gamepad: GamepadDevice, button: Button) => void;
 /**
  * Bindable codes for button and joystick events.
@@ -1299,6 +1300,7 @@ export type IDeviceMetadata = keyof DeviceMetadata extends never ? Record<string
 export type KeyCode = (typeof KeyCode)[keyof typeof KeyCode];
 /** Symmetric short-name alias. */
 export type KeyboardBindEvent = KeyboardDeviceNamedBindKeyEvent;
+export type KeyboardBinds = Partial<Record<IBind, KeyCode[]>>;
 export type KeyboardDeviceEvent = {
 	layoutdetected: KeyboardDeviceLayoutUpdatedEvent;
 	binddown: KeyboardDeviceNamedBindKeyEvent;

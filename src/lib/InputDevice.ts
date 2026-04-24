@@ -1,7 +1,7 @@
 import { IBind } from "./config/DeviceBinds";
 import { CustomDevice } from "./devices/CustomDevice";
-import { GamepadDevice, GamepadCode, SerializedGamepadBinds } from "./devices/gamepads/GamepadDevice";
-import { KeyboardDevice, KeyCode, SerializedKeyboardBinds } from "./devices/keyboard/KeyboardDevice";
+import { GamepadDevice, SerializedGamepadBinds } from "./devices/gamepads/GamepadDevice";
+import { KeyboardDevice, SerializedKeyboardBinds } from "./devices/keyboard/KeyboardDevice";
 import { EventEmitter, EventOptions } from "./utils/events";
 import { isMobile } from "./utils/isMobile";
 import { Options } from "./utils/Options";

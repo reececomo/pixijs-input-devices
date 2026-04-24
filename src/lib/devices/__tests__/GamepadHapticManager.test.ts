@@ -18,6 +18,7 @@ function makeHapticManager(): { manager: GamepadHapticManager; playEffect: jest.
     } as unknown as Gamepad;
 
     const manager = new GamepadHapticManager(fakeGamepad);
+
     return { manager, playEffect };
 }
 
@@ -38,8 +39,6 @@ describe("GamepadHapticManager", () =>
     it("overlapping effects take the per-channel maximum", () =>
     {
         const { manager, playEffect } = makeHapticManager();
-
-        const now = performance.now();
 
         manager.play({ rumble: 0.3, buzz: 0.0, duration: 500 }, 1.0);
         manager.play({ rumble: 0.8, buzz: 0.5, duration: 500 }, 1.0);

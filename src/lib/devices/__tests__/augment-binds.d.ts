@@ -9,5 +9,20 @@ declare module "../../../"
 
     /** @internal */
     Crouch: "Crouch";
+
+    /** @internal */
+    Dodge: "Dodge";
+
+    /** @internal */
+    MegaJump: "MegaJump";
+
+    /** @internal */
+    Shoot: "Shoot";
+
+    /** @internal */
+    Fire: "Fire";
+
+    /** @internal */
+    StaticBind: "StaticBind";
   }
 }

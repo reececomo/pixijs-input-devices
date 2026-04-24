@@ -1,4 +1,4 @@
-import { KeyboardDevice } from "../keyboard/KeyboardDevice";
+import { KeyboardDevice, KeyboardDeviceInstance } from "../keyboard/KeyboardDevice";
 
 // -------------------------------------------------------------------
 // Helpers
@@ -61,7 +61,9 @@ describe("KeyboardDevice — bind index & events", () =>
     {
         // Reset to empty binds first
         KeyboardDevice.importBinds({}, "replace");
-        KeyboardDevice.configureBinds({ Slide: ["KeyC"] });
+
+        const bindsToConfigure = { Slide: ["KeyC"] } as any;
+        KeyboardDevice.configureBinds(bindsToConfigure);
 
         const idx = KeyboardDevice["_bindIndex"] as Map<string, string[]>;
         expect(idx.get("KeyC")).toContain("Slide");
@@ -182,7 +184,10 @@ describe("KeyboardDevice — bind index & events", () =>
     it("importBinds emits bindschanged event", () =>
     {
         let fired = false;
-        KeyboardDevice.on("bindschanged", () => { fired = true; });
+        KeyboardDevice.on("bindschanged", () =>
+        {
+            fired = true;
+        });
         KeyboardDevice.importBinds({ Fire: ["KeyF"] }, "replace");
         expect(fired).toBe(true);
         KeyboardDevice.off("bindschanged");
@@ -192,7 +197,6 @@ describe("KeyboardDevice — bind index & events", () =>
 
     it("KeyboardDeviceInstance.configureDefaultBinds forwards to global instance", () =>
     {
-        const { KeyboardDeviceInstance } = require("../keyboard/KeyboardDevice");
         KeyboardDeviceInstance.configureDefaultBinds({ StaticBind: ["KeyX"] });
 
         expect(KeyboardDevice.options.binds["StaticBind"]).toEqual(["KeyX"]);

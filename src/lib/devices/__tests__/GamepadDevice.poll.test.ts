@@ -1,3 +1,4 @@
+import { InputDevice } from "../../InputDevice";
 import { Button, GamepadDevice } from "../gamepads/GamepadDevice";
 import { Axis } from "../gamepads/buttons";
 import { mockGamepadSource } from "./__fixtures__/gamepad";
@@ -155,7 +156,10 @@ describe("GamepadDevice — poll & events", () =>
         const { gamepad } = makeGamepad();
         let fired = false;
 
-        gamepad.on("bindschanged", () => { fired = true; });
+        gamepad.on("bindschanged", () =>
+        {
+            fired = true;
+        });
         gamepad.importBinds({ Fire: ["Face3"] }, "replace");
         expect(fired).toBe(true);
     });
@@ -164,11 +168,9 @@ describe("GamepadDevice — poll & events", () =>
 
     it("InputDevice.exportBinds / importBinds round-trips keyboard + gamepads", () =>
     {
-        const { InputDevice } = require("../../InputDevice");
-
         InputDevice.options.requireDocumentFocus = false;
 
-        const { source, gamepad } = makeGamepad();
+        const { gamepad } = makeGamepad();
         InputDevice.add(gamepad);
 
         const snapshot = InputDevice.exportBinds();

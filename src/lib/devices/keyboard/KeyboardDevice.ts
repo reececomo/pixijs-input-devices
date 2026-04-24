@@ -42,6 +42,8 @@ export type KeyboardKeyEvent = KeyboardDeviceKeyEvent;
 /** Symmetric short-name alias. */
 export type KeyboardBindEvent = KeyboardDeviceNamedBindKeyEvent;
 
+type KeyboardBinds = Partial<Record<IBind, KeyCode[]>>;
+
 export interface KeyboardDeviceBindsChangedEvent
 {
   device: KeyboardDeviceInstance;
@@ -122,7 +124,7 @@ export class KeyboardDeviceInstance
             "NavigateRight"     :  [ "ArrowRight", "KeyD" ],
             "NavigateActivate"  :  [ "Enter", "Space" ],
             "NavigateUp"        :  [ "ArrowUp", "KeyW" ],
-        } as Partial<Record<IBind, KeyCode[]>>,
+        } as KeyboardBinds,
 
         /**
      * These are the binds that are allowed to repeat when a key
@@ -316,12 +318,12 @@ export class KeyboardDeviceInstance
      *                  keys present in the supplied map.
      */
     public importBinds(
-        binds: Record<string, KeyCode[]>,
+        binds: KeyboardBinds,
         mode: "merge" | "replace" = "replace"
     ): void
     {
         this.options.binds = mode === "replace"
-            ? { ...binds } as Partial<Record<IBind, KeyCode[]>>
+            ? { ...binds }
             : { ...this.options.binds, ...binds };
 
         this._rebuildBindIndex();
