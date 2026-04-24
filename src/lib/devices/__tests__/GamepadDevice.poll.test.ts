@@ -135,6 +135,30 @@ describe("GamepadDevice — poll & events", () =>
         expect(gamepad.button.LeftStickDown).toBe(true);
     });
 
+    it("releases both left-stick vertical directions when returning to neutral", () =>
+    {
+        const { source, gamepad } = makeGamepad();
+        const now = Date.now();
+
+        // Push up first to ensure mixed up/down transitions don't latch state.
+        (source.axes[Axis.LeftStickY] as any) = -0.7;
+        gamepad.update(source, now);
+        expect(gamepad.button.LeftStickUp).toBe(true);
+        expect(gamepad.button.LeftStickDown).toBe(false);
+
+        // Then push down.
+        (source.axes[Axis.LeftStickY] as any) = 0.7;
+        gamepad.update(source, now + 16);
+        expect(gamepad.button.LeftStickUp).toBe(false);
+        expect(gamepad.button.LeftStickDown).toBe(true);
+
+        // Return to neutral: both directions should reset.
+        (source.axes[Axis.LeftStickY] as any) = 0;
+        gamepad.update(source, now + 32);
+        expect(gamepad.button.LeftStickUp).toBe(false);
+        expect(gamepad.button.LeftStickDown).toBe(false);
+    });
+
     // ---- importBinds round-trip --------------------------------------
 
     it("importBinds round-trip restores binds identically", () =>
