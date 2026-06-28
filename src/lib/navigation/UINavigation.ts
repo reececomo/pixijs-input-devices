@@ -19,6 +19,13 @@ const navigationLinkKeys: Record<NavigateBind, keyof ContainerNavigateOptions> =
     [Navigate.Up]       : "up",
 };
 
+const oppositeDirection: Partial<Record<NavigateBind, NavigateBind>> = {
+    [Navigate.Left]  : Navigate.Right,
+    [Navigate.Right] : Navigate.Left,
+    [Navigate.Up]    : Navigate.Down,
+    [Navigate.Down]  : Navigate.Up,
+};
+
 class NavigationManager
 {
     public static global = new NavigationManager();
@@ -46,8 +53,16 @@ class NavigationManager
              *
              * @default 2.5
              */
-            directionAxisWeight: 2.5,
-        } satisfies SpatialNavigationOptions,
+            directionAxisWeight: 10.0,
+
+            /**
+             * Whether backtracking is enabled (navigating immediately in
+             * the reverse direction takes you back to where you were).
+             *
+             * @default true
+             */
+            backtracking: true,
+        } as SpatialNavigationOptions,
 
         /**
          * FederatedPointerEvents to fire when navigating containers.
@@ -106,6 +121,8 @@ class NavigationManager
     private _rootContainer?: Container;
     private _rootFocused?: Container;
     private _clearBinds?: () => void;
+    private _backtrackSource: Container | undefined = undefined;
+    private _backtrackDirection: NavigateBind | undefined = undefined;
 
     private constructor()
     {}
@@ -207,7 +224,7 @@ class NavigationManager
         const previousResponder = this.firstResponder;
 
         this._responders.unshift(res);
-
+        this._clearBacktrack();
 
         previousResponder?.resignedAsFirstResponder?.();
         this._clearFocusTargetIfRemoved();
@@ -229,7 +246,7 @@ class NavigationManager
             previousResponder.focusTarget = undefined;
         }
 
-
+        this._clearBacktrack();
 
         const nextFocused = this.focusTarget;
 
@@ -272,6 +289,7 @@ class NavigationManager
 
         // Promote to top
         this._responders.unshift(res);
+        this._clearBacktrack();
 
         previousResponder?.resignedAsFirstResponder?.();
         this._clearFocusTargetIfRemoved();
@@ -317,6 +335,7 @@ class NavigationManager
         }
 
         const nextFocused = this.focusTarget;
+        this._clearBacktrack();
 
         // Only trigger lifecycle changes if first responder changed
         if (previousFirstResponder !== this.firstResponder)
@@ -379,10 +398,11 @@ class NavigationManager
 
     public disable(): void
     {
-
         this._clearNavigateBindsHandler();
         this._rootContainer = undefined;
         this._rootFocused = undefined;
+        this._backtrackSource = undefined;
+        this._backtrackDirection = undefined;
     }
 
     /**
@@ -400,6 +420,7 @@ class NavigationManager
         {
             this.focusSource = "pointer";
             this.device = undefined;
+            this._clearBacktrack();
         }
 
         const previous = this.focusTarget;
@@ -444,6 +465,12 @@ class NavigationManager
     }
 
     // ----- Implementation: -----
+
+    private _clearBacktrack(): void
+    {
+        this._backtrackSource = undefined;
+        this._backtrackDirection = undefined;
+    }
 
     private _clearNavigateBindsHandler(): void
     {
@@ -493,6 +520,7 @@ class NavigationManager
         {
             if (event.pressed)
             {
+                this._clearBacktrack();
                 this.setFocus(linkedContainer, device);
             }
 
@@ -502,12 +530,14 @@ class NavigationManager
         switch (bind)
         {
             case Navigate.Activate:
+                this._clearBacktrack();
                 if (event.pressed) this._press(focusTarget);
                 else this._release(focusTarget);
 
                 return;
 
             case Navigate.Back:
+                this._clearBacktrack();
                 if (event.pressed) return; // issue on releases only
 
                 this._blur(focusTarget);
@@ -516,6 +546,25 @@ class NavigationManager
 
             default: {
                 if (!event.pressed) return; // issue on presses only
+
+                if (this.options.spatial.backtracking)
+                {
+                    // backtrack: reverse the last spatial navigation step
+                    const backtrackSource = this._backtrackSource;
+                    const backtrackDirection = this._backtrackDirection;
+                    this._clearBacktrack();
+
+                    if (
+                        backtrackSource !== undefined
+                        && bind === oppositeDirection[backtrackDirection!]
+                        && backtrackSource.navigatable
+                    )
+                    {
+                        this.setFocus(backtrackSource, device);
+
+                        return;
+                    }
+                }
 
                 // spatial navigation
                 const stage = this.getStageContainer()!;
@@ -528,6 +577,12 @@ class NavigationManager
 
                 if (spatialTarget && spatialTarget !== focusTarget)
                 {
+                    if (this.options.spatial.backtracking)
+                    {
+                        this._backtrackSource = focusTarget;
+                        this._backtrackDirection = bind;
+                    }
+
                     this.setFocus(spatialTarget, event.device);
                 }
             }

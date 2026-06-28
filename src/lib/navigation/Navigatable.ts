@@ -9,6 +9,7 @@ export interface SpatialNavigationOptions
 {
     minimumDistance: number;
     directionAxisWeight: number;
+    backtracking: boolean;
 }
 
 interface NavigatableQueryOptions
