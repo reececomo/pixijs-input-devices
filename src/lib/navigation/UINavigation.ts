@@ -3,7 +3,7 @@ import { Container } from "pixi.js";
 import { Device, InputDevice, NamedBindEvent } from "../InputDevice";
 import { Navigate, type NavigateBind } from "./NavigateBind";
 import { NavigationResponder } from "./NavigationResponder";
-import { getFirstNavigatable, invalidateNavigatablesCache, isChildOf, SpatialNavigationOptions } from "./Navigatable";
+import { getFirstNavigatable, isChildOf, SpatialNavigationOptions } from "./Navigatable";
 import { emitPointerEvent } from "./emitPointerEvent";
 import { ContainerNavigateOptions } from "./ContainerNavigateOptions";
 
@@ -17,6 +17,13 @@ const navigationLinkKeys: Record<NavigateBind, keyof ContainerNavigateOptions> =
     [Navigate.Left]     : "left",
     [Navigate.Right]    : "right",
     [Navigate.Up]       : "up",
+};
+
+const oppositeDirection: Partial<Record<NavigateBind, NavigateBind>> = {
+    [Navigate.Left]  : Navigate.Right,
+    [Navigate.Right] : Navigate.Left,
+    [Navigate.Up]    : Navigate.Down,
+    [Navigate.Down]  : Navigate.Up,
 };
 
 class NavigationManager
@@ -46,8 +53,16 @@ class NavigationManager
              *
              * @default 2.5
              */
-            directionAxisWeight: 2.5,
-        } satisfies SpatialNavigationOptions,
+            directionAxisWeight: 10.0,
+
+            /**
+             * Whether backtracking is enabled (navigating immediately in
+             * the reverse direction takes you back to where you were).
+             *
+             * @default true
+             */
+            backtracking: true,
+        } as SpatialNavigationOptions,
 
         /**
          * FederatedPointerEvents to fire when navigating containers.
@@ -106,6 +121,8 @@ class NavigationManager
     private _rootContainer?: Container;
     private _rootFocused?: Container;
     private _clearBinds?: () => void;
+    private _backtrackSource: Container | undefined = undefined;
+    private _backtrackDirection: NavigateBind | undefined = undefined;
 
     private constructor()
     {}
@@ -162,19 +179,6 @@ class NavigationManager
      * @param stageRoot - Root navigation responder container, where navigatable
      * containers can live.
      */
-    /**
-     * Manually invalidate the navigatable-list cache for the current stage.
-     *
-     * Call this after any structural change to the UI tree (adding/removing
-     * children, toggling visibility) so the next navigation query is accurate.
-     */
-    public invalidateNavCache(): void
-    {
-        const stage = this.getStageContainer();
-        if (stage) invalidateNavigatablesCache(stage);
-        else invalidateNavigatablesCache();
-    }
-
     public enable(stageRoot: Container): this
     {
         if (this.active)
@@ -185,7 +189,6 @@ class NavigationManager
 
         // enable stage
         this._rootContainer = stageRoot;
-        invalidateNavigatablesCache(stageRoot);
 
         // setup binds
         const handler = (e: NamedBindEvent<NavigateBind>): void =>
@@ -221,7 +224,7 @@ class NavigationManager
         const previousResponder = this.firstResponder;
 
         this._responders.unshift(res);
-        invalidateNavigatablesCache();
+        this._clearBacktrack();
 
         previousResponder?.resignedAsFirstResponder?.();
         this._clearFocusTargetIfRemoved();
@@ -243,7 +246,7 @@ class NavigationManager
             previousResponder.focusTarget = undefined;
         }
 
-        invalidateNavigatablesCache();
+        this._clearBacktrack();
 
         const nextFocused = this.focusTarget;
 
@@ -286,6 +289,7 @@ class NavigationManager
 
         // Promote to top
         this._responders.unshift(res);
+        this._clearBacktrack();
 
         previousResponder?.resignedAsFirstResponder?.();
         this._clearFocusTargetIfRemoved();
@@ -331,6 +335,7 @@ class NavigationManager
         }
 
         const nextFocused = this.focusTarget;
+        this._clearBacktrack();
 
         // Only trigger lifecycle changes if first responder changed
         if (previousFirstResponder !== this.firstResponder)
@@ -393,10 +398,11 @@ class NavigationManager
 
     public disable(): void
     {
-        invalidateNavigatablesCache();
         this._clearNavigateBindsHandler();
         this._rootContainer = undefined;
         this._rootFocused = undefined;
+        this._backtrackSource = undefined;
+        this._backtrackDirection = undefined;
     }
 
     /**
@@ -414,6 +420,7 @@ class NavigationManager
         {
             this.focusSource = "pointer";
             this.device = undefined;
+            this._clearBacktrack();
         }
 
         const previous = this.focusTarget;
@@ -458,6 +465,12 @@ class NavigationManager
     }
 
     // ----- Implementation: -----
+
+    private _clearBacktrack(): void
+    {
+        this._backtrackSource = undefined;
+        this._backtrackDirection = undefined;
+    }
 
     private _clearNavigateBindsHandler(): void
     {
@@ -507,6 +520,7 @@ class NavigationManager
         {
             if (event.pressed)
             {
+                this._clearBacktrack();
                 this.setFocus(linkedContainer, device);
             }
 
@@ -516,12 +530,14 @@ class NavigationManager
         switch (bind)
         {
             case Navigate.Activate:
+                this._clearBacktrack();
                 if (event.pressed) this._press(focusTarget);
                 else this._release(focusTarget);
 
                 return;
 
             case Navigate.Back:
+                this._clearBacktrack();
                 if (event.pressed) return; // issue on releases only
 
                 this._blur(focusTarget);
@@ -530,6 +546,25 @@ class NavigationManager
 
             default: {
                 if (!event.pressed) return; // issue on presses only
+
+                if (this.options.spatial.backtracking)
+                {
+                    // backtrack: reverse the last spatial navigation step
+                    const backtrackSource = this._backtrackSource;
+                    const backtrackDirection = this._backtrackDirection;
+                    this._clearBacktrack();
+
+                    if (
+                        backtrackSource !== undefined
+                        && bind === oppositeDirection[backtrackDirection!]
+                        && backtrackSource.navigatable
+                    )
+                    {
+                        this.setFocus(backtrackSource, device);
+
+                        return;
+                    }
+                }
 
                 // spatial navigation
                 const stage = this.getStageContainer()!;
@@ -542,6 +577,12 @@ class NavigationManager
 
                 if (spatialTarget && spatialTarget !== focusTarget)
                 {
+                    if (this.options.spatial.backtracking)
+                    {
+                        this._backtrackSource = focusTarget;
+                        this._backtrackDirection = bind;
+                    }
+
                     this.setFocus(spatialTarget, event.device);
                 }
             }

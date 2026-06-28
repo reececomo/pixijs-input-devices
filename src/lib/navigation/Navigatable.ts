@@ -9,6 +9,7 @@ export interface SpatialNavigationOptions
 {
     minimumDistance: number;
     directionAxisWeight: number;
+    backtracking: boolean;
 }
 
 interface NavigatableQueryOptions
@@ -18,66 +19,15 @@ interface NavigatableQueryOptions
     spatial: SpatialNavigationOptions;
 }
 
-// ----- Navigatable cache -----
-
-/**
- * WeakMap cache: root Container -> flat list of navigatable descendants.
- *
- * The cache is invalidated by `invalidateNavigatablesCache()`.  Call it
- * whenever your UI hierarchy changes (children added/removed, visibility
- * toggled) so that the next spatial-navigation query reflects the new state.
- *
- * UINavigation calls this automatically on `enable`, `disable`,
- * `pushResponder` and `popResponder`.
- */
-let _navCache = new WeakMap<Container, NavigatableContainer[]>();
-
-/**
- * Invalidate the navigatable-list cache for a specific root (or the entire
- * cache when no argument is given).
- *
- * Call this after adding/removing navigatable children or changing their
- * `visible` property so the next directional-navigation query stays correct.
- */
-export function invalidateNavigatablesCache(root?: Container): void
-{
-    if (root !== undefined)
-    {
-        _navCache.delete(root);
-    }
-    else
-    {
-        _navCache = new WeakMap();
-    }
-}
-
 // ----- Core functions -----
 
-/**
- * @returns all navigatable containers in some container.
- *
- * Results are cached per-root; call `invalidateNavigatablesCache(root)` after
- * structural or visibility changes.
- */
+/** @returns all navigatable containers in some container. */
 export function getAllNavigatables(
     target: Container,
-    navigatables?: NavigatableContainer[]
+    navigatables: NavigatableContainer[] = []
 ): NavigatableContainer[]
 {
-    // When an accumulator is passed explicitly (e.g. recursive self-call)
-    // we bypass the cache so the caller controls the buffer.
-    if (navigatables !== undefined)
-    {
-        return _collectNavigatables(target, navigatables);
-    }
-
-    const cached = _navCache.get(target);
-    if (cached !== undefined) return cached;
-
-    const fresh = _collectNavigatables(target, []);
-    _navCache.set(target, fresh);
-
-    return fresh;
+    return _collectNavigatables(target, navigatables);
 }
 
 function _collectNavigatables(
