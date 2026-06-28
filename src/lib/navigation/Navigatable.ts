@@ -15,7 +15,7 @@ interface NavigatableQueryOptions
 {
     currentFocus?: Container;
     direction?: NavigateDirection;
-    spatial?: SpatialNavigationOptions;
+    spatial: SpatialNavigationOptions;
 }
 
 // ----- Navigatable cache -----
@@ -105,7 +105,7 @@ function _collectNavigatables(
  */
 export function getFirstNavigatable(
     root: Container,
-    options?: NavigatableQueryOptions
+    options: NavigatableQueryOptions
 ): NavigatableContainer | undefined
 {
     const containers = getAllNavigatables(root);
@@ -131,7 +131,7 @@ export function isChildOf(
 /** @returns the first navigatable container in the given direction */
 function chooseFirstNavigatableInDirection(
     navigatables: NavigatableContainer[],
-    options: NavigatableQueryOptions = {},
+    options: NavigatableQueryOptions,
 ): NavigatableContainer | undefined
 {
     const {

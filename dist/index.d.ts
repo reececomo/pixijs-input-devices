@@ -332,12 +332,14 @@ declare class NavigationManager {
 	removeResponder<T extends Container | NavigationResponder>(responder: T, popAllAbove?: boolean): T | undefined;
 	/**
 	 * Focus on the first navigatable element.
+	 *
+	 * @param clearExistingFocus (default=true) discard current focus item
 	 */
-	autoFocus(): void;
+	autoFocus(clearExistingFocus?: boolean): void;
 	/**
 	 * Current root container for navigation.
 	 */
-	getStageContainer(): Container;
+	getStageContainer(): Container | undefined;
 	disable(): void;
 	/**
 	 * @param target - Container to focus on.
@@ -972,7 +974,7 @@ export declare function getAllNavigatables(target: Container, navigatables?: Nav
 /**
  * @returns the first navigatable container in the given direction
  */
-export declare function getFirstNavigatable(root: Container, options?: NavigatableQueryOptions): NavigatableContainer | undefined;
+export declare function getFirstNavigatable(root: Container, options: NavigatableQueryOptions): NavigatableContainer | undefined;
 /**
  * Invalidate the navigatable-list cache for a specific root (or the entire
  * cache when no argument is given).
@@ -1193,7 +1195,7 @@ export interface NamedBindEvent<BindName extends IBind> {
 export interface NavigatableQueryOptions {
 	currentFocus?: Container;
 	direction?: NavigateDirection;
-	spatial?: SpatialNavigationOptions;
+	spatial: SpatialNavigationOptions;
 }
 /**
  * An event passed to a responder when any of:

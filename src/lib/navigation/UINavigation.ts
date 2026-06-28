@@ -354,15 +354,20 @@ class NavigationManager
 
     /**
      * Focus on the first navigatable element.
+     *
+     * @param clearExistingFocus (default=true) discard current focus item
      */
-    public autoFocus(): void
+    public autoFocus(clearExistingFocus = false): void
     {
         if (!UINavigation.active) return;
 
         const stage = this.getStageContainer();
         if (!stage) return;
 
-        const navigatable = getFirstNavigatable(stage);
+        const navigatable = getFirstNavigatable(stage, {
+            currentFocus: clearExistingFocus ? undefined : this.focusTarget,
+            spatial: this.options.spatial,
+        });
 
         if (navigatable === undefined)
         {
@@ -381,7 +386,7 @@ class NavigationManager
     /**
      * Current root container for navigation.
      */
-    public getStageContainer(): Container
+    public getStageContainer(): Container | undefined
     {
         return this.responders.find(isContainer) ?? this._rootContainer;
     }
@@ -441,11 +446,11 @@ class NavigationManager
 
         if (this.firstResponder)
         {
-            this.firstResponder.focusTarget = target;
+            this.firstResponder.focusTarget = target ?? undefined;
         }
         else
         {
-            this._rootFocused = target;
+            this._rootFocused = target ?? undefined;
         }
 
         if (previous) this._blur(previous, false);

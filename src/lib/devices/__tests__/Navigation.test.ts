@@ -106,24 +106,24 @@ describe("UINavigation", () =>
         InputDevice.add(InputDevice.keyboard);
         UINavigation.enable(stageContainer);
 
-        expect(UINavigation.getStageContainer().label).toBe(stageContainer.label);
+        expect(UINavigation.getStageContainer()?.label).toBe(stageContainer.label);
         expect(UINavigation.focusTarget?.label).toBeUndefined();
 
         UINavigation.autoFocus();
 
-        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
+        expect(UINavigation.focusTarget?.label).toBe(menuItem1.label);
 
         InputDevice.emitBindDownUp("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(button1.label);
+        expect(UINavigation.focusTarget?.label).toBe(button1.label);
 
         InputDevice.emitBindDownUp("NavigateRight", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
+        expect(UINavigation.focusTarget?.label).toBe(menuItem1.label);
 
         InputDevice.emitBindDownUp("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(button1.label);
+        expect(UINavigation.focusTarget?.label).toBe(button1.label);
 
         expect(buttonActivated).toBe(false);
 
@@ -133,7 +133,7 @@ describe("UINavigation", () =>
 
         InputDevice.emitBindDownUp("NavigateRight", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
+        expect(UINavigation.focusTarget?.label).toBe(menuItem1.label);
 
         // add a responder to set the new top-most interaction target
         UINavigation.pushResponder(menuContainer);
@@ -141,14 +141,14 @@ describe("UINavigation", () =>
         // now try to go back
         InputDevice.emitBindDownUp("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(menuItem1.label);
+        expect(UINavigation.focusTarget?.label).toBe(menuItem1.label);
 
         UINavigation.popResponder();
 
         // now try to go back again
         InputDevice.emitBindDownUp("NavigateLeft", InputDevice.keyboard);
 
-        expect(UINavigation.focusTarget.label).toBe(button1.label);
+        expect(UINavigation.focusTarget?.label).toBe(button1.label);
     });
 });
 

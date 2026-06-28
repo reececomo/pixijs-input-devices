@@ -1,8 +1,9 @@
-import { Container, FederatedPointerEvent, Point, PointData } from "pixi.js";
+import { Container, EventBoundary, FederatedPointerEvent, Point, PointData } from "pixi.js";
 import { Device } from "../InputDevice";
 
 
-const _federatedPointerEvent = new FederatedPointerEvent(null);
+const _eventBoundary = new EventBoundary();
+const _federatedPointerEvent = new FederatedPointerEvent(_eventBoundary);
 const _globalPosition = new Point();
 
 export function emitPointerEvent(
