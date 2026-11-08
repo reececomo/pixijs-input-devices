@@ -163,6 +163,8 @@ export class KeyboardDeviceInstance
      * Rebuilt on configureBinds/importBinds so dispatch is O(1).
      */
     private _bindIndex: Map<KeyCode, string[]> = new Map();
+    private _bindCodes: KeyCode[] = [];
+    private _bindCodeNames: string[][] = [];
 
     // Edge-detection snapshots for bindPressed/bindReleased.
     // Two Sets swapped each update() to avoid per-frame allocation.
@@ -474,10 +476,14 @@ export class KeyboardDeviceInstance
         this._bindsDownCurr = tmp;
         this._bindsDownCurr.clear();
 
-        for (const [code, names] of this._bindIndex)
+        const codes = this._bindCodes;
+
+        for (let c = 0; c < codes.length; c++)
         {
-            if (this.key[code])
+            if (this.key[codes[c]!])
             {
+                const names = this._bindCodeNames[c]!;
+
                 for (let i = 0; i < names.length; i++)
                 {
                     this._bindsDownCurr.add(names[i]!);
@@ -641,6 +647,8 @@ export class KeyboardDeviceInstance
     private _rebuildBindIndex(): void
     {
         this._bindIndex.clear();
+        this._bindCodes.length = 0;
+        this._bindCodeNames.length = 0;
 
         for (const name in this.options.binds)
         {
@@ -655,6 +663,8 @@ export class KeyboardDeviceInstance
                 {
                     list = [];
                     this._bindIndex.set(key, list);
+                    this._bindCodes.push(key);
+                    this._bindCodeNames.push(list);
                 }
 
                 list.push(name);

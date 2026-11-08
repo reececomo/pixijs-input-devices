@@ -268,6 +268,8 @@ export class GamepadDevice
      * Rebuilt on configureBinds/importBinds so dispatch is O(1).
      */
     private _bindIndex: Map<GamepadCode, string[]> = new Map();
+    private _bindCodes: GamepadCode[] = [];
+    private _bindCodeNames: string[][] = [];
 
     // Edge-detection snapshots for bindPressed/bindReleased.
     // Two Sets swapped each update() to avoid per-frame allocation.
@@ -540,42 +542,8 @@ export class GamepadDevice
 
             if (Math.abs(value) < joy.pressThreshold)
             {
-                for (const releasedAxisCode of [negativeAxisCode, positiveAxisCode])
-                {
-                    if (this.button[releasedAxisCode])
-                    {
-                        // emit events
-                        if (this.options.emitEvents)
-                        {
-                            // check named bind events (O(1) via precomputed index)
-                            const upNames = this._bindIndex.get(releasedAxisCode);
-
-                            if (upNames)
-                            {
-                                for (let n = 0; n < upNames.length; n++)
-                                {
-                                    const bindName = upNames[n]! as IBind;
-                                    const event: GamepadNamedBindEvent = {
-                                        device: this,
-                                        type: "axis",
-                                        axis: a as Axis,
-                                        axisCode: releasedAxisCode,
-                                        name: bindName,
-                                        pressed: false,
-                                        value,
-                                    };
-
-                                    this._bindUpEmitter.emit(bindName, event);
-                                    this._emitter.emit("bindup", event);
-                                }
-                            }
-                        }
-
-                        this.button[releasedAxisCode] = false;
-                    }
-
-                    this._debounces.delete(releasedAxisCode);
-                }
+                this._releaseAxis(negativeAxisCode, a as Axis, value);
+                this._releaseAxis(positiveAxisCode, a as Axis, value);
             }
             else
             {
@@ -705,6 +673,41 @@ export class GamepadDevice
         this.rightJoystick.y = _scale(source.axes[Axis.RightStickY] ?? 0, jdz);
     }
 
+    private _releaseAxis(axisCode: AxisCode, axis: Axis, value: number): void
+    {
+        if (this.button[axisCode])
+        {
+            if (this.options.emitEvents)
+            {
+                const upNames = this._bindIndex.get(axisCode);
+
+                if (upNames)
+                {
+                    for (let n = 0; n < upNames.length; n++)
+                    {
+                        const bindName = upNames[n]! as IBind;
+                        const event: GamepadNamedBindEvent = {
+                            device: this,
+                            type: "axis",
+                            axis,
+                            axisCode,
+                            name: bindName,
+                            pressed: false,
+                            value,
+                        };
+
+                        this._bindUpEmitter.emit(bindName, event);
+                        this._emitter.emit("bindup", event);
+                    }
+                }
+            }
+
+            this.button[axisCode] = false;
+        }
+
+        this._debounces.delete(axisCode);
+    }
+
     /**
      * Inline relay debouncer.
      * @returns true when already in progress and the operation should be skipped
@@ -733,10 +736,14 @@ export class GamepadDevice
         this._bindsDownCurr = tmp;
         this._bindsDownCurr.clear();
 
-        for (const [code, names] of this._bindIndex)
+        const codes = this._bindCodes;
+
+        for (let c = 0; c < codes.length; c++)
         {
-            if (this.button[code])
+            if (this.button[codes[c]!])
             {
+                const names = this._bindCodeNames[c]!;
+
                 for (let i = 0; i < names.length; i++)
                 {
                     this._bindsDownCurr.add(names[i]!);
@@ -752,6 +759,8 @@ export class GamepadDevice
     private _rebuildBindIndex(): void
     {
         this._bindIndex.clear();
+        this._bindCodes.length = 0;
+        this._bindCodeNames.length = 0;
 
         for (const name in this.options.binds)
         {
@@ -766,6 +775,8 @@ export class GamepadDevice
                 {
                     list = [];
                     this._bindIndex.set(code, list);
+                    this._bindCodes.push(code);
+                    this._bindCodeNames.push(list);
                 }
 
                 list.push(name);
